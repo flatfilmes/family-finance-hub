@@ -20,7 +20,7 @@ import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
-import { HEALTH_CLASSES, HEALTH_LABELS } from "@/lib/financial-engine";
+import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS } from "@/lib/family";
@@ -63,96 +63,166 @@ function Dashboard() {
         subtitle="Visão geral do núcleo financeiro da sua família."
       />
 
-      <Card className="mb-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
+      <section className="mb-6">
+        <h2 className="mb-3 text-lg font-bold tracking-tight">Minha Situação Financeira</h2>
+
+        {engine.semDados && !engine.isLoading ? (
+          <Card>
             <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-              <HeartPulse className="size-5" />
+              <Wallet className="size-5" />
             </span>
-            <div>
-              <h2 className="text-base font-bold">Saúde financeira</h2>
-              <p className="text-xs text-muted-foreground">
-                Cálculo do mês de {monthLabel(engine.month)} · reserva de{" "}
-                {engine.percentualReserva.toFixed(0)}%
-              </p>
-            </div>
-          </div>
-          <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${HEALTH_CLASSES[engine.status].badge}`}
-          >
-            <span className={`size-2 rounded-full ${HEALTH_CLASSES[engine.status].dot}`} />
-            {HEALTH_LABELS[engine.status]}
-          </span>
-        </div>
-
-        <div className="mt-5">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="text-muted-foreground">
-              Compromissos sobre a receita:{" "}
-              <strong className="text-foreground">
-                {engine.comprometimento === null
-                  ? "—"
-                  : `${engine.comprometimento.toFixed(0)}%`}
-              </strong>
-            </span>
-            <span className="text-muted-foreground">
-              Saldo bruto:{" "}
-              <strong className="text-foreground">{formatCurrency(engine.saldoBruto)}</strong>
-            </span>
-          </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full ${HEALTH_CLASSES[engine.status].bar}`}
-              style={{ width: `${Math.min(100, engine.comprometimento ?? 0)}%` }}
-            />
-          </div>
-          <ul className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-            <li>Receita fixa: {formatCurrency(engine.receitaFixa)}</li>
-            <li>Média das variáveis: {formatCurrency(engine.receitaVariavel)}</li>
-            <li>Reserva planejada: {formatCurrency(engine.reserva)}</li>
-          </ul>
-          {engine.cartaoEmAlerta && (
-            <p className="mt-3 text-xs font-semibold text-amber-600 dark:text-amber-400">
-              Uso dos cartões em {engine.usoCartoes?.toFixed(0)}% do limite (alerta em{" "}
-              {engine.limiteAlertaCartao.toFixed(0)}%).
+            <h3 className="mt-4 text-base font-bold">Ainda não há dados suficientes</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cadastre suas receitas, contas fixas e despesas para que o sistema calcule quanto sua
+              família realmente pode gastar. Nenhum valor é estimado sem dados reais.
             </p>
-          )}
-        </div>
-      </Card>
+            <div className="mt-4 flex flex-wrap gap-3 text-sm font-semibold text-primary">
+              <Link to="/receitas" className="inline-flex items-center gap-1.5">
+                Cadastrar receitas <ArrowRight className="size-4" />
+              </Link>
+              <Link to="/contas-fixas" className="inline-flex items-center gap-1.5">
+                Cadastrar contas <ArrowRight className="size-4" />
+              </Link>
+              <Link to="/despesas" className="inline-flex items-center gap-1.5">
+                Registrar despesas <ArrowRight className="size-4" />
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          <>
+            <Card className="mb-4">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+                    <HeartPulse className="size-5" />
+                  </span>
+                  <div>
+                    <h3 className="text-base font-bold">Saúde financeira</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Cálculo do mês de {monthLabel(engine.month)} · reserva de{" "}
+                      {engine.percentualReserva.toFixed(0)}%
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${HEALTH_CLASSES[engine.status].badge}`}
+                >
+                  <span className={`size-2 rounded-full ${HEALTH_CLASSES[engine.status].dot}`} />
+                  {HEALTH_LABELS[engine.status]}
+                </span>
+              </div>
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<TrendingUp className="size-5" />}
-          label="Receita do mês"
-          value={formatCurrency(engine.receitaTotal)}
-          hint="Fixas + média das variáveis"
-          to="/receitas"
-          loading={engine.isLoading}
-        />
-        <StatCard
-          icon={<Receipt className="size-5" />}
-          label="Contas comprometidas"
-          value={formatCurrency(engine.compromissos)}
-          hint={`Contas fixas ${formatCurrency(engine.contasFixas)} + cartões ${formatCurrency(engine.faturaCartoes)}`}
-          to="/contas-fixas"
-          loading={engine.isLoading}
-        />
-        <StatCard
-          icon={<ShoppingCart className="size-5" />}
-          label="Gastos realizados"
-          value={formatCurrency(engine.gastosRealizados)}
-          hint={`Lançamentos de ${monthLabel(engine.month)}`}
-          to="/despesas"
-          loading={engine.isLoading}
-        />
-        <StatCard
-          icon={<Wallet className="size-5" />}
-          label="Disponível para gastar"
-          value={formatCurrency(engine.disponivel)}
-          hint="Receita - compromissos - gastos - reserva"
-          loading={engine.isLoading}
-        />
-      </div>
+              <p className="mt-4 text-sm font-semibold">{HEALTH_MESSAGES[engine.status]}</p>
+
+              <div className="mt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    Compromissos sobre a receita:{" "}
+                    <strong className="text-foreground">
+                      {engine.comprometimento === null
+                        ? "—"
+                        : `${engine.comprometimento.toFixed(0)}%`}
+                    </strong>
+                  </span>
+                  <span className="text-muted-foreground">
+                    Saldo bruto:{" "}
+                    <strong className="text-foreground">{formatCurrency(engine.saldoBruto)}</strong>
+                  </span>
+                </div>
+                <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full rounded-full ${HEALTH_CLASSES[engine.status].bar}`}
+                    style={{ width: `${Math.min(100, engine.comprometimento ?? 0)}%` }}
+                  />
+                </div>
+                <ul className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                  <li>Renda garantida: {formatCurrency(engine.rendaGarantida)}</li>
+                  <li>Média das variáveis: {formatCurrency(engine.receitaVariavel)}</li>
+                  <li>Reserva planejada: {formatCurrency(engine.reserva)}</li>
+                </ul>
+                {!engine.temReceitas && (
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Cadastre suas receitas para que o cálculo fique completo.
+                  </p>
+                )}
+                {engine.cartaoEmAlerta && (
+                  <p className="mt-3 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                    Uso dos cartões em {engine.usoCartoes?.toFixed(0)}% do limite (alerta em{" "}
+                    {engine.limiteAlertaCartao.toFixed(0)}%).
+                  </p>
+                )}
+              </div>
+            </Card>
+
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                icon={<TrendingUp className="size-5" />}
+                label="Receita mensal"
+                value={formatCurrency(engine.rendaEstimada)}
+                hint={`Garantida ${formatCurrency(engine.rendaGarantida)} · estimada ${formatCurrency(engine.rendaEstimada)}`}
+                to="/receitas"
+                loading={engine.isLoading}
+              />
+              <StatCard
+                icon={<Receipt className="size-5" />}
+                label="Comprometido"
+                value={formatCurrency(engine.compromissos)}
+                hint={`Contas ${formatCurrency(engine.contasFixas)} · cartões ${formatCurrency(engine.faturaCartoes)} · despesas ${formatCurrency(engine.gastosAvulsos)}`}
+                to="/contas-fixas"
+                loading={engine.isLoading}
+              />
+              <StatCard
+                icon={<ShoppingCart className="size-5" />}
+                label="Gastos realizados no mês"
+                value={formatCurrency(engine.gastosRealizados)}
+                hint={`Lançamentos de ${monthLabel(engine.month)}`}
+                to="/despesas"
+                loading={engine.isLoading}
+              />
+              <StatCard
+                icon={<Wallet className="size-5" />}
+                label="Dinheiro disponível real"
+                value={formatCurrency(engine.disponivel)}
+                hint="Receita estimada - compromissos - gastos - reserva"
+                loading={engine.isLoading}
+              />
+            </div>
+
+            <Card className="mt-4">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+                  <ArrowUpDown className="size-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold">Comparação mensal</h3>
+                  <p className="text-xs text-muted-foreground">
+                    {monthLabel(gastos.month)} x mês anterior
+                  </p>
+                </div>
+              </div>
+              {gastos.variacao === null ? (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Ainda não há gastos suficientes para comparar. Registre despesas para acompanhar a
+                  variação.
+                </p>
+              ) : (
+                <p className="mt-4 text-sm">
+                  <strong>
+                    {gastos.variacao === 0
+                      ? "Você gastou o mesmo que no mês passado."
+                      : `Você gastou ${Math.abs(gastos.variacao).toFixed(0)}% ${gastos.variacao > 0 ? "a mais" : "a menos"} que o mês passado.`}
+                  </strong>{" "}
+                  <span className="text-muted-foreground">
+                    Atual {formatCurrency(gastos.totalMes)} · anterior{" "}
+                    {formatCurrency(gastos.totalAnterior)}
+                  </span>
+                </p>
+              )}
+            </Card>
+          </>
+        )}
+      </section>
+
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

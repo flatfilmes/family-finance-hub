@@ -62,7 +62,18 @@ export function useFinancialEngine(familyId?: string) {
 
   const status = healthStatus({ disponivel, receita: receitaTotal, compromissos });
 
+  const temReceitas = (incomes.data ?? []).length > 0;
+  const temCompromissos = (fixed.data ?? []).length > 0 || (cards.data ?? []).length > 0;
+  const temDespesas = (expenses.data ?? []).length > 0;
+  const semDados = !temReceitas && !temCompromissos && !temDespesas;
+
   return {
+    temReceitas,
+    temCompromissos,
+    temDespesas,
+    semDados,
+    rendaGarantida: receitaFixa,
+    rendaEstimada: receitaTotal,
     isLoading:
       incomes.isLoading ||
       fixed.isLoading ||
