@@ -2,15 +2,22 @@ import { useQuery } from "@tanstack/react-query";
 import { currentMonth } from "@/lib/expenses";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useCreditCards, useFixedExpenses, useIncomes } from "@/hooks/useFinanceData";
+import { useInstallments } from "@/hooks/useCardInvoices";
+import {
+  addMonthsToKey,
+  currentMonthKey,
+  sumInstallmentsForMonth,
+  upcomingInstallmentMonths,
+} from "@/lib/card-invoices";
 import {
   averageVariableIncome,
   DEFAULT_SETTINGS,
   fetchFinancialSettings,
   healthStatus,
-  sumCardInvoices,
   sumFixedIncome,
   sumRecurringExpenses,
 } from "@/lib/financial-engine";
+
 
 export function useFinancialSettings(familyId?: string) {
   return useQuery({
