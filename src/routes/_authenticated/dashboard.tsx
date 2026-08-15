@@ -641,7 +641,7 @@ function StatCard({
   label: string;
   value: string;
   hint: string;
-  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/despesas";
+  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/despesas" | "/contas-bancarias";
   loading?: boolean;
 }) {
   return (
