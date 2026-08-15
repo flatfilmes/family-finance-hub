@@ -17,6 +17,7 @@ import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authen
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedMinhaFamiliaRouteImport } from './routes/_authenticated/minha-familia'
 import { Route as AuthenticatedPerfilFinanceiroRouteImport } from './routes/_authenticated/perfil-financeiro'
+import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticated/receitas'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -60,6 +61,11 @@ const AuthenticatedPerfilFinanceiroRoute =
     path: '/perfil-financeiro',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedReceitasRoute = AuthenticatedReceitasRouteImport.update({
+  id: '/receitas',
+  path: '/receitas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
+  '/receitas': typeof AuthenticatedReceitasRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
+  '/receitas': typeof AuthenticatedReceitasRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
   '/_authenticated/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
+  '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/minha-familia'
     | '/perfil-financeiro'
+    | '/receitas'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/minha-familia'
     | '/perfil-financeiro'
+    | '/receitas'
   id:
     | '__root__'
     | '/'
@@ -119,6 +130,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/minha-familia'
     | '/_authenticated/perfil-financeiro'
+    | '/_authenticated/receitas'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -186,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPerfilFinanceiroRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/receitas': {
+      id: '/_authenticated/receitas'
+      path: '/receitas'
+      fullPath: '/receitas'
+      preLoaderRoute: typeof AuthenticatedReceitasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -194,6 +213,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMinhaFamiliaRoute: typeof AuthenticatedMinhaFamiliaRoute
   AuthenticatedPerfilFinanceiroRoute: typeof AuthenticatedPerfilFinanceiroRoute
+  AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -201,6 +221,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMinhaFamiliaRoute: AuthenticatedMinhaFamiliaRoute,
   AuthenticatedPerfilFinanceiroRoute: AuthenticatedPerfilFinanceiroRoute,
+  AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

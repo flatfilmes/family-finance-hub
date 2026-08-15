@@ -103,7 +103,10 @@ function ReceitasPage() {
           className="mt-5 grid gap-4 sm:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!descricao.trim()) return toast.error("Informe a descrição.");
+            if (!descricao.trim()) {
+              toast.error("Informe a descrição.");
+              return;
+            }
             create.mutate();
           }}
         >
