@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, FileText, PencilLine, QrCode, Trash2 } from "lucide-react";
+import { Camera, Eye, FileText, ImagePlus, PencilLine, QrCode, Trash2, Upload } from "lucide-react";
 import { Card, Field, PrimaryButton, inputClass } from "@/components/page-header";
 import { useMemberName } from "@/components/member-select";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
@@ -17,7 +17,10 @@ import {
   DOCUMENT_TYPE_LABELS,
   confirmImport,
   deleteDocument,
+  getDocumentUrl,
   rejectImport,
+  uploadDocument,
+  type DocumentType,
   type PurchaseImport,
 } from "@/lib/documents";
 
@@ -25,15 +28,35 @@ const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
 type Origem = "manual" | "nota" | "qrcode";
 
-/** Escolha da origem da compra: manual hoje, nota fiscal e QR Code preparados para o futuro. */
-export function NovaCompraOptions({ onManual }: { onManual: () => void }) {
+type ModoEnvio = "camera" | "imagem" | "pdf";
+
+const MODOS: Record<ModoEnvio, { titulo: string; accept: string; capture: boolean; tipo: DocumentType }> = {
+  camera: { titulo: "Tirar foto da nota", accept: "image/*", capture: true, tipo: "NOTA_FISCAL" },
+  imagem: { titulo: "Enviar imagem", accept: "image/*", capture: false, tipo: "NOTA_FISCAL" },
+  pdf: { titulo: "Enviar PDF", accept: "application/pdf", capture: false, tipo: "PDF_FATURA" },
+};
+
+/** Escolha da origem da compra: manual, envio de nota fiscal e QR Code (futuro). */
+export function NovaCompraOptions({
+  familyId,
+  memberId,
+  createdBy,
+  podeLancar,
+  onManual,
+}: {
+  familyId: string;
+  memberId: string;
+  createdBy?: string | undefined;
+  podeLancar: boolean;
+  onManual: () => void;
+}) {
   const [origem, setOrigem] = useState<Origem | null>(null);
 
-  const option = (key: Origem, icon: React.ReactNode, titulo: string, texto: string) => (
+  const option = (key: Origem, icon: React.ReactNode, titulo: string, texto: string, breve = false) => (
     <button
       key={key}
       type="button"
-      onClick={() => (key === "manual" ? onManual() : setOrigem(key))}
+      onClick={() => (key === "manual" ? onManual() : setOrigem(origem === key ? null : key))}
       className={`flex flex-1 items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${
         origem === key ? "border-primary bg-primary/5" : "border-border hover:bg-muted"
       }`}
@@ -42,7 +65,7 @@ export function NovaCompraOptions({ onManual }: { onManual: () => void }) {
       <span>
         <span className="flex items-center gap-2 text-sm font-semibold">
           {titulo}
-          {key !== "manual" && (
+          {breve && (
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
               Em breve
             </span>
@@ -67,24 +90,120 @@ export function NovaCompraOptions({ onManual }: { onManual: () => void }) {
           "nota",
           <Camera className="size-5" />,
           "Enviar nota fiscal",
-          "Foto ou PDF da nota vira uma compra detalhada.",
+          "Foto ou PDF da nota guardado para conferência.",
         )}
         {option(
           "qrcode",
           <QrCode className="size-5" />,
           "Ler QR Code",
           "Leitura do QR Code da NFC-e direto do cupom.",
+          true,
         )}
       </div>
-      {origem && origem !== "manual" && (
+
+      {origem === "nota" &&
+        (podeLancar ? (
+          <EnvioNotaFiscal familyId={familyId} memberId={memberId} createdBy={createdBy} />
+        ) : (
+          <p className="mt-4 rounded-2xl bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
+            Seu perfil é somente leitura, então o envio de notas fica desabilitado.
+          </p>
+        ))}
+
+      {origem === "qrcode" && (
         <p className="mt-4 rounded-2xl bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
-          A estrutura de captura já está pronta: documentos enviados ficam guardados, os produtos
-          extraídos passam por uma tela de conferência e só viram compra depois da sua confirmação.
-          A leitura automática {origem === "nota" ? "da nota fiscal" : "do QR Code NFC-e"} será
-          ligada em uma próxima etapa.
+          A leitura do QR Code da NFC-e será ligada em uma próxima etapa.
         </p>
       )}
     </Card>
+  );
+}
+
+/** Upload da nota: foto, imagem ou PDF. Sem leitura automática nesta versão. */
+function EnvioNotaFiscal({
+  familyId,
+  memberId,
+  createdBy,
+}: {
+  familyId: string;
+  memberId: string;
+  createdBy?: string | undefined;
+}) {
+  const queryClient = useQueryClient();
+  const [modo, setModo] = useState<ModoEnvio>("imagem");
+  const [file, setFile] = useState<File | null>(null);
+
+  const enviar = useMutation({
+    mutationFn: () =>
+      uploadDocument({
+        familyId,
+        memberId: memberId || null,
+        createdBy: createdBy ?? null,
+        file: file!,
+        tipo: MODOS[modo].tipo,
+      }),
+    onSuccess: () => {
+      toast.success("Nota enviada. Ela ficará em “Notas pendentes” aguardando processamento.");
+      setFile(null);
+      void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const icone: Record<ModoEnvio, React.ReactNode> = {
+    camera: <Camera className="size-4" />,
+    imagem: <ImagePlus className="size-4" />,
+    pdf: <FileText className="size-4" />,
+  };
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border p-4">
+      <p className="text-sm font-bold">Enviar nota fiscal</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        O arquivo fica guardado com segurança na pasta da família. A leitura automática dos produtos
+        chega em uma próxima etapa.
+      </p>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {(Object.keys(MODOS) as ModoEnvio[]).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => {
+              setModo(m);
+              setFile(null);
+            }}
+            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+              modo === m ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"
+            }`}
+          >
+            {icone[m]}
+            {MODOS[m].titulo}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+        <Field label="Arquivo">
+          <input
+            key={modo}
+            type="file"
+            accept={MODOS[modo].accept}
+            {...(MODOS[modo].capture ? { capture: "environment" as const } : {})}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className={inputClass}
+          />
+        </Field>
+        <PrimaryButton
+          type="button"
+          disabled={!file || enviar.isPending}
+          onClick={() => enviar.mutate()}
+        >
+          <Upload className="size-4" />
+          {enviar.isPending ? "Enviando..." : "Enviar nota fiscal"}
+        </PrimaryButton>
+      </div>
+    </div>
   );
 }
 
@@ -114,7 +233,7 @@ export function DocumentosSection({
   const importadas = drafts.filter((i) => i.status === "APROVADO");
 
   const remove = useMutation({
-    mutationFn: deleteDocument,
+    mutationFn: (doc: { id: string; url_arquivo: string | null }) => deleteDocument(doc),
     onSuccess: () => {
       toast.success("Documento removido.");
       void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
@@ -135,16 +254,15 @@ export function DocumentosSection({
   return (
     <>
       <Card className="mt-4">
-        <h2 className="text-base font-bold">Documentos pendentes</h2>
+        <h2 className="text-base font-bold">Notas pendentes</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Notas, cupons e comprovantes enviados que ainda não viraram compra.
+          Notas e comprovantes enviados que ainda não viraram compra.
         </p>
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
         ) : docs.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            Nenhum documento enviado ainda. Quando o envio de notas e a leitura de QR Code forem
-            ligados, eles aparecem aqui aguardando confirmação.
+            Nenhuma nota enviada ainda. Use “Enviar nota fiscal” em “+ Nova compra”.
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-border">
@@ -158,8 +276,9 @@ export function DocumentosSection({
                       {d.nome_arquivo || DOCUMENT_TYPE_LABELS[d.tipo_documento]}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {DOCUMENT_TYPE_LABELS[d.tipo_documento]} · {memberName(d.member_id)} ·{" "}
-                      {formatDate(d.created_at.slice(0, 10))}
+                      {DOCUMENT_TYPE_LABELS[d.tipo_documento]} · {memberName(d.member_id)} · enviado
+                      em {formatDate(d.created_at.slice(0, 10))}
+                      {d.status === "ENVIADO" ? " · aguardando processamento" : ""}
                     </span>
                   </span>
                   <span
@@ -167,6 +286,23 @@ export function DocumentosSection({
                   >
                     {DOCUMENT_STATUS_LABELS[d.status]}
                   </span>
+                  {d.url_arquivo && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const url = await getDocumentUrl(d.url_arquivo!);
+                          window.open(url, "_blank", "noopener");
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Não foi possível abrir.");
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+                    >
+                      <Eye className="size-3.5" />
+                      Ver documento
+                    </button>
+                  )}
                   {draft && podeLancar && (
                     <button
                       type="button"
@@ -180,7 +316,7 @@ export function DocumentosSection({
                     <button
                       type="button"
                       aria-label="Remover documento"
-                      onClick={() => remove.mutate(d.id)}
+                      onClick={() => remove.mutate({ id: d.id, url_arquivo: d.url_arquivo })}
                       className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                     >
                       <Trash2 className="size-4" />
@@ -452,7 +588,7 @@ function ConfiraSuaCompra({
             onClick={onReject}
             className="rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted"
           >
-            Descartar
+            Cancelar
           </button>
           <button
             type="button"

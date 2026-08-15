@@ -41,6 +41,62 @@ export const IMPORT_STATUS_LABELS: Record<PurchaseImportStatus, string> = {
   REJEITADO: "Descartado",
 };
 
+export const DOCUMENTS_BUCKET = "documentos-financeiros";
+
+/** Caminho padrão: familia/{family_id}/documentos/{arquivo}. */
+export function documentPath(familyId: string, fileName: string) {
+  const limpo = fileName
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9.\-_]/g, "-")
+    .toLowerCase();
+  return `familia/${familyId}/documentos/${Date.now()}-${limpo}`;
+}
+
+/** Envia o arquivo para o Storage e registra o documento com status ENVIADO. */
+export async function uploadDocument(input: {
+  familyId: string;
+  memberId?: string | null;
+  createdBy?: string | null;
+  file: File;
+  tipo: DocumentType;
+}) {
+  const path = documentPath(input.familyId, input.file.name || "nota-fiscal");
+  const { error: uploadError } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .upload(path, input.file, { contentType: input.file.type || "application/octet-stream", upsert: false });
+  if (uploadError) throw uploadError;
+
+  const { data, error } = await supabase
+    .from("documents")
+    .insert({
+      family_id: input.familyId,
+      member_id: input.memberId || null,
+      created_by: input.createdBy || null,
+      tipo_documento: input.tipo,
+      nome_arquivo: input.file.name || "nota-fiscal",
+      url_arquivo: path,
+      tamanho: input.file.size,
+      status: "ENVIADO",
+    })
+    .select()
+    .single();
+  if (error) {
+    await supabase.storage.from(DOCUMENTS_BUCKET).remove([path]);
+    throw error;
+  }
+  return data;
+}
+
+/** Link temporário para visualizar o arquivo guardado (bucket privado). */
+export async function getDocumentUrl(path: string) {
+  const { data, error } = await supabase.storage
+    .from(DOCUMENTS_BUCKET)
+    .createSignedUrl(path, 60 * 10);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 export async function fetchDocuments(familyId: string) {
   const { data, error } = await supabase
     .from("documents")
@@ -71,8 +127,11 @@ export async function fetchImportItems(importId: string) {
   return data ?? [];
 }
 
-export async function deleteDocument(id: string) {
-  const { error } = await supabase.from("documents").delete().eq("id", id);
+export async function deleteDocument(doc: { id: string; url_arquivo?: string | null }) {
+  if (doc.url_arquivo) {
+    await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.url_arquivo]);
+  }
+  const { error } = await supabase.from("documents").delete().eq("id", doc.id);
   if (error) throw error;
 }
 
