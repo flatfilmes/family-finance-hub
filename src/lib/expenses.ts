@@ -24,14 +24,19 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   OUTRO: "Outro",
 };
 
+function parseMonth(month: string): [number, number] {
+  const parts = month.split("-").map(Number);
+  return [parts[0] ?? 1970, parts[1] ?? 1];
+}
+
 export function formatDate(value: string) {
-  const [y, m, d] = value.split("-").map(Number);
-  return new Date(y, (m ?? 1) - 1, d ?? 1).toLocaleDateString("pt-BR");
+  const parts = value.split("-").map(Number);
+  return new Date(parts[0] ?? 1970, (parts[1] ?? 1) - 1, parts[2] ?? 1).toLocaleDateString("pt-BR");
 }
 
 /** Retorna o intervalo [inicio, fim] (YYYY-MM-DD) de um mês no formato YYYY-MM. */
 export function monthRange(month: string) {
-  const [y, m] = month.split("-").map(Number);
+  const [y, m] = parseMonth(month);
   const start = new Date(y, m - 1, 1);
   const end = new Date(y, m, 0);
   const iso = (d: Date) =>
@@ -45,13 +50,13 @@ export function currentMonth() {
 }
 
 export function previousMonth(month: string) {
-  const [y, m] = month.split("-").map(Number);
+  const [y, m] = parseMonth(month);
   const d = new Date(y, m - 2, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 export function monthLabel(month: string) {
-  const [y, m] = month.split("-").map(Number);
+  const [y, m] = parseMonth(month);
   return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
