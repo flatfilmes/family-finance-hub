@@ -14,16 +14,167 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      families: {
+        Row: {
+          created_at: string
+          id: string
+          nome_da_familia: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome_da_familia: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome_da_familia?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      family_members: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          nome: string
+          permissao: Database["public"]["Enums"]["family_permission"]
+          relacionamento: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          nome: string
+          permissao?: Database["public"]["Enums"]["family_permission"]
+          relacionamento?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          nome?: string
+          permissao?: Database["public"]["Enums"]["family_permission"]
+          relacionamento?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_members_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_profiles: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          objetivo_principal:
+            | Database["public"]["Enums"]["financial_goal"]
+            | null
+          possui_renda_variavel: boolean
+          quantidade_dependentes: number
+          renda_principal: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          objetivo_principal?:
+            | Database["public"]["Enums"]["financial_goal"]
+            | null
+          possui_renda_variavel?: boolean
+          quantidade_dependentes?: number
+          renda_principal?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          objetivo_principal?:
+            | Database["public"]["Enums"]["financial_goal"]
+            | null
+          possui_renda_variavel?: boolean
+          quantidade_dependentes?: number
+          renda_principal?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_profiles_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: true
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          nome_completo: string
+          telefone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string
+          id: string
+          nome_completo?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          nome_completo?: string
+          telefone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_family_admin: {
+        Args: { _family_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_family_member: {
+        Args: { _family_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      family_permission: "ADMIN" | "MEMBER" | "VIEWER"
+      financial_goal:
+        | "organizar_financas"
+        | "sair_de_dividas"
+        | "economizar"
+        | "comprar_bem"
+        | "investir"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +301,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      family_permission: ["ADMIN", "MEMBER", "VIEWER"],
+      financial_goal: [
+        "organizar_financas",
+        "sair_de_dividas",
+        "economizar",
+        "comprar_bem",
+        "investir",
+      ],
+    },
   },
 } as const
