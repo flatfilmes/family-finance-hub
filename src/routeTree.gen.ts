@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
+import { Route as AuthenticatedComprasRouteImport } from './routes/_authenticated/compras'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedContasFixasRouteImport } from './routes/_authenticated/contas-fixas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -45,6 +46,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
   id: '/cartoes',
   path: '/cartoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedComprasRoute = AuthenticatedComprasRouteImport.update({
+  id: '/compras',
+  path: '/compras',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
@@ -98,6 +104,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/cartoes': typeof AuthenticatedCartoesRoute
+  '/compras': typeof AuthenticatedComprasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -112,6 +119,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/cartoes': typeof AuthenticatedCartoesRoute
+  '/compras': typeof AuthenticatedComprasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -128,6 +136,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/cartoes': typeof AuthenticatedCartoesRoute
+  '/_authenticated/compras': typeof AuthenticatedComprasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -144,6 +153,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/cartoes'
+    | '/compras'
     | '/configuracoes'
     | '/contas-fixas'
     | '/dashboard'
@@ -158,6 +168,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/cartoes'
+    | '/compras'
     | '/configuracoes'
     | '/contas-fixas'
     | '/dashboard'
@@ -173,6 +184,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/reset-password'
     | '/_authenticated/cartoes'
+    | '/_authenticated/compras'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contas-fixas'
     | '/_authenticated/dashboard'
@@ -225,6 +237,13 @@ declare module '@tanstack/react-router' {
       path: '/cartoes'
       fullPath: '/cartoes'
       preLoaderRoute: typeof AuthenticatedCartoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/compras': {
+      id: '/_authenticated/compras'
+      path: '/compras'
+      fullPath: '/compras'
+      preLoaderRoute: typeof AuthenticatedComprasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/configuracoes': {
@@ -288,6 +307,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
+  AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContasFixasRoute: typeof AuthenticatedContasFixasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -300,6 +320,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCartoesRoute: AuthenticatedCartoesRoute,
+  AuthenticatedComprasRoute: AuthenticatedComprasRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContasFixasRoute: AuthenticatedContasFixasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,

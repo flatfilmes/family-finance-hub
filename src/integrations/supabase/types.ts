@@ -288,6 +288,7 @@ export type Database = {
           observacao: string | null
           parcela_atual: number
           parcelas_total: number
+          purchase_id: string | null
           tipo_compra: Database["public"]["Enums"]["purchase_type"]
           updated_at: string
           valor: number
@@ -306,6 +307,7 @@ export type Database = {
           observacao?: string | null
           parcela_atual?: number
           parcelas_total?: number
+          purchase_id?: string | null
           tipo_compra?: Database["public"]["Enums"]["purchase_type"]
           updated_at?: string
           valor?: number
@@ -324,6 +326,7 @@ export type Database = {
           observacao?: string | null
           parcela_atual?: number
           parcelas_total?: number
+          purchase_id?: string | null
           tipo_compra?: Database["public"]["Enums"]["purchase_type"]
           updated_at?: string
           valor?: number
@@ -355,6 +358,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
         ]
@@ -674,6 +684,44 @@ export type Database = {
           },
         ]
       }
+      products: {
+        Row: {
+          ativo: boolean
+          categoria_id: string | null
+          created_at: string
+          id: string
+          nome: string
+          unidade_medida: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria_id?: string | null
+          created_at?: string
+          id?: string
+          nome: string
+          unidade_medida?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria_id?: string | null
+          created_at?: string
+          id?: string
+          nome?: string
+          unidade_medida?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -700,6 +748,149 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      purchase_items: {
+        Row: {
+          categoria_id: string | null
+          created_at: string
+          descricao_produto: string
+          id: string
+          product_id: string | null
+          purchase_id: string
+          quantidade: number
+          unidade: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          created_at?: string
+          descricao_produto: string
+          id?: string
+          product_id?: string | null
+          purchase_id: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          categoria_id?: string | null
+          created_at?: string
+          descricao_produto?: string
+          id?: string
+          product_id?: string | null
+          purchase_id?: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_items_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchases: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          credit_card_id: string | null
+          data_compra: string
+          estabelecimento: string
+          family_id: string
+          forma_pagamento: Database["public"]["Enums"]["payment_method"]
+          id: string
+          member_id: string | null
+          nota_fiscal_tipo: string | null
+          nota_fiscal_url: string | null
+          observacao: string | null
+          ocr_dados: Json | null
+          ocr_processado_em: string | null
+          ocr_status: string
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          data_compra?: string
+          estabelecimento: string
+          family_id: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"]
+          id?: string
+          member_id?: string | null
+          nota_fiscal_tipo?: string | null
+          nota_fiscal_url?: string | null
+          observacao?: string | null
+          ocr_dados?: Json | null
+          ocr_processado_em?: string | null
+          ocr_status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          data_compra?: string
+          estabelecimento?: string
+          family_id?: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"]
+          id?: string
+          member_id?: string | null
+          nota_fiscal_tipo?: string | null
+          nota_fiscal_url?: string | null
+          observacao?: string | null
+          ocr_dados?: Json | null
+          ocr_processado_em?: string | null
+          ocr_status?: string
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchases_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
