@@ -1,8 +1,19 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Users, Wallet, Brain } from "lucide-react";
+import {
+  ArrowRight,
+  Users,
+  Wallet,
+  Brain,
+  TrendingUp,
+  Receipt,
+  CreditCard,
+  Gauge,
+} from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
+import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { GOAL_LABELS } from "@/lib/family";
+import { formatCurrency } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -17,8 +28,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const FUTURE_MODULES = [
-  "Receitas e despesas",
-  "Cartões e contas fixas",
   "Compras e produtos",
   "Metas financeiras",
   "Análises e recomendações de IA",
@@ -29,17 +38,57 @@ function Dashboard() {
   const { data: family, isLoading } = useFamily();
   const { data: members } = useMembers(family?.id);
   const { data: financial } = useFinancialProfile(family?.id);
+  const summary = useFinancialSummary(family?.id);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
+  const comprometimento = summary.comprometimento;
 
   return (
     <div>
       <PageHeader
         title={primeiroNome ? `Olá, ${primeiroNome}` : "Olá"}
-        subtitle="Esta é a fundação do seu sistema financeiro familiar. Complete os passos abaixo para deixar tudo pronto."
+        subtitle="Visão geral do núcleo financeiro da sua família."
       />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={<TrendingUp className="size-5" />}
+          label="Receita mensal"
+          value={formatCurrency(summary.receitaMensal)}
+          hint={`${summary.counts.incomes} receita(s) cadastrada(s)`}
+          to="/receitas"
+          loading={summary.isLoading}
+        />
+        <StatCard
+          icon={<Receipt className="size-5" />}
+          label="Contas fixas"
+          value={formatCurrency(summary.contasFixas)}
+          hint={`${summary.counts.expenses} conta(s) cadastrada(s)`}
+          to="/contas-fixas"
+          loading={summary.isLoading}
+        />
+        <StatCard
+          icon={<CreditCard className="size-5" />}
+          label="Limite dos cartões"
+          value={formatCurrency(summary.limiteCartoes)}
+          hint={`${summary.counts.cards} cartão(ões) cadastrado(s)`}
+          to="/cartoes"
+          loading={summary.isLoading}
+        />
+        <StatCard
+          icon={<Gauge className="size-5" />}
+          label="Comprometimento financeiro"
+          value={comprometimento === null ? "—" : `${comprometimento.toFixed(0)}%`}
+          hint={
+            comprometimento === null
+              ? "Cadastre receitas para calcular"
+              : `Sobra estimada: ${formatCurrency(summary.saldo)}`
+          }
+          loading={summary.isLoading}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
           <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
             <Users className="size-5" />
@@ -101,5 +150,40 @@ function Dashboard() {
         </ul>
       </Card>
     </div>
+  );
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+  hint,
+  to,
+  loading,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  hint: string;
+  to?: "/receitas" | "/contas-fixas" | "/cartoes";
+  loading?: boolean;
+}) {
+  return (
+    <Card className="p-5">
+      <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+        {icon}
+      </span>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-extrabold tracking-tight">{loading ? "—" : value}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
+      {to && (
+        <Link to={to} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+          Abrir
+          <ArrowRight className="size-3.5" />
+        </Link>
+      )}
+    </Card>
   );
 }

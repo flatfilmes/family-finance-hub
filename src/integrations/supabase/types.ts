@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      credit_cards: {
+        Row: {
+          ativo: boolean
+          banco: string
+          created_at: string
+          created_by: string | null
+          dia_fechamento: number
+          dia_vencimento: number
+          family_id: string
+          id: string
+          limite: number
+          nome_cartao: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          banco: string
+          created_at?: string
+          created_by?: string | null
+          dia_fechamento?: number
+          dia_vencimento?: number
+          family_id: string
+          id?: string
+          limite?: number
+          nome_cartao: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          banco?: string
+          created_at?: string
+          created_by?: string | null
+          dia_fechamento?: number
+          dia_vencimento?: number
+          family_id?: string
+          id?: string
+          limite?: number
+          nome_cartao?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_cards_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       families: {
         Row: {
           created_at: string
@@ -126,6 +176,106 @@ export type Database = {
           },
         ]
       }
+      fixed_expenses: {
+        Row: {
+          ativo: boolean
+          categoria: Database["public"]["Enums"]["expense_category"]
+          created_at: string
+          created_by: string | null
+          descricao: string
+          family_id: string
+          id: string
+          recorrencia: Database["public"]["Enums"]["expense_recurrence"]
+          updated_at: string
+          valor: number
+          vencimento: number
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          created_by?: string | null
+          descricao: string
+          family_id: string
+          id?: string
+          recorrencia?: Database["public"]["Enums"]["expense_recurrence"]
+          updated_at?: string
+          valor?: number
+          vencimento?: number
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: Database["public"]["Enums"]["expense_category"]
+          created_at?: string
+          created_by?: string | null
+          descricao?: string
+          family_id?: string
+          id?: string
+          recorrencia?: Database["public"]["Enums"]["expense_recurrence"]
+          updated_at?: string
+          valor?: number
+          vencimento?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fixed_expenses_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      incomes: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          data_recebimento: string | null
+          descricao: string
+          family_id: string
+          frequencia: Database["public"]["Enums"]["income_frequency"]
+          id: string
+          tipo: Database["public"]["Enums"]["income_type"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_recebimento?: string | null
+          descricao: string
+          family_id: string
+          frequencia?: Database["public"]["Enums"]["income_frequency"]
+          id?: string
+          tipo?: Database["public"]["Enums"]["income_type"]
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          data_recebimento?: string | null
+          descricao?: string
+          family_id?: string
+          frequencia?: Database["public"]["Enums"]["income_frequency"]
+          id?: string
+          tipo?: Database["public"]["Enums"]["income_type"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incomes_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -168,6 +318,24 @@ export type Database = {
       }
     }
     Enums: {
+      expense_category:
+        | "ENERGIA"
+        | "AGUA"
+        | "INTERNET"
+        | "ALUGUEL"
+        | "FINANCIAMENTO"
+        | "ASSINATURAS"
+        | "TELEFONE"
+        | "EDUCACAO"
+        | "SAUDE"
+        | "TRANSPORTE"
+        | "OUTROS"
+      expense_recurrence:
+        | "MENSAL"
+        | "BIMESTRAL"
+        | "TRIMESTRAL"
+        | "SEMESTRAL"
+        | "ANUAL"
       family_permission: "ADMIN" | "MEMBER" | "VIEWER"
       financial_goal:
         | "organizar_financas"
@@ -175,6 +343,13 @@ export type Database = {
         | "economizar"
         | "comprar_bem"
         | "investir"
+      income_frequency:
+        | "MENSAL"
+        | "SEMANAL"
+        | "QUINZENAL"
+        | "ANUAL"
+        | "EVENTUAL"
+      income_type: "FIXA" | "VARIAVEL"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -302,6 +477,26 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      expense_category: [
+        "ENERGIA",
+        "AGUA",
+        "INTERNET",
+        "ALUGUEL",
+        "FINANCIAMENTO",
+        "ASSINATURAS",
+        "TELEFONE",
+        "EDUCACAO",
+        "SAUDE",
+        "TRANSPORTE",
+        "OUTROS",
+      ],
+      expense_recurrence: [
+        "MENSAL",
+        "BIMESTRAL",
+        "TRIMESTRAL",
+        "SEMESTRAL",
+        "ANUAL",
+      ],
       family_permission: ["ADMIN", "MEMBER", "VIEWER"],
       financial_goal: [
         "organizar_financas",
@@ -310,6 +505,8 @@ export const Constants = {
         "comprar_bem",
         "investir",
       ],
+      income_frequency: ["MENSAL", "SEMANAL", "QUINZENAL", "ANUAL", "EVENTUAL"],
+      income_type: ["FIXA", "VARIAVEL"],
     },
   },
 } as const
