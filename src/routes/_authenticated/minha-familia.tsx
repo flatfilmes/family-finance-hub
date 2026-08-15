@@ -50,6 +50,7 @@ function MinhaFamilia() {
   const { data: incomes } = useIncomes(family?.id);
   const { data: cards } = useCreditCards(family?.id);
   const { data: monthExpenses } = useExpenses(family?.id, { month: currentMonth() });
+  const { data: accounts } = useBankAccounts(family?.id);
 
   const [nomeFamilia, setNomeFamilia] = useState("");
   const [novoNome, setNovoNome] = useState("");
