@@ -91,7 +91,11 @@ function DespesasPage() {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["expenses"] });
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["expenses"] });
+    queryClient.invalidateQueries({ queryKey: ["expense-installments"] });
+    queryClient.invalidateQueries({ queryKey: ["card-invoices"] });
+  };
 
   const payload = () => ({
     descricao: form.descricao.trim(),
@@ -108,10 +112,36 @@ function DespesasPage() {
     observacao: form.observacao.trim() || null,
   });
 
+  /** Gera (ou regenera) as parcelas e faturas de uma despesa no cartão. */
+  async function syncInstallments(expenseId: string, data: ReturnType<typeof payload>) {
+    await clearInstallments(expenseId);
+    if (!data.cartao_id) return;
+    const card = (cards ?? []).find((c) => c.id === data.cartao_id);
+    if (!card) return;
+    await generateInstallments({
+      familyId: family!.id,
+      expenseId,
+      card,
+      dataCompra: data.data_compra,
+      valorTotal: data.valor,
+      parcelas: data.tipo_compra === "PARCELADO" ? data.parcelas_total : 1,
+    });
+  }
+
   const save = useMutation({
     mutationFn: async () => {
-      if (editingId) return updateExpense(editingId, payload());
-      return createExpense({ family_id: family!.id, created_by: user?.id ?? null, ...payload() });
+      const data = payload();
+      if (editingId) {
+        await updateExpense(editingId, data);
+        await syncInstallments(editingId, data);
+        return;
+      }
+      const created = await createExpense({
+        family_id: family!.id,
+        created_by: user?.id ?? null,
+        ...data,
+      });
+      await syncInstallments(created.id, data);
     },
     onSuccess: () => {
       toast.success(editingId ? "Despesa atualizada." : "Despesa registrada.");
@@ -123,13 +153,17 @@ function DespesasPage() {
   });
 
   const remove = useMutation({
-    mutationFn: (id: string) => deleteExpense(id),
+    mutationFn: async (id: string) => {
+      await clearInstallments(id);
+      await deleteExpense(id);
+    },
     onSuccess: () => {
       toast.success("Despesa excluída.");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   function startEdit(e: Expense) {
     setEditingId(e.id);
