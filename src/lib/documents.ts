@@ -3,15 +3,19 @@ import type { Database } from "@/integrations/supabase/types";
 import { createPurchase, itemTotal, type NewPurchaseItem, type PurchaseInsert } from "@/lib/purchases";
 import type { ExpenseRecurrence } from "@/lib/recurring-expenses";
 import type { CreditCard } from "@/lib/finance";
+import { readNotaFiscalPdf } from "@/lib/pdf-extract";
 
 export type FinancialDocument = Database["public"]["Tables"]["documents"]["Row"];
 export type FinancialDocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
 export type PurchaseImport = Database["public"]["Tables"]["purchase_imports"]["Row"];
 export type PurchaseImportItem = Database["public"]["Tables"]["purchase_import_items"]["Row"];
+export type DocumentExtraction = Database["public"]["Tables"]["document_extractions"]["Row"];
+export type DocumentExtractionItem = Database["public"]["Tables"]["document_extraction_items"]["Row"];
 
 export type DocumentType = Database["public"]["Enums"]["document_type"];
 export type DocumentStatus = Database["public"]["Enums"]["document_status"];
 export type PurchaseImportStatus = Database["public"]["Enums"]["purchase_import_status"];
+
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   NOTA_FISCAL: "Nota fiscal",
