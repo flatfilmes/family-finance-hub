@@ -135,16 +135,32 @@ function EnvioNotaFiscal({
   const [file, setFile] = useState<File | null>(null);
 
   const enviar = useMutation({
-    mutationFn: () =>
-      uploadDocument({
+    mutationFn: async () => {
+      const arquivo = file!;
+      const doc = await uploadDocument({
         familyId,
         memberId: memberId || null,
         createdBy: createdBy ?? null,
-        file: file!,
+        file: arquivo,
         tipo: MODOS[modo].tipo,
-      }),
-    onSuccess: () => {
-      toast.success("Nota enviada. Ela ficará em “Notas pendentes” aguardando processamento.");
+      });
+      const ehPdf = arquivo.type === "application/pdf" || /\.pdf$/i.test(arquivo.name);
+      if (!ehPdf) return { doc, lido: false };
+      try {
+        await processDocumentPdf({ doc, file: arquivo });
+        return { doc, lido: true };
+      } catch {
+        return { doc, lido: false, erro: true };
+      }
+    },
+    onSuccess: (r) => {
+      toast.success(
+        r.lido
+          ? "PDF lido. Confira a sugestão de compra em “Notas pendentes”."
+          : r.erro
+            ? "Nota enviada, mas não foi possível ler o PDF. Revise manualmente."
+            : "Nota enviada. Ela ficará em “Notas pendentes” aguardando revisão.",
+      );
       setFile(null);
       void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
     },
@@ -161,9 +177,10 @@ function EnvioNotaFiscal({
     <div className="mt-4 rounded-2xl border border-border p-4">
       <p className="text-sm font-bold">Enviar nota fiscal</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        O arquivo fica guardado com segurança na pasta da família. A leitura automática dos produtos
-        chega em uma próxima etapa.
+        O arquivo fica guardado com segurança na pasta da família. Em PDF, o sistema já lê
+        estabelecimento, data, valor e produtos e monta uma sugestão de compra para você conferir.
       </p>
+
 
       <div className="mt-3 flex flex-wrap gap-2">
         {(Object.keys(MODOS) as ModoEnvio[]).map((m) => (
