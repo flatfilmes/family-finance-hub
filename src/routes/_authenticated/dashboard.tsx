@@ -47,6 +47,7 @@ function Dashboard() {
   const { data: financial } = useFinancialProfile(family?.id);
   const summary = useFinancialSummary(family?.id);
   const gastos = useExpenseSummary(family?.id);
+  const orcamento = useBudgetProgress(family?.id);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
