@@ -197,7 +197,7 @@ function ContasFixasPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{e.descricao}</p>
                   <p className="text-xs text-muted-foreground">
-                    {EXPENSE_CATEGORY_LABELS[e.categoria]} ·{" "}
+                    {memberName(e.member_id)} · {EXPENSE_CATEGORY_LABELS[e.categoria]} ·{" "}
                     {EXPENSE_RECURRENCE_LABELS[e.recorrencia]} · vence dia {e.vencimento}
                   </p>
                 </div>
