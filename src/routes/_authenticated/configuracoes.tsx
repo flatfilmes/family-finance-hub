@@ -164,6 +164,27 @@ function Configuracoes() {
       )}
 
       <Card className="mt-4 max-w-xl">
+        <h2 className="text-base font-bold">Cadastros da família</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Perfil financeiro da família e contas fixas compartilhadas.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <Link
+            to="/perfil-financeiro"
+            className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Perfil financeiro
+          </Link>
+          <Link
+            to="/contas-fixas"
+            className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Contas fixas
+          </Link>
+        </div>
+      </Card>
+
+      <Card className="mt-4 max-w-xl">
         <h2 className="text-base font-bold">Conta</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Encerre sua sessão neste dispositivo.
