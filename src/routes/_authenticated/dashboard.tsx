@@ -31,6 +31,8 @@ import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel, formatDate } from "@/lib/expenses";
 import { useTransactions } from "@/hooks/useTransactions";
+import { useFutureCommitments } from "@/hooks/useFutureCommitments";
+import { monthKey } from "@/lib/card-invoices";
 import {
   TRANSACTION_STATUS_CLASSES,
   TRANSACTION_STATUS_LABELS,
@@ -70,6 +72,7 @@ function Dashboard() {
   const view = useViewMode();
   const escopo = view.scoped(filtroMembro);
   const engine = useFinancialEngine(family?.id, escopo);
+  const compromissos = useFutureCommitments(family?.id, escopo);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
@@ -357,6 +360,50 @@ function Dashboard() {
           loading={gastos.isLoading}
         />
       </div>
+
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-bold">Compromissos futuros</h2>
+            <p className="text-xs text-muted-foreground">
+              Fatura de cartão, parcelamentos e cobranças recorrentes já assumidos.
+            </p>
+          </div>
+          <Link
+            to="/cartoes"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
+          >
+            Ver cartões
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <Bloco label="Este mês" value={formatCurrency(compromissos.esteMes)} />
+          <Bloco label="Próximo mês" value={formatCurrency(compromissos.proximoMes)} />
+          <Bloco label="Próximos 3 meses" value={formatCurrency(compromissos.proximos3)} />
+        </div>
+
+        <ul className="mt-4 divide-y divide-border">
+          {compromissos.porMes.map((m) => (
+            <li key={m.mes} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div>
+                <p className="text-sm font-semibold">{monthLabel(m.mes)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Cartão {formatCurrency(m.cartao)} · Parcelamentos {formatCurrency(m.parcelas)} ·
+                  Recorrências {formatCurrency(m.recorrencias)}
+                </p>
+              </div>
+              <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
+            </li>
+          ))}
+        </ul>
+        {compromissos.porMes.every((m) => m.total === 0) && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Nenhum compromisso futuro registrado. Compras no cartão e recorrências aparecem aqui.
+          </p>
+        )}
+      </Card>
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -730,5 +777,14 @@ function StatCard({
         </Link>
       )}
     </Card>
+  );
+}
+
+function Bloco({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-border px-4 py-3">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <p className="mt-1 text-lg font-extrabold">{value}</p>
+    </div>
   );
 }
