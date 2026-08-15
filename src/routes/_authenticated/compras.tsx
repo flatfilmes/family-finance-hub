@@ -38,6 +38,12 @@ import {
   usesBankAccount,
   type NewPurchaseItem,
 } from "@/lib/purchases";
+import {
+  RECURRENCES,
+  RECURRENCE_LABELS,
+  type ExpenseRecurrence,
+} from "@/lib/recurring-expenses";
+import { isRecorrente } from "@/lib/purchases";
 import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
 import { PurchaseDetail } from "@/components/purchase-detail";
 import { VisaoConsumo } from "@/components/purchase-consumption";
@@ -95,6 +101,9 @@ function Compras() {
   const [cartaoId, setCartaoId] = useState("");
   const [contaId, setContaId] = useState("");
   const [observacao, setObservacao] = useState("");
+  const [parcelas, setParcelas] = useState("1");
+  const [periodicidade, setPeriodicidade] = useState<ExpenseRecurrence>("MENSAL");
+
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [showForm, setShowForm] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
@@ -140,7 +149,23 @@ function Compras() {
     setCartaoId("");
     setContaId("");
     setObservacao("");
+    setParcelas("1");
+    setPeriodicidade("MENSAL");
     setItems([{ ...emptyItem }]);
+  };
+
+  const invalidateFinanceiro = () => {
+    for (const key of [
+      "purchases",
+      "bank-accounts",
+      "transactions",
+      "card-invoices",
+      "expense-installments",
+      "recurring-expenses",
+      "expenses",
+    ]) {
+      queryClient.invalidateQueries({ queryKey: [key, family?.id] });
+    }
   };
 
   const create = useMutation({
@@ -159,13 +184,15 @@ function Compras() {
           observacao: observacao.trim() || null,
         },
         items: items.filter((i) => i.descricao_produto.trim() !== ""),
+        parcelas: Number(parcelas) || 1,
+        periodicidade,
+        cards: cards ?? [],
       }),
     onSuccess: () => {
       toast.success("Compra registrada.");
       reset();
       setShowForm(false);
-      queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", family?.id] });
+      invalidateFinanceiro();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -174,11 +201,11 @@ function Compras() {
     mutationFn: deletePurchase,
     onSuccess: () => {
       toast.success("Compra excluída.");
-      queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", family?.id] });
+      invalidateFinanceiro();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   if (!family) {
     return (
@@ -332,6 +359,33 @@ function Compras() {
                         {c.banco} · {c.nome_conta}
                       </option>
                     ))}
+                </select>
+              </Field>
+            )}
+            {tipoCompra === "COMPRA_PARCELADA" && (
+              <Field label="Quantidade de parcelas">
+                <input
+                  type="number"
+                  min="1"
+                  max="48"
+                  value={parcelas}
+                  onChange={(e) => setParcelas(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            )}
+            {isRecorrente(tipoCompra) && (
+              <Field label="Periodicidade">
+                <select
+                  value={periodicidade}
+                  onChange={(e) => setPeriodicidade(e.target.value as ExpenseRecurrence)}
+                  className={inputClass}
+                >
+                  {RECURRENCES.map((r) => (
+                    <option key={r} value={r}>
+                      {RECURRENCE_LABELS[r]}
+                    </option>
+                  ))}
                 </select>
               </Field>
             )}

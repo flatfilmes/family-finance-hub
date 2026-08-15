@@ -7,6 +7,11 @@ import { useCardOverview } from "@/hooks/useCardInvoices";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { usePurchases } from "@/hooks/usePurchases";
 import { usePayCardInvoice } from "@/hooks/useTransactions";
+import { useExpenses } from "@/hooks/useExpenses";
+import { useCardInvoices, useInstallments } from "@/hooks/useCardInvoices";
+import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import { monthKeyLabel, upcomingInstallmentMonths } from "@/lib/card-invoices";
+import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
 import { useMemberName } from "@/components/member-select";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
@@ -48,6 +53,10 @@ function CartoesPage() {
   const { data: purchases } = usePurchases(family?.id);
   const memberName = useMemberName(family?.id);
   const pagar = usePayCardInvoice(family?.id);
+  const { data: despesas } = useExpenses(family?.id);
+  const { data: faturas } = useCardInvoices(family?.id);
+  const { data: parcelas } = useInstallments(family?.id);
+  const { data: recorrentes } = useRecurringExpenses(family?.id);
 
   const [filtroMembro, setFiltroMembro] = useState("");
   const view = useViewMode();
@@ -83,13 +92,30 @@ function CartoesPage() {
     return base;
   };
 
+  /** Compras que já viraram parcelas na fatura — não podem ser somadas de novo. */
+  const comprasComParcelas = new Set(
+    (despesas ?? []).map((e) => e.purchase_id).filter(Boolean) as string[],
+  );
+
   const utilizadoDe = (cardId: string) => {
     const dados = info(cardId);
     const compras = comprasDoCartao(cardId)
-      .filter((p) => p.status_pagamento === "COMPROMETIDO")
+      .filter((p) => p.status_pagamento === "COMPROMETIDO" && !comprasComParcelas.has(p.id))
       .reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
     return (dados?.valorFaturaAtual ?? 0) + (dados?.parcelasFuturas ?? 0) + compras;
   };
+
+  /** Próximas faturas do cartão (parcelas pendentes por mês de vencimento). */
+  const proximasObrigacoes = (cardId: string) => {
+    const faturasDoCartao = (faturas ?? []).filter((i) => i.credit_card_id === cardId);
+    const doCartao = (parcelas ?? []).filter(
+      (p) => p.status === "PENDENTE" && faturasDoCartao.some((i) => i.id === p.card_invoice_id),
+    );
+    return upcomingInstallmentMonths(doCartao, 3).filter((m) => m.total > 0);
+  };
+
+  const recorrenciasDoCartao = (cardId: string) =>
+    (recorrentes ?? []).filter((r) => r.credit_card_id === cardId && r.ativo);
 
   const contasAtivas = filterByMember(accounts ?? [], view.scoped(filtroMembro)).filter(
     (a) => a.ativo,
@@ -243,6 +269,55 @@ function CartoesPage() {
                   <Group label="Compras normais" value={grupos.normais} />
                   <Group label="Compras parceladas" value={grupos.parceladas} />
                   <Group label="Compras recorrentes" value={grupos.recorrentes} />
+                </div>
+
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-border p-4">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Próximas obrigações
+                    </p>
+                    {proximasObrigacoes(c.id).length === 0 ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Nenhuma parcela futura neste cartão.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 divide-y divide-border">
+                        {proximasObrigacoes(c.id).map((m) => (
+                          <li key={m.key} className="flex items-center justify-between py-2">
+                            <span className="text-sm">{monthKeyLabel(m.key)}</span>
+                            <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-border p-4">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Cobranças recorrentes
+                    </p>
+                    {recorrenciasDoCartao(c.id).length === 0 ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Nenhuma cobrança recorrente neste cartão.
+                      </p>
+                    ) : (
+                      <ul className="mt-2 divide-y divide-border">
+                        {recorrenciasDoCartao(c.id).map((r) => (
+                          <li key={r.id} className="flex items-center justify-between gap-3 py-2">
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-semibold">{r.nome}</span>
+                              <span className="block text-xs text-muted-foreground">
+                                {RECURRENCE_LABELS[r.periodicidade]} · próxima{" "}
+                                {formatDate(r.proxima_cobranca)}
+                              </span>
+                            </span>
+                            <span className="text-sm font-bold">
+                              {formatCurrency(Number(r.valor) || 0)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
 
                 {fatura && (
