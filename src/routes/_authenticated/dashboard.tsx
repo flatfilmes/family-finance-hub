@@ -375,7 +375,8 @@ function Dashboard() {
                 </li>
               );
             })}
-          </ul>
+            </ul>
+          </>
         )}
       </Card>
 
