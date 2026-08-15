@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFamily, useProfile } from "@/hooks/useFamilyData";
 import { useFinancialSettings } from "@/hooks/useFinancialEngine";
 import { DEFAULT_SETTINGS, saveFinancialSettings } from "@/lib/financial-engine";
+import { useDeleteDemoData, useDemoMode } from "@/hooks/useDemoMode";
+import { DEMO_DELETE_CONFIRMATION } from "@/lib/demo";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
