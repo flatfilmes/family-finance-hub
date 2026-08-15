@@ -274,6 +274,79 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          chave_documento: string | null
+          codigo_externo: string | null
+          created_at: string
+          created_by: string | null
+          family_id: string
+          id: string
+          member_id: string | null
+          nome_arquivo: string
+          purchase_id: string | null
+          status: Database["public"]["Enums"]["document_status"]
+          tamanho: number | null
+          tipo_documento: Database["public"]["Enums"]["document_type"]
+          updated_at: string
+          url_arquivo: string | null
+        }
+        Insert: {
+          chave_documento?: string | null
+          codigo_externo?: string | null
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          id?: string
+          member_id?: string | null
+          nome_arquivo?: string
+          purchase_id?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          tamanho?: number | null
+          tipo_documento?: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+          url_arquivo?: string | null
+        }
+        Update: {
+          chave_documento?: string | null
+          codigo_externo?: string | null
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          id?: string
+          member_id?: string | null
+          nome_arquivo?: string
+          purchase_id?: string | null
+          status?: Database["public"]["Enums"]["document_status"]
+          tamanho?: number | null
+          tipo_documento?: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+          url_arquivo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documents_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           ativo: boolean
@@ -844,6 +917,121 @@ export type Database = {
         }
         Relationships: []
       }
+      purchase_import_items: {
+        Row: {
+          categoria_sugerida: string | null
+          created_at: string
+          descricao_produto: string
+          id: string
+          purchase_import_id: string
+          quantidade: number
+          unidade: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          categoria_sugerida?: string | null
+          created_at?: string
+          descricao_produto?: string
+          id?: string
+          purchase_import_id: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          categoria_sugerida?: string | null
+          created_at?: string
+          descricao_produto?: string
+          id?: string
+          purchase_import_id?: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_import_items_categoria_sugerida_fkey"
+            columns: ["categoria_sugerida"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_import_items_purchase_import_id_fkey"
+            columns: ["purchase_import_id"]
+            isOneToOne: false
+            referencedRelation: "purchase_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_imports: {
+        Row: {
+          created_at: string
+          dados_extraidos_json: Json | null
+          data_compra: string | null
+          document_id: string
+          estabelecimento: string
+          family_id: string
+          id: string
+          member_id: string | null
+          status: Database["public"]["Enums"]["purchase_import_status"]
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          dados_extraidos_json?: Json | null
+          data_compra?: string | null
+          document_id: string
+          estabelecimento?: string
+          family_id: string
+          id?: string
+          member_id?: string | null
+          status?: Database["public"]["Enums"]["purchase_import_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          dados_extraidos_json?: Json | null
+          data_compra?: string | null
+          document_id?: string
+          estabelecimento?: string
+          family_id?: string
+          id?: string
+          member_id?: string | null
+          status?: Database["public"]["Enums"]["purchase_import_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_imports_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_imports_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_imports_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       purchase_items: {
         Row: {
           categoria_id: string | null
@@ -1134,6 +1322,18 @@ export type Database = {
     Enums: {
       bank_account_type: "CORRENTE" | "POUPANCA" | "PAGAMENTO" | "INVESTIMENTO"
       budget_period: "MENSAL"
+      document_status:
+        | "ENVIADO"
+        | "PROCESSANDO"
+        | "PROCESSADO"
+        | "CONFIRMADO"
+        | "ERRO"
+      document_type:
+        | "NOTA_FISCAL"
+        | "QR_CODE"
+        | "PDF_FATURA"
+        | "COMPROVANTE"
+        | "OUTRO"
       expense_category:
         | "ENERGIA"
         | "AGUA"
@@ -1181,6 +1381,7 @@ export type Database = {
         | "BOLETO"
         | "TRANSFERENCIA"
         | "OUTRO"
+      purchase_import_status: "PENDENTE_APROVACAO" | "APROVADO" | "REJEITADO"
       purchase_payment_status: "PAGO" | "COMPROMETIDO" | "PENDENTE"
       purchase_type:
         | "A_VISTA"
@@ -1325,6 +1526,20 @@ export const Constants = {
     Enums: {
       bank_account_type: ["CORRENTE", "POUPANCA", "PAGAMENTO", "INVESTIMENTO"],
       budget_period: ["MENSAL"],
+      document_status: [
+        "ENVIADO",
+        "PROCESSANDO",
+        "PROCESSADO",
+        "CONFIRMADO",
+        "ERRO",
+      ],
+      document_type: [
+        "NOTA_FISCAL",
+        "QR_CODE",
+        "PDF_FATURA",
+        "COMPROVANTE",
+        "OUTRO",
+      ],
       expense_category: [
         "ENERGIA",
         "AGUA",
@@ -1372,6 +1587,7 @@ export const Constants = {
         "TRANSFERENCIA",
         "OUTRO",
       ],
+      purchase_import_status: ["PENDENTE_APROVACAO", "APROVADO", "REJEITADO"],
       purchase_payment_status: ["PAGO", "COMPROMETIDO", "PENDENTE"],
       purchase_type: [
         "A_VISTA",
