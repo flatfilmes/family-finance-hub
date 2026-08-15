@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { currentMonth } from "@/lib/expenses";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useCreditCards, useFixedExpenses, useIncomes } from "@/hooks/useFinanceData";
-import { useInstallments } from "@/hooks/useCardInvoices";
+import { useCardInvoices, useInstallments } from "@/hooks/useCardInvoices";
+import { filterByMember } from "@/components/member-filter";
 import {
   addMonthsToKey,
   currentMonthKey,
@@ -27,29 +28,43 @@ export function useFinancialSettings(familyId?: string) {
   });
 }
 
-/** Motor de cálculo financeiro: transforma os dados cadastrados em capacidade real de gasto. */
-export function useFinancialEngine(familyId?: string) {
+/**
+ * Motor de cálculo financeiro: transforma os dados cadastrados em capacidade real de gasto.
+ * `memberId` vazio = visão consolidada da família; preenchido = visão individual do membro.
+ */
+export function useFinancialEngine(familyId?: string, memberId = "") {
   const month = currentMonth();
   const incomes = useIncomes(familyId);
   const fixed = useFixedExpenses(familyId);
   const cards = useCreditCards(familyId);
-  const expenses = useExpenses(familyId, { month });
+  const expenses = useExpenses(familyId, { month, memberId: memberId || undefined });
   const settings = useFinancialSettings(familyId);
   const installments = useInstallments(familyId);
+  const invoices = useCardInvoices(familyId);
 
   const percentualReserva =
     Number(settings.data?.percentual_reserva ?? DEFAULT_SETTINGS.percentual_reserva) || 0;
   const limiteAlertaCartao =
     Number(settings.data?.limite_alerta_cartao ?? DEFAULT_SETTINGS.limite_alerta_cartao) || 0;
 
-  const receitaFixa = sumFixedIncome(incomes.data ?? []);
-  const receitaVariavel = averageVariableIncome(incomes.data ?? []);
+  const receitasLista = filterByMember(incomes.data ?? [], memberId);
+  const contasLista = filterByMember(fixed.data ?? [], memberId);
+  const cartoesLista = filterByMember(cards.data ?? [], memberId);
+
+  const receitaFixa = sumFixedIncome(receitasLista);
+  const receitaVariavel = averageVariableIncome(receitasLista);
   const receitaTotal = receitaFixa + receitaVariavel;
 
   const mesAtual = currentMonthKey();
-  const parcelas = installments.data ?? [];
+  const todasParcelas = installments.data ?? [];
+  const faturasDoMembro = (invoices.data ?? []).filter((i) =>
+    cartoesLista.some((c) => c.id === i.credit_card_id),
+  );
+  const parcelas = memberId
+    ? todasParcelas.filter((p) => faturasDoMembro.some((i) => i.id === p.card_invoice_id))
+    : todasParcelas;
 
-  const contasFixas = sumRecurringExpenses(fixed.data ?? []);
+  const contasFixas = sumRecurringExpenses(contasLista);
   /** Fatura atual: parcelas com vencimento no ciclo que vence neste mês. */
   const faturaCartoes = sumInstallmentsForMonth(parcelas, mesAtual);
   /** Compromisso futuro imediato: parcelas do próximo mês. */
@@ -81,7 +96,7 @@ export function useFinancialEngine(familyId?: string) {
 
   const comprometimento = receitaTotal > 0 ? (compromissos / receitaTotal) * 100 : null;
 
-  const limiteTotalCartoes = (cards.data ?? [])
+  const limiteTotalCartoes = cartoesLista
     .filter((c) => c.ativo)
     .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
   const usoCartoes =
@@ -93,8 +108,8 @@ export function useFinancialEngine(familyId?: string) {
 
   const status = healthStatus({ disponivel, receita: receitaTotal, compromissos });
 
-  const temReceitas = (incomes.data ?? []).length > 0;
-  const temCompromissos = (fixed.data ?? []).length > 0 || (cards.data ?? []).length > 0;
+  const temReceitas = receitasLista.length > 0;
+  const temCompromissos = contasLista.length > 0 || cartoesLista.length > 0;
   const temDespesas = (expenses.data ?? []).length > 0;
   const semDados = !temReceitas && !temCompromissos && !temDespesas;
 

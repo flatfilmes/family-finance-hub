@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { MemberFilter } from "@/components/member-filter";
 import {
   ArrowRight,
   Users,
@@ -51,7 +53,8 @@ function Dashboard() {
   const summary = useFinancialSummary(family?.id);
   const gastos = useExpenseSummary(family?.id);
   const orcamento = useBudgetProgress(family?.id);
-  const engine = useFinancialEngine(family?.id);
+  const [filtroMembro, setFiltroMembro] = useState("");
+  const engine = useFinancialEngine(family?.id, filtroMembro);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
@@ -70,7 +73,14 @@ function Dashboard() {
       )}
 
       <section className="mb-6">
-        <h2 className="mb-3 text-lg font-bold tracking-tight">Minha Situação Financeira</h2>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
+          <h2 className="text-lg font-bold tracking-tight">
+            {filtroMembro ? "Situação Financeira da pessoa" : "Minha Situação Financeira"}
+          </h2>
+          <div className="w-48">
+            <MemberFilter familyId={family?.id} value={filtroMembro} onChange={setFiltroMembro} />
+          </div>
+        </div>
 
         {engine.semDados && !engine.isLoading ? (
           <Card>
