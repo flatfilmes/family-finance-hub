@@ -513,6 +513,65 @@ function Dashboard() {
  * Capacidade de pagamento dos cartões:
  * soma das faturas abertas x saldo disponível nas contas bancárias.
  */
+/** Últimas movimentações reais (compras, pagamentos de fatura, entradas e saídas). */
+function UltimasMovimentacoes({
+  familyId,
+  memberId,
+}: {
+  familyId?: string | undefined;
+  memberId: string;
+}) {
+  const { data, isLoading } = useTransactions(familyId);
+  const lista = filterByMember(data ?? [], memberId).slice(0, 8);
+
+  return (
+    <Card className="mt-4">
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+          <ArrowUpDown className="size-5" />
+        </span>
+        <div>
+          <h3 className="text-base font-bold">Últimas movimentações</h3>
+          <p className="text-xs text-muted-foreground">
+            Saídas, entradas e pagamentos de fatura registrados
+          </p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
+      ) : lista.length ? (
+        <ul className="mt-2 divide-y divide-border">
+          {lista.map((t) => (
+            <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{t.descricao}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(t.data_movimento)} · {TRANSACTION_TYPE_LABELS[t.tipo]}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${TRANSACTION_STATUS_CLASSES[t.status]}`}
+                >
+                  {TRANSACTION_STATUS_LABELS[t.status]}
+                </span>
+                <span className="text-sm font-bold">
+                  {t.tipo === "ENTRADA" ? "+" : "-"} {formatCurrency(Number(t.valor))}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Nenhuma movimentação ainda. Registre uma compra para começar o fluxo financeiro.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefined; memberId: string }) {
   const { data: cards } = useCreditCards(familyId);
   const { data: accounts } = useBankAccounts(familyId);
