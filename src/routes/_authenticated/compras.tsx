@@ -143,6 +143,20 @@ function Compras() {
     setItems([{ ...emptyItem }]);
   };
 
+  const invalidateFinanceiro = () => {
+    for (const key of [
+      "purchases",
+      "bank-accounts",
+      "transactions",
+      "card-invoices",
+      "expense-installments",
+      "recurring-expenses",
+      "expenses",
+    ]) {
+      queryClient.invalidateQueries({ queryKey: [key, family?.id] });
+    }
+  };
+
   const create = useMutation({
     mutationFn: () =>
       createPurchase({
@@ -159,13 +173,15 @@ function Compras() {
           observacao: observacao.trim() || null,
         },
         items: items.filter((i) => i.descricao_produto.trim() !== ""),
+        parcelas: Number(parcelas) || 1,
+        periodicidade,
+        cards: cards ?? [],
       }),
     onSuccess: () => {
       toast.success("Compra registrada.");
       reset();
       setShowForm(false);
-      queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", family?.id] });
+      invalidateFinanceiro();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -174,11 +190,11 @@ function Compras() {
     mutationFn: deletePurchase,
     onSuccess: () => {
       toast.success("Compra excluída.");
-      queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
-      queryClient.invalidateQueries({ queryKey: ["bank-accounts", family?.id] });
+      invalidateFinanceiro();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   if (!family) {
     return (
