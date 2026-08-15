@@ -197,13 +197,25 @@ function Compras() {
         {view.podeLancar && (
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => {
+            setShowOptions((v) => !v);
+            setShowForm(false);
+          }}
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
         >
-          {showForm ? "Fechar" : "+ Nova compra"}
+          {showOptions || showForm ? "Fechar" : "+ Nova compra"}
         </button>
         )}
       </div>
+
+      {showOptions && view.podeLancar && (
+        <NovaCompraOptions
+          onManual={() => {
+            setShowForm(true);
+            setShowOptions(false);
+          }}
+        />
+      )}
 
       {showForm && view.podeLancar && (
       <Card>
