@@ -141,10 +141,12 @@ function MinhaFamilia() {
       .filter((i) => i.member_id === memberId && i.ativo)
       .reduce((acc, i) => acc + monthlyIncomeValue(i), 0),
     cartoes: (cards ?? []).filter((c) => c.member_id === memberId).length,
+    contas: (accounts ?? []).filter((a) => a.member_id === memberId).length,
     gastos: (monthExpenses ?? [])
       .filter((e) => e.member_id === memberId)
       .reduce((acc, e) => acc + (Number(e.valor) || 0), 0),
   });
+
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando...</p>;
