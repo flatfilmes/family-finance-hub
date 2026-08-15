@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { currentMonth } from "@/lib/expenses";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useCreditCards, useFixedExpenses, useIncomes } from "@/hooks/useFinanceData";
-import { useInstallments } from "@/hooks/useCardInvoices";
+import { useCardInvoices, useInstallments } from "@/hooks/useCardInvoices";
+import { filterByMember } from "@/components/member-filter";
 import {
   addMonthsToKey,
   currentMonthKey,
