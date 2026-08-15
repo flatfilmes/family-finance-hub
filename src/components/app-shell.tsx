@@ -1,12 +1,27 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { LayoutDashboard, Users, Wallet, Settings, LogOut, Menu, X, Sparkles } from "lucide-react";
+import {
+  LayoutDashboard,
+  Users,
+  Wallet,
+  Settings,
+  LogOut,
+  Menu,
+  X,
+  Sparkles,
+  TrendingUp,
+  Receipt,
+  CreditCard,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/receitas", label: "Receitas", icon: TrendingUp },
+  { to: "/contas-fixas", label: "Contas Fixas", icon: Receipt },
+  { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/minha-familia", label: "Minha Família", icon: Users },
   { to: "/perfil-financeiro", label: "Perfil Financeiro", icon: Wallet },
   { to: "/configuracoes", label: "Configurações", icon: Settings },

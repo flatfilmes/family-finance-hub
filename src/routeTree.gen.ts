@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedContasFixasRouteImport } from './routes/_authenticated/contas-fixas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -38,6 +39,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
+  id: '/cartoes',
+  path: '/cartoes',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedConfiguracoesRoute =
   AuthenticatedConfiguracoesRouteImport.update({
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/cartoes': typeof AuthenticatedCartoesRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -89,6 +96,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/cartoes': typeof AuthenticatedCartoesRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -102,6 +110,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/cartoes': typeof AuthenticatedCartoesRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/cartoes'
     | '/configuracoes'
     | '/contas-fixas'
     | '/dashboard'
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
+    | '/cartoes'
     | '/configuracoes'
     | '/contas-fixas'
     | '/dashboard'
@@ -138,6 +149,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/reset-password'
+    | '/_authenticated/cartoes'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contas-fixas'
     | '/_authenticated/dashboard'
@@ -182,6 +194,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/cartoes': {
+      id: '/_authenticated/cartoes'
+      path: '/cartoes'
+      fullPath: '/cartoes'
+      preLoaderRoute: typeof AuthenticatedCartoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/configuracoes': {
       id: '/_authenticated/configuracoes'
@@ -229,6 +248,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContasFixasRoute: typeof AuthenticatedContasFixasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -238,6 +258,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCartoesRoute: AuthenticatedCartoesRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContasFixasRoute: AuthenticatedContasFixasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
