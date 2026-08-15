@@ -192,7 +192,10 @@ export function parseNotaFiscal(linhas: string[]): ExtractedNota {
       .split(/\s{2,}|\s(?=\d{1,3}(?:\.\d{3})*,\d{2})/)[0]
       ?.replace(/\s+/g, " ")
       .trim();
-    if (!descricao || descricao.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) continue;
+    const descricaoLimpa = descricao
+      ?.replace(new RegExp(`\\s*\\d+(?:[.,]\\d+)?\\s*(?:${UNIDADES_CONHECIDAS.join("|")})\\s*x?\\s*$`, "i"), "")
+      .trim();
+    if (!descricaoLimpa || descricaoLimpa.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) continue;
 
     const total = parseValorBr(valores[valores.length - 1]!);
     if (total <= 0) continue;
@@ -207,7 +210,7 @@ export function parseNotaFiscal(linhas: string[]): ExtractedNota {
       valores.length > 1 ? parseValorBr(valores[valores.length - 2]!) : total / (quantidade || 1);
 
     items.push({
-      descricao_produto: descricao.slice(0, 120),
+      descricao_produto: descricaoLimpa.slice(0, 120),
       quantidade: quantidade || 1,
       unidade: UNIDADES_CONHECIDAS.includes(unidade) ? unidade : "UN",
       valor_unitario: unitario > 0 ? unitario : total,
