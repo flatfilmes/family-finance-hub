@@ -7,6 +7,42 @@ export type PurchaseItem = Database["public"]["Tables"]["purchase_items"]["Row"]
 export type PurchaseItemInsert = Database["public"]["Tables"]["purchase_items"]["Insert"];
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 
+export type PurchasePaymentStatus = Database["public"]["Enums"]["purchase_payment_status"];
+
+/** Tipos de compra usados no evento "compra" (origem de toda movimentação financeira). */
+export const PURCHASE_KINDS = [
+  "COMPRA_NORMAL",
+  "COMPRA_RECORRENTE",
+  "COMPRA_PARCELADA",
+  "CONTA_RECORRENTE",
+] as const;
+
+export const PURCHASE_KIND_HINTS: Record<(typeof PURCHASE_KINDS)[number], string> = {
+  COMPRA_NORMAL: "Ex.: mercado, farmácia, restaurante",
+  COMPRA_RECORRENTE: "Ex.: Netflix, Google Drive",
+  COMPRA_PARCELADA: "Ex.: celular em 12x",
+  CONTA_RECORRENTE: "Ex.: energia, internet",
+};
+
+export const PAYMENT_STATUS_LABELS: Record<PurchasePaymentStatus, string> = {
+  PAGO: "Pago",
+  COMPROMETIDO: "Comprometido no cartão",
+  PENDENTE: "Pendente (boleto)",
+};
+
+export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = {
+  PAGO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  COMPROMETIDO: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
+  PENDENTE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+};
+
+/** Formas de pagamento que saem direto de uma conta bancária. */
+export const BANK_PAYMENT_METHODS = ["PIX", "DEBITO", "TRANSFERENCIA"] as const;
+
+export function usesBankAccount(forma: string) {
+  return (BANK_PAYMENT_METHODS as readonly string[]).includes(forma);
+}
+
 export const UNIDADES = ["UN", "KG", "G", "L", "ML", "DZ", "PC", "CX"] as const;
 
 export type NewPurchaseItem = {
@@ -43,6 +79,17 @@ export async function fetchPurchases(familyId: string) {
     .eq("family_id", familyId)
     .order("data_compra", { ascending: false })
     .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Itens de várias compras de uma vez (usado no filtro por categoria). */
+export async function fetchPurchaseItemsByPurchases(purchaseIds: string[]) {
+  if (purchaseIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("purchase_items")
+    .select("purchase_id, categoria_id")
+    .in("purchase_id", purchaseIds);
   if (error) throw error;
   return data ?? [];
 }
