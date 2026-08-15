@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Eye, FileText, ImagePlus, PencilLine, QrCode, Trash2, Upload } from "lucide-react";
+import { Camera, Eye, FileText, ImagePlus, PencilLine, Plus, QrCode, Trash2, Upload } from "lucide-react";
 import { Card, Field, PrimaryButton, inputClass } from "@/components/page-header";
-import { useMemberName } from "@/components/member-select";
+import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useDocuments, useImportItems, usePurchaseImports } from "@/hooks/useDocuments";
+import { useExpenseCategories } from "@/hooks/useExpenses";
+import { usePurchases } from "@/hooks/usePurchases";
 import { filterByMember } from "@/components/member-filter";
 import { formatCurrency } from "@/lib/finance";
 import { PAYMENT_METHOD_LABELS, formatDate, type PaymentMethod } from "@/lib/expenses";
@@ -15,16 +17,15 @@ import {
   DOCUMENT_STATUS_CLASSES,
   DOCUMENT_STATUS_LABELS,
   DOCUMENT_TYPE_LABELS,
-  confirmImport,
+  confirmDocumentPurchase,
   deleteDocument,
   getDocumentUrl,
-  rejectImport,
+  rejectDocument,
   uploadDocument,
   type DocumentType,
+  type FinancialDocument,
   type PurchaseImport,
 } from "@/lib/documents";
-
-const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[];
 
 type Origem = "manual" | "nota" | "qrcode";
 
@@ -206,8 +207,18 @@ function EnvioNotaFiscal({
     </div>
   );
 }
+const FORMAS_REVISAO: PaymentMethod[] = ["PIX", "DINHEIRO", "CREDITO", "DEBITO", "BOLETO"];
 
-/** Documentos enviados e rascunhos aguardando confirmação. */
+const linhaVazia = (): NewPurchaseItem => ({
+  product_id: "",
+  descricao_produto: "",
+  quantidade: "1",
+  unidade: "UN",
+  valor_unitario: "",
+  categoria_id: "",
+});
+
+/** Fila de revisão e histórico dos documentos enviados. */
 export function DocumentosSection({
   familyId,
   memberId,
@@ -224,50 +235,143 @@ export function DocumentosSection({
   const queryClient = useQueryClient();
   const { data: documents, isLoading } = useDocuments(familyId);
   const { data: imports } = usePurchaseImports(familyId);
+  const { data: purchases } = usePurchases(familyId);
   const memberName = useMemberName(familyId);
-  const [revisando, setRevisando] = useState<PurchaseImport | null>(null);
+  const [revisando, setRevisando] = useState<FinancialDocument | null>(null);
 
   const docs = filterByMember(documents ?? [], escopo);
   const drafts = filterByMember(imports ?? [], escopo);
-  const pendentes = drafts.filter((i) => i.status === "PENDENTE_APROVACAO");
-  const importadas = drafts.filter((i) => i.status === "APROVADO");
+  const pendentes = docs.filter((d) => d.status === "ENVIADO" || d.status === "PROCESSADO");
+  const processados = docs.filter((d) => d.status === "CONFIRMADO" || d.status === "REJEITADO");
+
+  const invalidar = () => {
+    for (const key of ["documents", "purchase-imports", "purchases", "bank-accounts", "expenses"]) {
+      void queryClient.invalidateQueries({ queryKey: [key, familyId] });
+    }
+  };
 
   const remove = useMutation({
     mutationFn: (doc: { id: string; url_arquivo: string | null }) => deleteDocument(doc),
     onSuccess: () => {
       toast.success("Documento removido.");
-      void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
+      invalidar();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const reject = useMutation({
-    mutationFn: rejectImport,
+  const rejeitar = useMutation({
+    mutationFn: rejectDocument,
     onSuccess: () => {
-      toast.success("Importação descartada.");
+      toast.success("Documento rejeitado.");
       setRevisando(null);
-      void queryClient.invalidateQueries({ queryKey: ["purchase-imports", familyId] });
+      invalidar();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const abrirArquivo = async (path: string) => {
+    try {
+      const url = await getDocumentUrl(path);
+      window.open(url, "_blank", "noopener");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não foi possível abrir.");
+    }
+  };
 
   return (
     <>
       <Card className="mt-4">
         <h2 className="text-base font-bold">Notas pendentes</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Notas e comprovantes enviados que ainda não viraram compra.
+          Documentos enviados que ainda não viraram compra. Revise para confirmar.
         </p>
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
-        ) : docs.length === 0 ? (
+        ) : pendentes.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            Nenhuma nota enviada ainda. Use “Enviar nota fiscal” em “+ Nova compra”.
+            Nenhuma nota aguardando revisão. Use “Enviar nota fiscal” em “+ Nova compra”.
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-border">
-            {docs.map((d) => {
-              const draft = pendentes.find((i) => i.document_id === d.id);
+            {pendentes.map((d) => (
+              <li key={d.id} className="flex flex-wrap items-center gap-3 py-3">
+                <FileText className="size-4 text-muted-foreground" />
+                <span className="min-w-48 flex-1">
+                  <span className="block text-sm font-semibold">
+                    {d.nome_arquivo || DOCUMENT_TYPE_LABELS[d.tipo_documento]}
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {DOCUMENT_TYPE_LABELS[d.tipo_documento]} · {memberName(d.member_id)} · enviado em{" "}
+                    {formatDate(d.created_at.slice(0, 10))}
+                  </span>
+                </span>
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-semibold ${DOCUMENT_STATUS_CLASSES[d.status]}`}
+                >
+                  {DOCUMENT_STATUS_LABELS[d.status]}
+                </span>
+                {d.url_arquivo && (
+                  <button
+                    type="button"
+                    onClick={() => void abrirArquivo(d.url_arquivo!)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+                  >
+                    <Eye className="size-3.5" />
+                    Ver documento
+                  </button>
+                )}
+                {podeLancar && (
+                  <button
+                    type="button"
+                    onClick={() => setRevisando(revisando?.id === d.id ? null : d)}
+                    className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    Revisar documento
+                  </button>
+                )}
+                {podeLancar && (
+                  <button
+                    type="button"
+                    aria-label="Remover documento"
+                    onClick={() => remove.mutate({ id: d.id, url_arquivo: d.url_arquivo })}
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+
+      {revisando && (
+        <RevisarDocumento
+          key={revisando.id}
+          familyId={familyId}
+          memberId={memberId}
+          createdBy={createdBy}
+          doc={revisando}
+          draft={drafts.find((i) => i.document_id === revisando.id && i.status === "PENDENTE_APROVACAO") ?? null}
+          onVerArquivo={() => revisando.url_arquivo && void abrirArquivo(revisando.url_arquivo)}
+          onClose={() => setRevisando(null)}
+          onReject={() => rejeitar.mutate(revisando.id)}
+          onConfirmed={() => {
+            setRevisando(null);
+            invalidar();
+          }}
+        />
+      )}
+
+      {processados.length > 0 && (
+        <Card className="mt-4">
+          <h2 className="text-base font-bold">Documentos processados</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Histórico dos documentos já revisados e das compras geradas.
+          </p>
+          <ul className="mt-3 divide-y divide-border">
+            {processados.map((d) => {
+              const compra = (purchases ?? []).find((p) => p.id === d.purchase_id);
               return (
                 <li key={d.id} className="flex flex-wrap items-center gap-3 py-3">
                   <FileText className="size-4 text-muted-foreground" />
@@ -276,9 +380,10 @@ export function DocumentosSection({
                       {d.nome_arquivo || DOCUMENT_TYPE_LABELS[d.tipo_documento]}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {DOCUMENT_TYPE_LABELS[d.tipo_documento]} · {memberName(d.member_id)} · enviado
-                      em {formatDate(d.created_at.slice(0, 10))}
-                      {d.status === "ENVIADO" ? " · aguardando processamento" : ""}
+                      {compra
+                        ? `${compra.estabelecimento} · ${formatDate(compra.data_compra)} · ${formatCurrency(Number(compra.valor_total))}`
+                        : "Sem compra gerada"}{" "}
+                      · {memberName(d.member_id)}
                     </span>
                   </span>
                   <span
@@ -289,70 +394,16 @@ export function DocumentosSection({
                   {d.url_arquivo && (
                     <button
                       type="button"
-                      onClick={async () => {
-                        try {
-                          const url = await getDocumentUrl(d.url_arquivo!);
-                          window.open(url, "_blank", "noopener");
-                        } catch (e) {
-                          toast.error(e instanceof Error ? e.message : "Não foi possível abrir.");
-                        }
-                      }}
+                      onClick={() => void abrirArquivo(d.url_arquivo!)}
                       className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
                     >
                       <Eye className="size-3.5" />
                       Ver documento
                     </button>
                   )}
-                  {draft && podeLancar && (
-                    <button
-                      type="button"
-                      onClick={() => setRevisando(draft)}
-                      className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                    >
-                      Confira sua compra
-                    </button>
-                  )}
-                  {podeLancar && (
-                    <button
-                      type="button"
-                      aria-label="Remover documento"
-                      onClick={() => remove.mutate({ id: d.id, url_arquivo: d.url_arquivo })}
-                      className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
                 </li>
               );
             })}
-          </ul>
-        )}
-      </Card>
-
-      {revisando && (
-        <ConfiraSuaCompra
-          familyId={familyId}
-          memberId={memberId}
-          createdBy={createdBy}
-          draft={revisando}
-          onClose={() => setRevisando(null)}
-          onReject={() => reject.mutate(revisando.id)}
-        />
-      )}
-
-      {importadas.length > 0 && (
-        <Card className="mt-4">
-          <h2 className="text-base font-bold">Compras importadas</h2>
-          <ul className="mt-3 divide-y divide-border">
-            {importadas.map((i) => (
-              <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
-                <span className="text-sm font-semibold">{i.estabelecimento}</span>
-                <span className="text-xs text-muted-foreground">
-                  {i.data_compra ? formatDate(i.data_compra) : "Sem data"} ·{" "}
-                  {formatCurrency(Number(i.valor_total))}
-                </span>
-              </li>
-            ))}
           </ul>
         </Card>
       )}
@@ -360,39 +411,48 @@ export function DocumentosSection({
   );
 }
 
-/** Tela de conferência: dados extraídos podem ser editados antes de virar compra oficial. */
-function ConfiraSuaCompra({
+/** Tela de revisão manual: o usuário confere e completa os dados antes de gerar a compra. */
+function RevisarDocumento({
   familyId,
   memberId,
   createdBy,
+  doc,
   draft,
+  onVerArquivo,
   onClose,
   onReject,
+  onConfirmed,
 }: {
   familyId: string;
   memberId: string;
   createdBy?: string | undefined;
-  draft: PurchaseImport;
+  doc: FinancialDocument;
+  draft: PurchaseImport | null;
+  onVerArquivo: () => void;
   onClose: () => void;
   onReject: () => void;
+  onConfirmed: () => void;
 }) {
-  const queryClient = useQueryClient();
-  const { data: itensExtraidos, isLoading } = useImportItems(draft.id);
+  const { data: itensExtraidos } = useImportItems(draft?.id);
   const { data: cards } = useCreditCards(familyId);
   const { data: contas } = useBankAccounts(familyId);
+  const { data: categorias } = useExpenseCategories();
+  const memberName = useMemberName(familyId);
 
-  const [estabelecimento, setEstabelecimento] = useState(draft.estabelecimento);
+  const [responsavel, setResponsavel] = useState(draft?.member_id ?? doc.member_id ?? memberId);
+  const [estabelecimento, setEstabelecimento] = useState(draft?.estabelecimento ?? "");
   const [dataCompra, setDataCompra] = useState(
-    draft.data_compra ?? new Date().toISOString().slice(0, 10),
+    draft?.data_compra ?? doc.created_at.slice(0, 10),
   );
   const [formaPagamento, setFormaPagamento] = useState<PaymentMethod>("PIX");
   const [cartaoId, setCartaoId] = useState("");
   const [contaId, setContaId] = useState("");
-  const [items, setItems] = useState<NewPurchaseItem[]>([]);
+  const [items, setItems] = useState<NewPurchaseItem[]>([linhaVazia()]);
 
   useEffect(() => {
+    if (!itensExtraidos || itensExtraidos.length === 0) return;
     setItems(
-      (itensExtraidos ?? []).map((i) => ({
+      itensExtraidos.map((i) => ({
         product_id: "",
         descricao_produto: i.descricao_produto,
         quantidade: String(Number(i.quantidade)),
@@ -403,17 +463,16 @@ function ConfiraSuaCompra({
     );
   }, [itensExtraidos]);
 
-  const responsavel = draft.member_id ?? memberId;
   const total = items.reduce(
     (acc, i) => acc + (Number(i.quantidade) || 0) * (Number(i.valor_unitario) || 0),
     0,
   );
 
-  const confirm = useMutation({
+  const confirmar = useMutation({
     mutationFn: () =>
-      confirmImport({
-        importId: draft.id,
-        documentId: draft.document_id,
+      confirmDocumentPurchase({
+        documentId: doc.id,
+        importId: draft?.id ?? null,
         purchase: {
           family_id: familyId,
           member_id: responsavel || null,
@@ -426,13 +485,11 @@ function ConfiraSuaCompra({
           bank_account_id: usesBankAccount(formaPagamento) ? contaId || null : null,
         },
         items,
+        cards: cards ?? [],
       }),
     onSuccess: () => {
-      toast.success("Compra confirmada a partir do documento.");
-      onClose();
-      for (const key of ["purchases", "documents", "purchase-imports", "bank-accounts"]) {
-        void queryClient.invalidateQueries({ queryKey: [key, familyId] });
-      }
+      toast.success("Compra criada a partir do documento.");
+      onConfirmed();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -442,16 +499,34 @@ function ConfiraSuaCompra({
 
   return (
     <Card className="mt-4">
-      <h2 className="text-base font-bold">Confira sua compra</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Confirme os dados encontrados no documento. Você pode editar antes de salvar.
-      </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-bold">Revisar documento</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {doc.nome_arquivo || DOCUMENT_TYPE_LABELS[doc.tipo_documento]} ·{" "}
+            {DOCUMENT_TYPE_LABELS[doc.tipo_documento]} · enviado por {memberName(doc.member_id)} em{" "}
+            {formatDate(doc.created_at.slice(0, 10))}
+          </p>
+        </div>
+        {doc.url_arquivo && (
+          <button
+            type="button"
+            onClick={onVerArquivo}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+          >
+            <Eye className="size-3.5" />
+            Ver documento
+          </button>
+        )}
+      </div>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Estabelecimento">
           <input
             value={estabelecimento}
             onChange={(e) => setEstabelecimento(e.target.value)}
+            placeholder="Ex.: Mercado Silva"
             className={inputClass}
           />
         </Field>
@@ -463,13 +538,14 @@ function ConfiraSuaCompra({
             className={inputClass}
           />
         </Field>
+        <MemberSelect familyId={familyId} value={responsavel} onChange={setResponsavel} />
         <Field label="Forma de pagamento">
           <select
             value={formaPagamento}
             onChange={(e) => setFormaPagamento(e.target.value as PaymentMethod)}
             className={inputClass}
           >
-            {PAYMENT_METHODS.map((m) => (
+            {FORMAS_REVISAO.map((m) => (
               <option key={m} value={m}>
                 {PAYMENT_METHOD_LABELS[m]}
               </option>
@@ -478,13 +554,9 @@ function ConfiraSuaCompra({
         </Field>
         {formaPagamento === "CREDITO" ? (
           <Field label="Cartão">
-            <select
-              value={cartaoId}
-              onChange={(e) => setCartaoId(e.target.value)}
-              className={inputClass}
-            >
+            <select value={cartaoId} onChange={(e) => setCartaoId(e.target.value)} className={inputClass}>
               <option value="">Selecione</option>
-              {(cards ?? []).map((c) => (
+              {filterByMember(cards ?? [], responsavel).map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.nome_cartao} · {c.banco}
                 </option>
@@ -493,11 +565,7 @@ function ConfiraSuaCompra({
           </Field>
         ) : usesBankAccount(formaPagamento) ? (
           <Field label="Conta bancária">
-            <select
-              value={contaId}
-              onChange={(e) => setContaId(e.target.value)}
-              className={inputClass}
-            >
+            <select value={contaId} onChange={(e) => setContaId(e.target.value)} className={inputClass}>
               <option value="">Selecione</option>
               {filterByMember(contas ?? [], responsavel)
                 .filter((c) => c.ativo)
@@ -511,71 +579,96 @@ function ConfiraSuaCompra({
         ) : null}
       </div>
 
-      <h3 className="mt-5 text-sm font-bold">Produtos encontrados</h3>
-      {isLoading ? (
-        <p className="mt-3 text-sm text-muted-foreground">Carregando produtos...</p>
-      ) : items.length === 0 ? (
-        <p className="mt-3 text-sm text-muted-foreground">
-          Nenhum produto foi extraído deste documento.
-        </p>
-      ) : (
-        <div className="mt-3 space-y-3">
-          {items.map((item, index) => (
-            <div
-              key={index}
-              className="grid gap-3 rounded-2xl border border-border p-4 sm:grid-cols-2 lg:grid-cols-5"
-            >
-              <Field label="Produto">
-                <input
-                  value={item.descricao_produto}
-                  onChange={(e) => setItem(index, { descricao_produto: e.target.value })}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Quantidade">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  value={item.quantidade}
-                  onChange={(e) => setItem(index, { quantidade: e.target.value })}
-                  className={inputClass}
-                />
-              </Field>
-              <Field label="Unidade">
-                <select
-                  value={item.unidade}
-                  onChange={(e) => setItem(index, { unidade: e.target.value })}
-                  className={inputClass}
+      <div className="mt-5 flex items-center justify-between">
+        <h3 className="text-sm font-bold">Produtos</h3>
+        <button
+          type="button"
+          onClick={() => setItems((prev) => [...prev, linhaVazia()])}
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+        >
+          <Plus className="size-3.5" />
+          Adicionar produto
+        </button>
+      </div>
+
+      <div className="mt-3 space-y-3">
+        {items.map((item, index) => (
+          <div
+            key={index}
+            className="grid gap-3 rounded-2xl border border-border p-4 sm:grid-cols-2 lg:grid-cols-6"
+          >
+            <Field label="Produto">
+              <input
+                value={item.descricao_produto}
+                onChange={(e) => setItem(index, { descricao_produto: e.target.value })}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Quantidade">
+              <input
+                type="number"
+                min="0"
+                step="0.001"
+                value={item.quantidade}
+                onChange={(e) => setItem(index, { quantidade: e.target.value })}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Unidade">
+              <select
+                value={item.unidade}
+                onChange={(e) => setItem(index, { unidade: e.target.value })}
+                className={inputClass}
+              >
+                {UNIDADES.map((u) => (
+                  <option key={u} value={u}>
+                    {u}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Valor unitário">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={item.valor_unitario}
+                onChange={(e) => setItem(index, { valor_unitario: e.target.value })}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Categoria">
+              <select
+                value={item.categoria_id}
+                onChange={(e) => setItem(index, { categoria_id: e.target.value })}
+                className={inputClass}
+              >
+                <option value="">Sem categoria</option>
+                {(categorias ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="flex items-end justify-between gap-2">
+              <p className="text-sm font-semibold">
+                {formatCurrency((Number(item.quantidade) || 0) * (Number(item.valor_unitario) || 0))}
+              </p>
+              {items.length > 1 && (
+                <button
+                  type="button"
+                  aria-label="Remover produto"
+                  onClick={() => setItems((prev) => prev.filter((_, i) => i !== index))}
+                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                 >
-                  {UNIDADES.map((u) => (
-                    <option key={u} value={u}>
-                      {u}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Valor unitário">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.valor_unitario}
-                  onChange={(e) => setItem(index, { valor_unitario: e.target.value })}
-                  className={inputClass}
-                />
-              </Field>
-              <div className="flex items-end">
-                <p className="text-sm font-semibold">
-                  {formatCurrency(
-                    (Number(item.quantidade) || 0) * (Number(item.valor_unitario) || 0),
-                  )}
-                </p>
-              </div>
+                  <Trash2 className="size-4" />
+                </button>
+              )}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        ))}
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
         <p className="text-sm text-muted-foreground">
@@ -586,9 +679,9 @@ function ConfiraSuaCompra({
           <button
             type="button"
             onClick={onReject}
-            className="rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted"
+            className="rounded-full border border-destructive/40 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10"
           >
-            Cancelar
+            Rejeitar documento
           </button>
           <button
             type="button"
@@ -599,10 +692,22 @@ function ConfiraSuaCompra({
           </button>
           <PrimaryButton
             type="button"
-            disabled={confirm.isPending}
+            disabled={confirmar.isPending}
             onClick={() => {
               if (!estabelecimento.trim()) {
                 toast.error("Informe o estabelecimento.");
+                return;
+              }
+              if (!responsavel) {
+                toast.error("Selecione o responsável pela compra.");
+                return;
+              }
+              if (items.every((i) => i.descricao_produto.trim() === "")) {
+                toast.error("Informe ao menos um produto.");
+                return;
+              }
+              if (total <= 0) {
+                toast.error("O valor total precisa ser maior que zero.");
                 return;
               }
               if (formaPagamento === "CREDITO" && !cartaoId) {
@@ -613,10 +718,10 @@ function ConfiraSuaCompra({
                 toast.error("Selecione a conta bancária usada no pagamento.");
                 return;
               }
-              confirm.mutate();
+              confirmar.mutate();
             }}
           >
-            {confirm.isPending ? "Confirmando..." : "Confirmar compra"}
+            {confirmar.isPending ? "Confirmando..." : "Confirmar compra"}
           </PrimaryButton>
         </div>
       </div>
