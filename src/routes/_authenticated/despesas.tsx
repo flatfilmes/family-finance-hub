@@ -100,6 +100,7 @@ function DespesasPage() {
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -161,6 +162,7 @@ function DespesasPage() {
       toast.success(editingId ? "Despesa atualizada." : "Despesa registrada.");
       setForm(emptyForm());
       setEditingId(null);
+      setShowForm(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -181,6 +183,7 @@ function DespesasPage() {
 
   function startEdit(e: Expense) {
     setEditingId(e.id);
+    setShowForm(true);
     setForm({
       descricao: e.descricao,
       valor: String(e.valor ?? ""),
@@ -206,12 +209,27 @@ function DespesasPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Despesas"
-        subtitle="Todos os lançamentos reais da família: compras à vista, no cartão e parcelamentos."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader
+          title="Despesas"
+          subtitle="Histórico consolidado da família: compras à vista, no cartão e parcelamentos."
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setEditingId(null);
+            setForm(emptyForm());
+            setShowForm((v) => !v);
+          }}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+        >
+          {showForm ? <X className="size-4" /> : <Plus className="size-4" />}
+          {showForm ? "Fechar" : "Nova despesa"}
+        </button>
+      </div>
 
-      <Card>
+      {showForm && (
+        <Card>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-bold">{editingId ? "Editar despesa" : "Nova despesa"}</h2>
           {editingId && (
@@ -227,6 +245,7 @@ function DespesasPage() {
             </button>
           )}
         </div>
+
 
         <form
           className="mt-5 grid gap-4 sm:grid-cols-2"
@@ -368,7 +387,8 @@ function DespesasPage() {
             </PrimaryButton>
           </div>
         </form>
-      </Card>
+        </Card>
+      )}
 
       <Card className="mt-4">
         <div className="grid gap-4 sm:grid-cols-3">

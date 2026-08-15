@@ -1,207 +1,132 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
-import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
-import { useAuth } from "@/hooks/useAuth";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Card, Field, PageHeader, inputClass } from "@/components/page-header";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useCardOverview } from "@/hooks/useCardInvoices";
-import { MemberSelect, useMemberName } from "@/components/member-select";
+import { useMemberName } from "@/components/member-select";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { formatDate } from "@/lib/expenses";
+import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "./receitas";
-import {
-  createCreditCard,
-  deleteCreditCard,
-  formatCurrency,
-  toggleCreditCard,
-} from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/cartoes")({
   head: () => ({
     meta: [
-      { title: "Cartões de Crédito — Família Finance AI" },
+      { title: "Cartões da Família — Família Finance AI" },
       {
         name: "description",
-        content: "Cadastre os cartões de crédito da família com limite, fechamento e vencimento.",
+        content: "Controle das faturas, limites e vencimentos dos cartões de cada pessoa da família.",
       },
-      { property: "og:title", content: "Cartões de Crédito — Família Finance AI" },
-      { property: "og:description", content: "Gerencie os cartões de crédito da sua família." },
+      { property: "og:title", content: "Cartões da Família — Família Finance AI" },
+      {
+        property: "og:description",
+        content: "Faturas, limites e vencimentos dos cartões da família.",
+      },
     ],
   }),
   component: CartoesPage,
 });
 
 function CartoesPage() {
-  const { user } = useAuth();
   const { data: family } = useFamily();
   const { data: cards, isLoading } = useCreditCards(family?.id);
   const overview = useCardOverview(family?.id, cards ?? []);
-  const queryClient = useQueryClient();
-
-  const [banco, setBanco] = useState("");
-  const [nomeCartao, setNomeCartao] = useState("");
-  const [limite, setLimite] = useState("");
-  const [fechamento, setFechamento] = useState("1");
-  const [vencimento, setVencimento] = useState("10");
-  const [memberId, setMemberId] = useState("");
-  const [filtroMembro, setFiltroMembro] = useState("");
   const memberName = useMemberName(family?.id);
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["credit-cards", family?.id] });
-
-  const clampDay = (v: string) => Math.min(31, Math.max(1, Number(v) || 1));
-
-  const create = useMutation({
-    mutationFn: () =>
-      createCreditCard({
-        family_id: family!.id,
-        created_by: user?.id ?? null,
-        banco,
-        nome_cartao: nomeCartao,
-        limite: Number(limite.replace(",", ".")) || 0,
-        dia_fechamento: clampDay(fechamento),
-        dia_vencimento: clampDay(vencimento),
-        member_id: memberId || null,
-      }),
-    onSuccess: () => {
-      setBanco("");
-      setNomeCartao("");
-      setLimite("");
-      toast.success("Cartão cadastrado.");
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const remove = useMutation({
-    mutationFn: (id: string) => deleteCreditCard(id),
-    onSuccess: () => {
-      toast.success("Cartão removido.");
-      invalidate();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const toggle = useMutation({
-    mutationFn: ({ id, ativo }: { id: string; ativo: boolean }) => toggleCreditCard(id, ativo),
-    onSuccess: invalidate,
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const lista = filterByMember(cards ?? [], filtroMembro);
-  const totalLimite = lista
-    .filter((c) => c.ativo)
-    .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
+  const [filtroMembro, setFiltroMembro] = useState("");
+  const [filtroBanco, setFiltroBanco] = useState("");
+  const [mes, setMes] = useState("");
 
   if (!family) return <NoFamily />;
+
+  const bancos = Array.from(new Set((cards ?? []).map((c) => c.banco))).sort();
+
+  const lista = filterByMember(cards ?? [], filtroMembro).filter((c) =>
+    filtroBanco ? c.banco === filtroBanco : true,
+  );
+
+  const info = (id: string) => overview.porCartao.find((o) => o.card.id === id);
+  const visiveis = lista.filter((c) => {
+    if (!mes) return true;
+    const venc = info(c.id)?.proximoVencimento;
+    return !!venc && venc.startsWith(mes);
+  });
+
+  const totalLimite = visiveis
+    .filter((c) => c.ativo)
+    .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
+  const totalFatura = visiveis.reduce((acc, c) => acc + (info(c.id)?.valorFaturaAtual ?? 0), 0);
 
   return (
     <div>
       <PageHeader
-        title="Cartões de Crédito"
-        subtitle="Banco, limite, fechamento e vencimento de cada cartão da família."
+        title="Cartões da família"
+        subtitle="Acompanhe fatura, limite e vencimento de cada cartão. O cadastro acontece no perfil da pessoa."
       />
 
-      <Card>
-        <h2 className="text-base font-bold">Novo cartão</h2>
-        <form
-          className="mt-5 grid gap-4 sm:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!banco.trim() || !nomeCartao.trim()) {
-              toast.error("Informe o banco e o nome do cartão.");
-              return;
-            }
-            create.mutate();
-          }}
-        >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Card>
+          <p className="text-xs font-semibold text-muted-foreground">Fatura atual somada</p>
+          <p className="mt-1 text-2xl font-extrabold">{formatCurrency(totalFatura)}</p>
+        </Card>
+        <Card>
+          <p className="text-xs font-semibold text-muted-foreground">Limite total ativo</p>
+          <p className="mt-1 text-2xl font-extrabold">{formatCurrency(totalLimite)}</p>
+        </Card>
+      </div>
+
+      <Card className="mt-4">
+        <div className="grid gap-4 sm:grid-cols-3">
+          <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
           <Field label="Banco">
-            <input
+            <select
               className={inputClass}
-              value={banco}
-              onChange={(e) => setBanco(e.target.value)}
-              placeholder="Nubank, Itaú..."
+              value={filtroBanco}
+              onChange={(e) => setFiltroBanco(e.target.value)}
+              aria-label="Banco"
+            >
+              <option value="">Todos</option>
+              {bancos.map((b) => (
+                <option key={b} value={b}>
+                  {b}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Período (vencimento)">
+            <input
+              type="month"
+              className={inputClass}
+              value={mes}
+              onChange={(e) => setMes(e.target.value)}
             />
           </Field>
-          <Field label="Nome do cartão">
-            <input
-              className={inputClass}
-              value={nomeCartao}
-              onChange={(e) => setNomeCartao(e.target.value)}
-              placeholder="Cartão principal"
-            />
-          </Field>
-          <Field label="Limite (R$)">
-            <input
-              className={inputClass}
-              value={limite}
-              onChange={(e) => setLimite(e.target.value)}
-              inputMode="decimal"
-              placeholder="0,00"
-            />
-          </Field>
-          <MemberSelect familyId={family?.id} value={memberId} onChange={setMemberId} label="Titular" />
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Dia de fechamento">
-              <input
-                className={inputClass}
-                value={fechamento}
-                onChange={(e) => setFechamento(e.target.value)}
-                inputMode="numeric"
-              />
-            </Field>
-            <Field label="Dia de vencimento">
-              <input
-                className={inputClass}
-                value={vencimento}
-                onChange={(e) => setVencimento(e.target.value)}
-                inputMode="numeric"
-              />
-            </Field>
-          </div>
-          <div className="flex items-end">
-            <PrimaryButton type="submit" disabled={create.isPending}>
-              <span className="inline-flex items-center gap-1.5">
-                <Plus className="size-4" />
-                {create.isPending ? "Salvando..." : "Adicionar cartão"}
-              </span>
-            </PrimaryButton>
-          </div>
-        </form>
+        </div>
       </Card>
 
       <Card className="mt-4">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-base font-bold">Cartões cadastrados</h2>
-          <div className="w-48">
-            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
-          </div>
-        </div>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Limite total ativo:{" "}
-          <span className="font-semibold text-foreground">{formatCurrency(totalLimite)}</span>
-        </p>
-
+        <h2 className="text-base font-bold">Cartões</h2>
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
-        ) : lista.length ? (
-          <ul className="mt-4 divide-y divide-border">
-            {lista.map((c) => {
-              const info = overview.porCartao.find((o) => o.card.id === c.id);
+        ) : visiveis.length ? (
+          <ul className="mt-2 divide-y divide-border">
+            {visiveis.map((c) => {
+              const dados = info(c.id);
               return (
-                <li key={c.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
-                  <div className="min-w-0">
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 py-4">
+                  <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">
-                      {c.nome_cartao} · {c.banco}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {memberName(c.member_id)} · fecha dia {c.dia_fechamento} · vence dia{" "}
-                      {c.dia_vencimento}
+                      {memberName(c.member_id)} · {c.banco} · {c.nome_cartao}
+                      {c.ativo ? "" : " · inativo"}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        Fatura atual:{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrency(dados?.valorFaturaAtual ?? 0)}
+                        </span>
+                      </span>
                       <span>
                         Limite:{" "}
                         <span className="font-semibold text-foreground">
@@ -209,84 +134,41 @@ function CartoesPage() {
                         </span>
                       </span>
                       <span>
-                        Fatura atual:{" "}
+                        Vencimento:{" "}
                         <span className="font-semibold text-foreground">
-                          {formatCurrency(info?.valorFaturaAtual ?? 0)}
-                        </span>
-                      </span>
-                      <span>
-                        Próximo vencimento:{" "}
-                        <span className="font-semibold text-foreground">
-                          {info?.proximoVencimento ? formatDate(info.proximoVencimento) : "—"}
+                          {dados?.proximoVencimento
+                            ? formatDate(dados.proximoVencimento)
+                            : `dia ${c.dia_vencimento}`}
                         </span>
                       </span>
                       <span>
                         Parcelas futuras:{" "}
                         <span className="font-semibold text-foreground">
-                          {formatCurrency(info?.parcelasFuturas ?? 0)}
+                          {formatCurrency(dados?.parcelasFuturas ?? 0)}
                         </span>
                       </span>
                     </div>
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => toggle.mutate({ id: c.id, ativo: !c.ativo })}
-                      className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+                  {c.member_id && (
+                    <Link
+                      to="/membro/$memberId"
+                      params={{ memberId: c.member_id }}
+                      className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
                     >
-                      {c.ativo ? "Ativo" : "Inativo"}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="Remover cartão"
-                      onClick={() => remove.mutate(c.id)}
-                      className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  </div>
+                      Ver perfil
+                    </Link>
+                  )}
                 </li>
               );
             })}
           </ul>
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">Nenhum cartão cadastrado ainda.</p>
-        )}
-      </Card>
-
-      <Card className="mt-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-base font-bold">Compromissos futuros</h2>
-          <p className="text-sm text-muted-foreground">
-            Fatura atual:{" "}
-            <span className="font-semibold text-foreground">
-              {formatCurrency(overview.faturaAtualTotal)}
-            </span>
-          </p>
-        </div>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Parcelas já compromissadas nos próximos meses.
-        </p>
-
-        {overview.isLoading ? (
-          <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
-        ) : overview.proximosMeses.some((m) => m.total > 0) ? (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-3">
-            {overview.proximosMeses.map((m) => (
-              <li key={m.key} className="rounded-2xl border border-border p-4">
-                <p className="text-xs font-medium capitalize text-muted-foreground">{m.label}</p>
-                <p className="mt-1 text-lg font-bold">{formatCurrency(m.total)}</p>
-              </li>
-            ))}
-          </ul>
-        ) : (
           <p className="mt-4 text-sm text-muted-foreground">
-            Nenhuma parcela futura registrada. Compras parceladas no cartão aparecem aqui
-            automaticamente.
+            Nenhum cartão encontrado. Abra o perfil de uma pessoa em Minha Família e cadastre o
+            cartão na aba “Cartões”.
           </p>
         )}
       </Card>
-
     </div>
   );
 }

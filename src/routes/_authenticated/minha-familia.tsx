@@ -9,6 +9,7 @@ import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { supabase } from "@/integrations/supabase/client";
 import { useIncomes, useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useMemberProfiles } from "@/hooks/useMemberProfiles";
 import { currentMonth } from "@/lib/expenses";
 import { formatCurrency, monthlyIncomeValue } from "@/lib/finance";
@@ -50,6 +51,7 @@ function MinhaFamilia() {
   const { data: incomes } = useIncomes(family?.id);
   const { data: cards } = useCreditCards(family?.id);
   const { data: monthExpenses } = useExpenses(family?.id, { month: currentMonth() });
+  const { data: accounts } = useBankAccounts(family?.id);
 
   const [nomeFamilia, setNomeFamilia] = useState("");
   const [novoNome, setNovoNome] = useState("");
@@ -141,10 +143,12 @@ function MinhaFamilia() {
       .filter((i) => i.member_id === memberId && i.ativo)
       .reduce((acc, i) => acc + monthlyIncomeValue(i), 0),
     cartoes: (cards ?? []).filter((c) => c.member_id === memberId).length,
+    contas: (accounts ?? []).filter((a) => a.member_id === memberId).length,
     gastos: (monthExpenses ?? [])
       .filter((e) => e.member_id === memberId)
       .reduce((acc, e) => acc + (Number(e.valor) || 0), 0),
   });
+
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Carregando...</p>;
@@ -190,43 +194,65 @@ function MinhaFamilia() {
         subtitle="Defina quem participa e o nível de acesso de cada pessoa."
       />
 
-      <Card>
-        <h2 className="text-base font-bold">Membros</h2>
-        <ul className="mt-4 divide-y divide-border">
-          {(members ?? []).map((m) => (
-            <li key={m.id} className="flex flex-wrap items-center gap-3 py-3">
-              <div className="min-w-56 flex-1">
-                <Link
-                  to="/membro/$memberId"
-                  params={{ memberId: m.id }}
-                  className="text-sm font-semibold text-primary hover:underline"
-                >
-                  {m.nome}
-                </Link>
-                <p className="text-xs text-muted-foreground">
-                  {m.relacionamento || "Sem relacionamento definido"} ·{" "}
-                  {MEMBER_PROFILE_LABELS[perfilDe(m.id)]}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                  <span>
-                    Receitas:{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatCurrency(resumo(m.id).receitas)}
-                    </span>
-                  </span>
-                  <span>
-                    Cartões:{" "}
-                    <span className="font-semibold text-foreground">{resumo(m.id).cartoes}</span>
-                  </span>
-                  <span>
-                    Gastos do mês:{" "}
-                    <span className="font-semibold text-foreground">
-                      {formatCurrency(resumo(m.id).gastos)}
-                    </span>
-                  </span>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {(members ?? []).map((m) => {
+          const r = resumo(m.id);
+          return (
+            <Card key={m.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-bold">{m.nome}</p>
+                  <p className="text-xs font-semibold text-primary">
+                    {MEMBER_PROFILE_LABELS[perfilDe(m.id)]}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {m.relacionamento || "Sem relacionamento definido"}
+                  </p>
                 </div>
-                {isAdmin && (
-                  <div className="mt-2">
+                {isAdmin && m.user_id !== family.owner_id && (
+                  <button
+                    aria-label={`Remover ${m.nome}`}
+                    onClick={() => removeMemberMutation.mutate(m.id)}
+                    className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              </div>
+
+              <dl className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-muted/60 px-3 py-2.5">
+                  <dt className="text-[11px] font-semibold text-muted-foreground">Receitas</dt>
+                  <dd className="text-sm font-bold">{formatCurrency(r.receitas)}</dd>
+                </div>
+                <div className="rounded-2xl bg-muted/60 px-3 py-2.5">
+                  <dt className="text-[11px] font-semibold text-muted-foreground">Gastos do mês</dt>
+                  <dd className="text-sm font-bold">{formatCurrency(r.gastos)}</dd>
+                </div>
+                <div className="rounded-2xl bg-muted/60 px-3 py-2.5">
+                  <dt className="text-[11px] font-semibold text-muted-foreground">Cartões</dt>
+                  <dd className="text-sm font-bold">{r.cartoes}</dd>
+                </div>
+                <div className="rounded-2xl bg-muted/60 px-3 py-2.5">
+                  <dt className="text-[11px] font-semibold text-muted-foreground">Contas</dt>
+                  <dd className="text-sm font-bold">{r.contas}</dd>
+                </div>
+              </dl>
+
+              <Link
+                to="/membro/$memberId"
+                params={{ memberId: m.id }}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+              >
+                Ver perfil financeiro
+              </Link>
+
+              {isAdmin && (
+                <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-semibold text-muted-foreground">
+                      Perfil financeiro
+                    </span>
                     <select
                       aria-label={`Perfil financeiro de ${m.nome}`}
                       value={perfilDe(m.id)}
@@ -236,7 +262,7 @@ function MinhaFamilia() {
                           tipo: e.target.value as MemberProfileType,
                         })
                       }
-                      className="rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium"
+                      className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium"
                     >
                       {MEMBER_PROFILE_TYPES.map((t) => (
                         <option key={t} value={t}>
@@ -244,44 +270,46 @@ function MinhaFamilia() {
                         </option>
                       ))}
                     </select>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {MEMBER_PROFILE_DESCRIPTIONS[perfilDe(m.id)]}
-                    </p>
-                  </div>
-                )}
-              </div>
-              {isAdmin ? (
-                <select
-                  value={m.permissao}
-                  onChange={(e) =>
-                    updatePermission.mutate({ id: m.id, value: e.target.value as FamilyPermission })
-                  }
-                  className="rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium"
-                >
-                  {PERMISSOES.map((p) => (
-                    <option key={p} value={p}>
-                      {PERMISSION_LABELS[p]}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <span className="rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-muted-foreground">
-                  {PERMISSION_LABELS[m.permissao]}
-                </span>
+                  </label>
+                  <label className="block">
+                    <span className="mb-1.5 block text-[11px] font-semibold text-muted-foreground">
+                      Permissão
+                    </span>
+                    <select
+                      value={m.permissao}
+                      aria-label={`Permissão de ${m.nome}`}
+                      onChange={(e) =>
+                        updatePermission.mutate({
+                          id: m.id,
+                          value: e.target.value as FamilyPermission,
+                        })
+                      }
+                      className="w-full rounded-xl border border-input bg-background px-3 py-2 text-xs font-medium"
+                    >
+                      {PERMISSOES.map((p) => (
+                        <option key={p} value={p}>
+                          {PERMISSION_LABELS[p]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    {MEMBER_PROFILE_DESCRIPTIONS[perfilDe(m.id)]}
+                  </p>
+                </div>
               )}
-              {isAdmin && m.user_id !== family.owner_id && (
-                <button
-                  aria-label={`Remover ${m.nome}`}
-                  onClick={() => removeMemberMutation.mutate(m.id)}
-                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                >
-                  <Trash2 className="size-4" />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      </Card>
+            </Card>
+          );
+        })}
+        {(members ?? []).length === 0 && (
+          <Card>
+            <p className="text-sm text-muted-foreground">
+              Nenhuma pessoa cadastrada ainda. Adicione os membros da família abaixo para começar.
+            </p>
+          </Card>
+        )}
+      </div>
+
 
       {isAdmin && (
         <Card className="mt-4">

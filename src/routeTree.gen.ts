@@ -24,6 +24,7 @@ import { Route as AuthenticatedMinhaFamiliaRouteImport } from './routes/_authent
 import { Route as AuthenticatedPerfilFinanceiroRouteImport } from './routes/_authenticated/perfil-financeiro'
 import { Route as AuthenticatedPlanejamentoRouteImport } from './routes/_authenticated/planejamento'
 import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticated/receitas'
+import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -106,6 +107,11 @@ const AuthenticatedReceitasRoute = AuthenticatedReceitasRouteImport.update({
   path: '/receitas',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMembroMemberIdRoute =
   AuthenticatedMembroMemberIdRouteImport.update({
     id: '/membro/$memberId',
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
 }
 export interface FileRoutesByTo {
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
+  '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
 }
 export interface FileRoutesById {
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/_authenticated/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/_authenticated/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
+  '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
 }
 export interface FileRouteTypes {
@@ -183,6 +192,7 @@ export interface FileRouteTypes {
     | '/perfil-financeiro'
     | '/planejamento'
     | '/receitas'
+    | '/relatorios'
     | '/membro/$memberId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -200,6 +210,7 @@ export interface FileRouteTypes {
     | '/perfil-financeiro'
     | '/planejamento'
     | '/receitas'
+    | '/relatorios'
     | '/membro/$memberId'
   id:
     | '__root__'
@@ -218,6 +229,7 @@ export interface FileRouteTypes {
     | '/_authenticated/perfil-financeiro'
     | '/_authenticated/planejamento'
     | '/_authenticated/receitas'
+    | '/_authenticated/relatorios'
     | '/_authenticated/membro/$memberId'
   fileRoutesById: FileRoutesById
 }
@@ -335,6 +347,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReceitasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/relatorios': {
+      id: '/_authenticated/relatorios'
+      path: '/relatorios'
+      fullPath: '/relatorios'
+      preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/membro/$memberId': {
       id: '/_authenticated/membro/$memberId'
       path: '/membro/$memberId'
@@ -357,6 +376,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPerfilFinanceiroRoute: typeof AuthenticatedPerfilFinanceiroRoute
   AuthenticatedPlanejamentoRoute: typeof AuthenticatedPlanejamentoRoute
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
+  AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedMembroMemberIdRoute: typeof AuthenticatedMembroMemberIdRoute
 }
 
@@ -372,6 +392,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPerfilFinanceiroRoute: AuthenticatedPerfilFinanceiroRoute,
   AuthenticatedPlanejamentoRoute: AuthenticatedPlanejamentoRoute,
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
+  AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedMembroMemberIdRoute: AuthenticatedMembroMemberIdRoute,
 }
 
