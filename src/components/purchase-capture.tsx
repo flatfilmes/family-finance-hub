@@ -357,6 +357,18 @@ export function DocumentosSection({
                     Ver documento
                   </button>
                 )}
+                {podeLancar && /\.pdf$/i.test(d.nome_arquivo ?? "") && (
+                  <button
+                    type="button"
+                    disabled={reprocessar.isPending}
+                    onClick={() => reprocessar.mutate(d)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+                  >
+                    <ScanLine className="size-3.5" />
+                    {reprocessar.isPending ? "Lendo..." : "Ler PDF"}
+                  </button>
+                )}
+
                 {podeLancar && (
                   <button
                     type="button"
