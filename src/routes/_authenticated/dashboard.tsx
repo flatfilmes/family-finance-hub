@@ -84,7 +84,7 @@ function Dashboard() {
 
       {isDemoFamily(family) && (
         <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400">
-          Ambiente de demonstração: os dados desta família são fictícios e servem apenas para testes.
+          Modo Demonstração ativo: os dados desta família são fictícios e servem apenas para testes.
         </div>
       )}
 
