@@ -489,6 +489,8 @@ function RevisarDocumento({
   onConfirmed: () => void;
 }) {
   const { data: itensExtraidos } = useImportItems(draft?.id);
+  const { data: extracao } = useDocumentExtraction(doc.id);
+  const { data: itensPdf } = useExtractionItems(extracao?.id);
   const { data: cards } = useCreditCards(familyId);
   const { data: contas } = useBankAccounts(familyId);
   const { data: categorias } = useExpenseCategories();
@@ -517,6 +519,32 @@ function RevisarDocumento({
       })),
     );
   }, [itensExtraidos]);
+
+  // Preenchimento automático com o que foi lido do PDF.
+  useEffect(() => {
+    if (!extracao) return;
+    if (extracao.estabelecimento) setEstabelecimento((v) => v || extracao.estabelecimento!);
+    if (extracao.data_compra) setDataCompra(extracao.data_compra);
+    if (extracao.member_id) setResponsavel((v) => v || extracao.member_id!);
+    if (extracao.forma_pagamento && FORMAS_REVISAO.includes(extracao.forma_pagamento)) {
+      setFormaPagamento(extracao.forma_pagamento);
+    }
+  }, [extracao]);
+
+  useEffect(() => {
+    if (!itensPdf || itensPdf.length === 0) return;
+    setItems(
+      itensPdf.map((i) => ({
+        product_id: "",
+        descricao_produto: i.descricao_produto,
+        quantidade: String(Number(i.quantidade) || 1),
+        unidade: i.unidade,
+        valor_unitario: String(Number(i.valor_unitario) || 0),
+        categoria_id: i.categoria_sugerida ?? "",
+      })),
+    );
+  }, [itensPdf]);
+
 
   const total = items.reduce(
     (acc, i) => acc + (Number(i.quantidade) || 0) * (Number(i.valor_unitario) || 0),
