@@ -38,6 +38,12 @@ import {
   usesBankAccount,
   type NewPurchaseItem,
 } from "@/lib/purchases";
+import {
+  RECURRENCES,
+  RECURRENCE_LABELS,
+  type ExpenseRecurrence,
+} from "@/lib/recurring-expenses";
+import { isRecorrente } from "@/lib/purchases";
 import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
 import { PurchaseDetail } from "@/components/purchase-detail";
 import { VisaoConsumo } from "@/components/purchase-consumption";
@@ -143,6 +149,8 @@ function Compras() {
     setCartaoId("");
     setContaId("");
     setObservacao("");
+    setParcelas("1");
+    setPeriodicidade("MENSAL");
     setItems([{ ...emptyItem }]);
   };
 
@@ -351,6 +359,33 @@ function Compras() {
                         {c.banco} · {c.nome_conta}
                       </option>
                     ))}
+                </select>
+              </Field>
+            )}
+            {tipoCompra === "COMPRA_PARCELADA" && (
+              <Field label="Quantidade de parcelas">
+                <input
+                  type="number"
+                  min="1"
+                  max="48"
+                  value={parcelas}
+                  onChange={(e) => setParcelas(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+            )}
+            {isRecorrente(tipoCompra) && (
+              <Field label="Periodicidade">
+                <select
+                  value={periodicidade}
+                  onChange={(e) => setPeriodicidade(e.target.value as ExpenseRecurrence)}
+                  className={inputClass}
+                >
+                  {RECURRENCES.map((r) => (
+                    <option key={r} value={r}>
+                      {RECURRENCE_LABELS[r]}
+                    </option>
+                  ))}
                 </select>
               </Field>
             )}
