@@ -4,7 +4,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader, Card, Field, inputClass, PrimaryButton } from "@/components/page-header";
 import { useAuth } from "@/hooks/useAuth";
-import { useProfile } from "@/hooks/useFamilyData";
+import { useFamily, useProfile } from "@/hooks/useFamilyData";
+import { useFinancialSettings } from "@/hooks/useFinancialEngine";
+import { DEFAULT_SETTINGS, saveFinancialSettings } from "@/lib/financial-engine";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -25,8 +27,33 @@ function Configuracoes() {
   const queryClient = useQueryClient();
   const { data: profile } = useProfile();
 
+  const { data: family } = useFamily();
+  const { data: settings } = useFinancialSettings(family?.id);
+
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [reserva, setReserva] = useState(String(DEFAULT_SETTINGS.percentual_reserva));
+  const [alertaCartao, setAlertaCartao] = useState(String(DEFAULT_SETTINGS.limite_alerta_cartao));
+
+  useEffect(() => {
+    if (!settings) return;
+    setReserva(String(settings.percentual_reserva));
+    setAlertaCartao(String(settings.limite_alerta_cartao));
+  }, [settings]);
+
+  const saveSettings = useMutation({
+    mutationFn: () =>
+      saveFinancialSettings({
+        familyId: family!.id,
+        percentualReserva: Number(reserva) || 0,
+        limiteAlertaCartao: Number(alertaCartao) || 0,
+      }),
+    onSuccess: () => {
+      toast.success("Parâmetros financeiros salvos.");
+      queryClient.invalidateQueries({ queryKey: ["financial-settings", family?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   useEffect(() => {
     if (!profile) return;
@@ -91,6 +118,50 @@ function Configuracoes() {
           </PrimaryButton>
         </form>
       </Card>
+
+      {family && (
+        <Card className="mt-4 max-w-xl">
+          <h2 className="text-base font-bold">Parâmetros financeiros</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Usados pelo cálculo de quanto a família pode gastar.
+          </p>
+          <form
+            className="mt-4 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveSettings.mutate();
+            }}
+          >
+            <Field label="Percentual de reserva (%)">
+              <input
+                required
+                type="number"
+                min={0}
+                max={100}
+                step="1"
+                value={reserva}
+                onChange={(e) => setReserva(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <Field label="Limite de alerta do cartão (% do limite)">
+              <input
+                required
+                type="number"
+                min={0}
+                max={100}
+                step="1"
+                value={alertaCartao}
+                onChange={(e) => setAlertaCartao(e.target.value)}
+                className={inputClass}
+              />
+            </Field>
+            <PrimaryButton type="submit" disabled={saveSettings.isPending}>
+              {saveSettings.isPending ? "Salvando..." : "Salvar parâmetros"}
+            </PrimaryButton>
+          </form>
+        </Card>
+      )}
 
       <Card className="mt-4 max-w-xl">
         <h2 className="text-base font-bold">Conta</h2>

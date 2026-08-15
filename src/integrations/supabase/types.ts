@@ -327,6 +327,41 @@ export type Database = {
           },
         ]
       }
+      financial_settings: {
+        Row: {
+          created_at: string
+          family_id: string
+          id: string
+          limite_alerta_cartao: number
+          percentual_reserva: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          id?: string
+          limite_alerta_cartao?: number
+          percentual_reserva?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          id?: string
+          limite_alerta_cartao?: number
+          percentual_reserva?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_settings_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: true
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fixed_expenses: {
         Row: {
           ativo: boolean

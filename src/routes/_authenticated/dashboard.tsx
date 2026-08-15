@@ -12,12 +12,15 @@ import {
   PieChart,
   ArrowUpDown,
   Target,
+  HeartPulse,
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
+import { useFinancialEngine } from "@/hooks/useFinancialEngine";
+import { HEALTH_CLASSES, HEALTH_LABELS } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS } from "@/lib/family";
@@ -48,6 +51,7 @@ function Dashboard() {
   const summary = useFinancialSummary(family?.id);
   const gastos = useExpenseSummary(family?.id);
   const orcamento = useBudgetProgress(family?.id);
+  const engine = useFinancialEngine(family?.id);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
@@ -58,6 +62,97 @@ function Dashboard() {
         title={primeiroNome ? `Olá, ${primeiroNome}` : "Olá"}
         subtitle="Visão geral do núcleo financeiro da sua família."
       />
+
+      <Card className="mb-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+              <HeartPulse className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold">Saúde financeira</h2>
+              <p className="text-xs text-muted-foreground">
+                Cálculo do mês de {monthLabel(engine.month)} · reserva de{" "}
+                {engine.percentualReserva.toFixed(0)}%
+              </p>
+            </div>
+          </div>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${HEALTH_CLASSES[engine.status].badge}`}
+          >
+            <span className={`size-2 rounded-full ${HEALTH_CLASSES[engine.status].dot}`} />
+            {HEALTH_LABELS[engine.status]}
+          </span>
+        </div>
+
+        <div className="mt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span className="text-muted-foreground">
+              Compromissos sobre a receita:{" "}
+              <strong className="text-foreground">
+                {engine.comprometimento === null
+                  ? "—"
+                  : `${engine.comprometimento.toFixed(0)}%`}
+              </strong>
+            </span>
+            <span className="text-muted-foreground">
+              Saldo bruto:{" "}
+              <strong className="text-foreground">{formatCurrency(engine.saldoBruto)}</strong>
+            </span>
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div
+              className={`h-full rounded-full ${HEALTH_CLASSES[engine.status].bar}`}
+              style={{ width: `${Math.min(100, engine.comprometimento ?? 0)}%` }}
+            />
+          </div>
+          <ul className="mt-4 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+            <li>Receita fixa: {formatCurrency(engine.receitaFixa)}</li>
+            <li>Média das variáveis: {formatCurrency(engine.receitaVariavel)}</li>
+            <li>Reserva planejada: {formatCurrency(engine.reserva)}</li>
+          </ul>
+          {engine.cartaoEmAlerta && (
+            <p className="mt-3 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              Uso dos cartões em {engine.usoCartoes?.toFixed(0)}% do limite (alerta em{" "}
+              {engine.limiteAlertaCartao.toFixed(0)}%).
+            </p>
+          )}
+        </div>
+      </Card>
+
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          icon={<TrendingUp className="size-5" />}
+          label="Receita do mês"
+          value={formatCurrency(engine.receitaTotal)}
+          hint="Fixas + média das variáveis"
+          to="/receitas"
+          loading={engine.isLoading}
+        />
+        <StatCard
+          icon={<Receipt className="size-5" />}
+          label="Contas comprometidas"
+          value={formatCurrency(engine.compromissos)}
+          hint={`Contas fixas ${formatCurrency(engine.contasFixas)} + cartões ${formatCurrency(engine.faturaCartoes)}`}
+          to="/contas-fixas"
+          loading={engine.isLoading}
+        />
+        <StatCard
+          icon={<ShoppingCart className="size-5" />}
+          label="Gastos realizados"
+          value={formatCurrency(engine.gastosRealizados)}
+          hint={`Lançamentos de ${monthLabel(engine.month)}`}
+          to="/despesas"
+          loading={engine.isLoading}
+        />
+        <StatCard
+          icon={<Wallet className="size-5" />}
+          label="Disponível para gastar"
+          value={formatCurrency(engine.disponivel)}
+          hint="Receita - compromissos - gastos - reserva"
+          loading={engine.isLoading}
+        />
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
