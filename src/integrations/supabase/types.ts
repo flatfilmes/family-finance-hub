@@ -869,6 +869,7 @@ export type Database = {
       }
       purchases: {
         Row: {
+          bank_account_id: string | null
           created_at: string
           created_by: string | null
           credit_card_id: string | null
@@ -884,10 +885,13 @@ export type Database = {
           ocr_dados: Json | null
           ocr_processado_em: string | null
           ocr_status: string
+          status_pagamento: Database["public"]["Enums"]["purchase_payment_status"]
+          tipo_compra: Database["public"]["Enums"]["purchase_type"]
           updated_at: string
           valor_total: number
         }
         Insert: {
+          bank_account_id?: string | null
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
@@ -903,10 +907,13 @@ export type Database = {
           ocr_dados?: Json | null
           ocr_processado_em?: string | null
           ocr_status?: string
+          status_pagamento?: Database["public"]["Enums"]["purchase_payment_status"]
+          tipo_compra?: Database["public"]["Enums"]["purchase_type"]
           updated_at?: string
           valor_total?: number
         }
         Update: {
+          bank_account_id?: string | null
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
@@ -922,10 +929,19 @@ export type Database = {
           ocr_dados?: Json | null
           ocr_processado_em?: string | null
           ocr_status?: string
+          status_pagamento?: Database["public"]["Enums"]["purchase_payment_status"]
+          tipo_compra?: Database["public"]["Enums"]["purchase_type"]
           updated_at?: string
           valor_total?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "purchases_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "purchases_credit_card_id_fkey"
             columns: ["credit_card_id"]
@@ -1025,7 +1041,15 @@ export type Database = {
         | "BOLETO"
         | "TRANSFERENCIA"
         | "OUTRO"
-      purchase_type: "A_VISTA" | "CARTAO_CREDITO" | "PARCELADO"
+      purchase_payment_status: "PAGO" | "COMPROMETIDO" | "PENDENTE"
+      purchase_type:
+        | "A_VISTA"
+        | "CARTAO_CREDITO"
+        | "PARCELADO"
+        | "COMPRA_NORMAL"
+        | "COMPRA_RECORRENTE"
+        | "COMPRA_PARCELADA"
+        | "CONTA_RECORRENTE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1202,7 +1226,16 @@ export const Constants = {
         "TRANSFERENCIA",
         "OUTRO",
       ],
-      purchase_type: ["A_VISTA", "CARTAO_CREDITO", "PARCELADO"],
+      purchase_payment_status: ["PAGO", "COMPROMETIDO", "PENDENTE"],
+      purchase_type: [
+        "A_VISTA",
+        "CARTAO_CREDITO",
+        "PARCELADO",
+        "COMPRA_NORMAL",
+        "COMPRA_RECORRENTE",
+        "COMPRA_PARCELADA",
+        "CONTA_RECORRENTE",
+      ],
     },
   },
 } as const

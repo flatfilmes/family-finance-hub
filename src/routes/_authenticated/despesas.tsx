@@ -18,6 +18,7 @@ import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import {
   PAYMENT_METHOD_LABELS,
   PURCHASE_TYPE_LABELS,
+  EXPENSE_PURCHASE_TYPES,
   createExpense,
   currentMonth,
   deleteExpense,
@@ -306,9 +307,9 @@ function DespesasPage() {
               value={form.tipo_compra}
               onChange={(e) => set("tipo_compra", e.target.value as PurchaseType)}
             >
-              {Object.entries(PURCHASE_TYPE_LABELS).map(([k, v]) => (
+              {EXPENSE_PURCHASE_TYPES.map((k) => (
                 <option key={k} value={k}>
-                  {v}
+                  {PURCHASE_TYPE_LABELS[k]}
                 </option>
               ))}
             </select>
