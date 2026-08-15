@@ -8,11 +8,18 @@ import { useIncomes, useCreditCards, useFixedExpenses } from "@/hooks/useFinance
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useExpenses, useExpenseCategories } from "@/hooks/useExpenses";
+import { useCardOverview } from "@/hooks/useCardInvoices";
+import { useFinancialEngine } from "@/hooks/useFinancialEngine";
+import { IncomeForm } from "@/components/forms/income-form";
+import { BankAccountForm } from "@/components/forms/bank-account-form";
+import { CreditCardForm } from "@/components/forms/credit-card-form";
 import { currentMonth, formatDate, monthLabel } from "@/lib/expenses";
 import { formatCurrency, monthlyIncomeValue, monthlyExpenseValue } from "@/lib/finance";
+import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BANK_ACCOUNT_TYPE_LABELS } from "@/lib/bank-accounts";
 import { MEMBER_PROFILE_DESCRIPTIONS, MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
 import { NoFamily } from "./receitas";
+
 
 export const Route = createFileRoute("/_authenticated/membro/$memberId")({
   head: () => ({
