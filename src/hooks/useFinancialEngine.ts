@@ -96,7 +96,7 @@ export function useFinancialEngine(familyId?: string, memberId = "") {
 
   const comprometimento = receitaTotal > 0 ? (compromissos / receitaTotal) * 100 : null;
 
-  const limiteTotalCartoes = (cards.data ?? [])
+  const limiteTotalCartoes = cartoesLista
     .filter((c) => c.ativo)
     .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
   const usoCartoes =
