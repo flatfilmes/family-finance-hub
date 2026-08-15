@@ -202,3 +202,67 @@ function Configuracoes() {
     </div>
   );
 }
+
+function DemoModeCard() {
+  const { ativo, activeFamily, demoFamilies, isLoading } = useDemoMode();
+  const remove = useDeleteDemoData();
+
+  function handleDelete() {
+    if (!window.confirm(DEMO_DELETE_CONFIRMATION)) return;
+    remove.mutate(undefined, {
+      onSuccess: (qtd) =>
+        toast.success(
+          qtd > 0
+            ? `Dados de demonstração removidos (${qtd} família${qtd > 1 ? "s" : ""}).`
+            : "Nenhum dado de demonstração para remover.",
+        ),
+      onError: (e: Error) => toast.error(e.message),
+    });
+  }
+
+  return (
+    <Card className="mt-4 max-w-xl">
+      <h2 className="text-base font-bold">Modo Demonstração</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Ambiente separado, usado apenas para testes e apresentação. Não se mistura com seus dados
+        reais.
+      </p>
+
+      <dl className="mt-4 space-y-3 text-sm">
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-muted-foreground">Status</dt>
+          <dd>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                ativo
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {isLoading ? "Carregando..." : ativo ? "Ativo" : "Inativo"}
+            </span>
+          </dd>
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <dt className="text-muted-foreground">Família demonstrativa atual</dt>
+          <dd className="font-semibold">{activeFamily?.nome_da_familia ?? "Nenhuma"}</dd>
+        </div>
+        {demoFamilies.length > 1 && (
+          <div className="flex items-center justify-between gap-4">
+            <dt className="text-muted-foreground">Famílias demo cadastradas</dt>
+            <dd className="font-semibold">{demoFamilies.length}</dd>
+          </div>
+        )}
+      </dl>
+
+      <button
+        onClick={handleDelete}
+        disabled={!ativo || remove.isPending}
+        className="mt-4 rounded-full border border-destructive/40 px-6 py-2.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {remove.isPending ? "Excluindo..." : "Excluir dados de demonstração"}
+      </button>
+      <p className="mt-2 text-xs text-muted-foreground">{DEMO_DELETE_CONFIRMATION}</p>
+    </Card>
+  );
+}
