@@ -133,6 +133,7 @@ export type Database = {
           family_id: string
           id: string
           limite: number
+          member_id: string | null
           nome_cartao: string
           updated_at: string
         }
@@ -146,6 +147,7 @@ export type Database = {
           family_id: string
           id?: string
           limite?: number
+          member_id?: string | null
           nome_cartao: string
           updated_at?: string
         }
@@ -159,6 +161,7 @@ export type Database = {
           family_id?: string
           id?: string
           limite?: number
+          member_id?: string | null
           nome_cartao?: string
           updated_at?: string
         }
@@ -168,6 +171,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_cards_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
         ]
@@ -274,6 +284,7 @@ export type Database = {
           family_id: string
           forma_pagamento: Database["public"]["Enums"]["payment_method"]
           id: string
+          member_id: string | null
           observacao: string | null
           parcela_atual: number
           parcelas_total: number
@@ -291,6 +302,7 @@ export type Database = {
           family_id: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"]
           id?: string
+          member_id?: string | null
           observacao?: string | null
           parcela_atual?: number
           parcelas_total?: number
@@ -308,6 +320,7 @@ export type Database = {
           family_id?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"]
           id?: string
+          member_id?: string | null
           observacao?: string | null
           parcela_atual?: number
           parcelas_total?: number
@@ -335,6 +348,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
         ]
@@ -495,6 +515,7 @@ export type Database = {
           descricao: string
           family_id: string
           id: string
+          member_id: string | null
           recorrencia: Database["public"]["Enums"]["expense_recurrence"]
           updated_at: string
           valor: number
@@ -508,6 +529,7 @@ export type Database = {
           descricao: string
           family_id: string
           id?: string
+          member_id?: string | null
           recorrencia?: Database["public"]["Enums"]["expense_recurrence"]
           updated_at?: string
           valor?: number
@@ -521,6 +543,7 @@ export type Database = {
           descricao?: string
           family_id?: string
           id?: string
+          member_id?: string | null
           recorrencia?: Database["public"]["Enums"]["expense_recurrence"]
           updated_at?: string
           valor?: number
@@ -532,6 +555,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fixed_expenses_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
         ]
@@ -546,6 +576,7 @@ export type Database = {
           family_id: string
           frequencia: Database["public"]["Enums"]["income_frequency"]
           id: string
+          member_id: string | null
           tipo: Database["public"]["Enums"]["income_type"]
           updated_at: string
           valor: number
@@ -559,6 +590,7 @@ export type Database = {
           family_id: string
           frequencia?: Database["public"]["Enums"]["income_frequency"]
           id?: string
+          member_id?: string | null
           tipo?: Database["public"]["Enums"]["income_type"]
           updated_at?: string
           valor?: number
@@ -572,6 +604,7 @@ export type Database = {
           family_id?: string
           frequencia?: Database["public"]["Enums"]["income_frequency"]
           id?: string
+          member_id?: string | null
           tipo?: Database["public"]["Enums"]["income_type"]
           updated_at?: string
           valor?: number
@@ -582,6 +615,61 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incomes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_financial_profiles: {
+        Row: {
+          created_at: string
+          family_id: string
+          family_member_id: string
+          id: string
+          pode_lancar_despesas: boolean
+          pode_ver_proprios_dados: boolean
+          tipo_perfil: Database["public"]["Enums"]["member_profile_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          family_id: string
+          family_member_id: string
+          id?: string
+          pode_lancar_despesas?: boolean
+          pode_ver_proprios_dados?: boolean
+          tipo_perfil?: Database["public"]["Enums"]["member_profile_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          family_id?: string
+          family_member_id?: string
+          id?: string
+          pode_lancar_despesas?: boolean
+          pode_ver_proprios_dados?: boolean
+          tipo_perfil?: Database["public"]["Enums"]["member_profile_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_financial_profiles_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_financial_profiles_family_member_id_fkey"
+            columns: ["family_member_id"]
+            isOneToOne: true
+            referencedRelation: "family_members"
             referencedColumns: ["id"]
           },
         ]
@@ -618,12 +706,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_manage_member_record: {
+        Args: { _family_id: string; _member_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_view_member_record: {
+        Args: { _family_id: string; _member_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_family_admin: {
         Args: { _family_id: string; _user_id: string }
         Returns: boolean
       }
       is_family_member: {
         Args: { _family_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_own_family_member: {
+        Args: { _member_id: string; _user_id: string }
         Returns: boolean
       }
     }
@@ -663,6 +763,11 @@ export type Database = {
       income_type: "FIXA" | "VARIAVEL"
       installment_status: "PENDENTE" | "PAGO"
       invoice_status: "ABERTA" | "FECHADA" | "PAGA"
+      member_profile_type:
+        | "ADMIN_FAMILIAR"
+        | "MEMBRO"
+        | "DEPENDENTE"
+        | "VISUALIZADOR"
       payment_method:
         | "DINHEIRO"
         | "PIX"
@@ -832,6 +937,12 @@ export const Constants = {
       income_type: ["FIXA", "VARIAVEL"],
       installment_status: ["PENDENTE", "PAGO"],
       invoice_status: ["ABERTA", "FECHADA", "PAGA"],
+      member_profile_type: [
+        "ADMIN_FAMILIAR",
+        "MEMBRO",
+        "DEPENDENTE",
+        "VISUALIZADOR",
+      ],
       payment_method: [
         "DINHEIRO",
         "PIX",

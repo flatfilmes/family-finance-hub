@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
+import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useFixedExpenses } from "@/hooks/useFinanceData";
 import { NoFamily } from "./receitas";
 import {
@@ -46,6 +47,8 @@ function ContasFixasPage() {
   const [categoria, setCategoria] = useState<ExpenseCategory>("ENERGIA");
   const [recorrencia, setRecorrencia] = useState<ExpenseRecurrence>("MENSAL");
   const [vencimento, setVencimento] = useState("5");
+  const [memberId, setMemberId] = useState("");
+  const memberName = useMemberName(family?.id);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["fixed-expenses", family?.id] });
@@ -60,6 +63,7 @@ function ContasFixasPage() {
         recorrencia,
         valor: Number(valor.replace(",", ".")) || 0,
         vencimento: Math.min(31, Math.max(1, Number(vencimento) || 1)),
+        member_id: memberId || null,
       }),
     onSuccess: () => {
       setDescricao("");
@@ -154,6 +158,7 @@ function ContasFixasPage() {
               ))}
             </select>
           </Field>
+          <MemberSelect familyId={family?.id} value={memberId} onChange={setMemberId} />
           <Field label="Dia do vencimento">
             <input
               className={inputClass}
@@ -192,7 +197,7 @@ function ContasFixasPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{e.descricao}</p>
                   <p className="text-xs text-muted-foreground">
-                    {EXPENSE_CATEGORY_LABELS[e.categoria]} ·{" "}
+                    {memberName(e.member_id)} · {EXPENSE_CATEGORY_LABELS[e.categoria]} ·{" "}
                     {EXPENSE_RECURRENCE_LABELS[e.recorrencia]} · vence dia {e.vencimento}
                   </p>
                 </div>

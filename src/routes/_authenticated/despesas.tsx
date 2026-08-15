@@ -11,6 +11,7 @@ import { useExpenseCategories, useExpenses } from "@/hooks/useExpenses";
 import { NoFamily } from "./receitas";
 import { formatCurrency } from "@/lib/finance";
 import { clearInstallments, generateInstallments } from "@/lib/card-invoices";
+import { MemberSelect, useMemberName } from "@/components/member-select";
 
 import {
   PAYMENT_METHOD_LABELS,
@@ -51,6 +52,7 @@ type FormState = {
   cartao_id: string;
   parcelas_total: string;
   parcela_atual: string;
+  member_id: string;
   observacao: string;
 };
 
@@ -69,6 +71,7 @@ const emptyForm = (): FormState => ({
   cartao_id: "",
   parcelas_total: "1",
   parcela_atual: "1",
+  member_id: "",
   observacao: "",
 });
 
@@ -111,6 +114,7 @@ function DespesasPage() {
       form.tipo_compra === "PARCELADO" ? Math.max(1, Number(form.parcelas_total) || 1) : 1,
     parcela_atual:
       form.tipo_compra === "PARCELADO" ? Math.max(1, Number(form.parcela_atual) || 1) : 1,
+    member_id: form.member_id || null,
     observacao: form.observacao.trim() || null,
   });
 
@@ -179,12 +183,14 @@ function DespesasPage() {
       cartao_id: e.cartao_id ?? "",
       parcelas_total: String(e.parcelas_total ?? 1),
       parcela_atual: String(e.parcela_atual ?? 1),
+      member_id: e.member_id ?? "",
       observacao: e.observacao ?? "",
     });
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   const total = (expenses ?? []).reduce((acc, e) => acc + (Number(e.valor) || 0), 0);
+  const memberName = useMemberName(family?.id);
   const categoriaNome = (id: string | null) =>
     categories?.find((c) => c.id === id)?.nome ?? "Sem categoria";
 
@@ -277,6 +283,11 @@ function DespesasPage() {
               ))}
             </select>
           </Field>
+          <MemberSelect
+            familyId={family?.id}
+            value={form.member_id}
+            onChange={(v) => set("member_id", v)}
+          />
           <Field label="Forma de pagamento">
             <select
               className={inputClass}
@@ -411,7 +422,8 @@ function DespesasPage() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold">{e.descricao}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {formatDate(e.data_compra)} · {categoriaNome(e.categoria_id)} ·{" "}
+                    {memberName(e.member_id)} · {formatDate(e.data_compra)} ·{" "}
+                    {categoriaNome(e.categoria_id)} ·{" "}
                     {PURCHASE_TYPE_LABELS[e.tipo_compra]}
                     {e.tipo_compra === "PARCELADO" &&
                       ` (${e.parcela_atual}/${e.parcelas_total})`}{" "}
