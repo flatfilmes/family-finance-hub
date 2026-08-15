@@ -39,6 +39,7 @@ import {
   usesBankAccount,
   type NewPurchaseItem,
 } from "@/lib/purchases";
+import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
