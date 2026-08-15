@@ -151,10 +151,19 @@ export async function fetchPurchaseItems(purchaseId: string) {
   return data ?? [];
 }
 
-/** Cria a compra e seus itens; o valor total é calculado a partir dos produtos. */
+/**
+ * Cria a compra, seus itens e todo o impacto financeiro decorrente:
+ * - PIX/débito/transferência: a movimentação de saída e o débito na conta vêm das triggers do banco;
+ * - dinheiro: apenas movimentação de saída de caixa (nenhuma conta é afetada);
+ * - crédito: gera a despesa vinculada, as parcelas e as faturas do cartão;
+ * - recorrente: registra a cobrança recorrente com a próxima competência.
+ */
 export async function createPurchase(input: {
   purchase: Omit<PurchaseInsert, "valor_total">;
   items: NewPurchaseItem[];
+  parcelas?: number;
+  periodicidade?: ExpenseRecurrence;
+  cards?: CreditCard[];
 }) {
   const valorTotal = purchaseTotal(input.items);
   const { data: purchase, error } = await supabase
@@ -179,6 +188,61 @@ export async function createPurchase(input: {
     if (itemsError) throw itemsError;
   }
 
+  const parcelas =
+    purchase.tipo_compra === "COMPRA_PARCELADA" ? Math.max(1, input.parcelas || 1) : 1;
+
+  // Cartão de crédito: nada sai da conta; vira compromisso na fatura.
+  if (purchase.forma_pagamento === "CREDITO" && purchase.credit_card_id) {
+    const card = (input.cards ?? []).find((c) => c.id === purchase.credit_card_id);
+    if (card) {
+      const { data: expense, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          family_id: purchase.family_id,
+          member_id: purchase.member_id,
+          created_by: purchase.created_by,
+          purchase_id: purchase.id,
+          descricao: purchase.estabelecimento,
+          valor: valorTotal,
+          data_compra: purchase.data_compra,
+          forma_pagamento: "CREDITO",
+          tipo_compra: parcelas > 1 ? "PARCELADO" : "CARTAO_CREDITO",
+          cartao_id: card.id,
+          parcelas_total: parcelas,
+          parcela_atual: 1,
+        })
+        .select()
+        .single();
+      if (expenseError) throw expenseError;
+
+      await generateInstallments({
+        familyId: purchase.family_id,
+        expenseId: expense.id,
+        card,
+        dataCompra: purchase.data_compra,
+        valorTotal,
+        parcelas,
+      });
+    }
+  }
+
+  // Compra ou conta recorrente: gera o compromisso mensal (não é parcela).
+  if (isRecorrente(purchase.tipo_compra)) {
+    const { error: recError } = await supabase.from("recurring_expenses").insert({
+      family_id: purchase.family_id,
+      member_id: purchase.member_id,
+      purchase_id: purchase.id,
+      credit_card_id: purchase.credit_card_id,
+      bank_account_id: purchase.bank_account_id,
+      created_by: purchase.created_by,
+      nome: purchase.estabelecimento,
+      valor: valorTotal,
+      periodicidade: input.periodicidade ?? "MENSAL",
+      proxima_cobranca: nextChargeDate(purchase.data_compra, input.periodicidade ?? "MENSAL"),
+    });
+    if (recError) throw recError;
+  }
+
   return purchase;
 }
 
@@ -186,3 +250,4 @@ export async function deletePurchase(id: string) {
   const { error } = await supabase.from("purchases").delete().eq("id", id);
   if (error) throw error;
 }
+
