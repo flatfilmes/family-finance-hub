@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  fetchConsumptionItems,
   fetchProducts,
+  fetchPurchaseInstallments,
   fetchPurchaseItems,
   fetchPurchaseItemsByPurchases,
   fetchPurchases,
@@ -32,6 +34,25 @@ export function usePurchaseItemCategories(purchaseIds: string[]) {
   return useQuery({
     queryKey: ["purchase-item-categories", key],
     queryFn: () => fetchPurchaseItemsByPurchases(purchaseIds),
+    enabled: purchaseIds.length > 0,
+  });
+}
+
+/** Parcelas de uma compra parcelada. */
+export function usePurchaseInstallments(purchaseId?: string) {
+  return useQuery({
+    queryKey: ["purchase-installments", purchaseId],
+    queryFn: () => fetchPurchaseInstallments(purchaseId!),
+    enabled: !!purchaseId,
+  });
+}
+
+/** Itens detalhados das compras filtradas, base da visão de consumo. */
+export function useConsumptionItems(purchaseIds: string[]) {
+  const key = purchaseIds.slice().sort().join(",");
+  return useQuery({
+    queryKey: ["purchase-consumption", key],
+    queryFn: () => fetchConsumptionItems(purchaseIds),
     enabled: purchaseIds.length > 0,
   });
 }
