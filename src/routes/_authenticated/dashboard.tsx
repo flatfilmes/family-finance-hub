@@ -235,6 +235,9 @@ function Dashboard() {
               />
             </div>
 
+            <CapacidadeCartoes familyId={family?.id} memberId={escopo} />
+
+
             <Card className="mt-4">
               <div className="flex items-center gap-3">
                 <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
