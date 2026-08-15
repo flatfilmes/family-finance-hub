@@ -8,10 +8,15 @@ import {
   Receipt,
   CreditCard,
   Gauge,
+  ShoppingCart,
+  PieChart,
+  ArrowUpDown,
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { useFinancialSummary } from "@/hooks/useFinanceData";
+import { useExpenseSummary } from "@/hooks/useExpenses";
+import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
 
@@ -28,7 +33,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 });
 
 const FUTURE_MODULES = [
-  "Compras e produtos",
   "Metas financeiras",
   "Análises e recomendações de IA",
 ];
@@ -39,6 +43,7 @@ function Dashboard() {
   const { data: members } = useMembers(family?.id);
   const { data: financial } = useFinancialProfile(family?.id);
   const summary = useFinancialSummary(family?.id);
+  const gastos = useExpenseSummary(family?.id);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
@@ -85,6 +90,43 @@ function Dashboard() {
               : `Sobra estimada: ${formatCurrency(summary.saldo)}`
           }
           loading={summary.isLoading}
+        />
+      </div>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <StatCard
+          icon={<ShoppingCart className="size-5" />}
+          label="Total gasto no mês"
+          value={formatCurrency(gastos.totalMes)}
+          hint={`${gastos.count} lançamento(s) em ${monthLabel(gastos.month)}`}
+          to="/despesas"
+          loading={gastos.isLoading}
+        />
+        <StatCard
+          icon={<PieChart className="size-5" />}
+          label="Maior categoria de gasto"
+          value={gastos.maiorCategoria ? gastos.maiorCategoria.nome : "—"}
+          hint={
+            gastos.maiorCategoria
+              ? formatCurrency(gastos.maiorCategoria.valor)
+              : "Registre despesas para ver"
+          }
+          loading={gastos.isLoading}
+        />
+        <StatCard
+          icon={<ArrowUpDown className="size-5" />}
+          label="Comparação com mês anterior"
+          value={
+            gastos.variacao === null
+              ? "—"
+              : `${gastos.variacao > 0 ? "+" : ""}${gastos.variacao.toFixed(0)}%`
+          }
+          hint={
+            gastos.totalAnterior > 0
+              ? `Mês anterior: ${formatCurrency(gastos.totalAnterior)}`
+              : "Sem gastos no mês anterior"
+          }
+          loading={gastos.isLoading}
         />
       </div>
 
@@ -165,7 +207,7 @@ function StatCard({
   label: string;
   value: string;
   hint: string;
-  to?: "/receitas" | "/contas-fixas" | "/cartoes";
+  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/despesas";
   loading?: boolean;
 }) {
   return (
