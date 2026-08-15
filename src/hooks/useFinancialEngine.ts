@@ -35,6 +35,7 @@ export function useFinancialEngine(familyId?: string) {
   const cards = useCreditCards(familyId);
   const expenses = useExpenses(familyId, { month });
   const settings = useFinancialSettings(familyId);
+  const installments = useInstallments(familyId);
 
   const percentualReserva =
     Number(settings.data?.percentual_reserva ?? DEFAULT_SETTINGS.percentual_reserva) || 0;
@@ -45,15 +46,34 @@ export function useFinancialEngine(familyId?: string) {
   const receitaVariavel = averageVariableIncome(incomes.data ?? []);
   const receitaTotal = receitaFixa + receitaVariavel;
 
+  const mesAtual = currentMonthKey();
+  const parcelas = installments.data ?? [];
+
   const contasFixas = sumRecurringExpenses(fixed.data ?? []);
-  const faturaCartoes = sumCardInvoices(expenses.data ?? []);
-  const compromissos = contasFixas + faturaCartoes;
+  /** Fatura atual: parcelas com vencimento no ciclo que vence neste mês. */
+  const faturaCartoes = sumInstallmentsForMonth(parcelas, mesAtual);
+  /** Compromisso futuro imediato: parcelas do próximo mês. */
+  const parcelasFuturas = sumInstallmentsForMonth(parcelas, addMonthsToKey(mesAtual, 1));
+  const proximosMeses = upcomingInstallmentMonths(parcelas, 3);
+  const parcelasFuturasTotal = parcelas
+    .filter((p) => p.status === "PENDENTE" && p.data_vencimento.slice(0, 7) > mesAtual)
+    .reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0);
+
+  const compromissos = contasFixas + faturaCartoes + parcelasFuturas;
 
   const gastosRealizados = (expenses.data ?? []).reduce(
     (acc, e) => acc + (Number(e.valor) || 0),
     0,
   );
-  const gastosAvulsos = gastosRealizados - faturaCartoes;
+  /** Despesas do mês que não passaram pelo cartão (o cartão entra pela fatura). */
+  const gastosAvulsos = (expenses.data ?? [])
+    .filter(
+      (e) =>
+        e.tipo_compra === "A_VISTA" &&
+        e.forma_pagamento !== "CREDITO" &&
+        !e.cartao_id,
+    )
+    .reduce((acc, e) => acc + (Number(e.valor) || 0), 0);
 
   const reserva = (receitaTotal * percentualReserva) / 100;
   const disponivel = receitaTotal - compromissos - gastosAvulsos - reserva;
@@ -64,8 +84,12 @@ export function useFinancialEngine(familyId?: string) {
   const limiteTotalCartoes = (cards.data ?? [])
     .filter((c) => c.ativo)
     .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
-  const usoCartoes = limiteTotalCartoes > 0 ? (faturaCartoes / limiteTotalCartoes) * 100 : null;
+  const usoCartoes =
+    limiteTotalCartoes > 0
+      ? ((faturaCartoes + parcelasFuturasTotal) / limiteTotalCartoes) * 100
+      : null;
   const cartaoEmAlerta = usoCartoes !== null && usoCartoes >= limiteAlertaCartao;
+
 
   const status = healthStatus({ disponivel, receita: receitaTotal, compromissos });
 
