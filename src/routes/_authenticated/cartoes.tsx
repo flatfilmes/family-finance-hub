@@ -7,6 +7,8 @@ import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
+import { useCardOverview } from "@/hooks/useCardInvoices";
+import { formatDate } from "@/lib/expenses";
 import { NoFamily } from "./receitas";
 import {
   createCreditCard,
@@ -34,6 +36,7 @@ function CartoesPage() {
   const { user } = useAuth();
   const { data: family } = useFamily();
   const { data: cards, isLoading } = useCreditCards(family?.id);
+  const overview = useCardOverview(family?.id, cards ?? []);
   const queryClient = useQueryClient();
 
   const [banco, setBanco] = useState("");
