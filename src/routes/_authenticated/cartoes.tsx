@@ -175,41 +175,103 @@ function CartoesPage() {
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
         ) : cards?.length ? (
           <ul className="mt-4 divide-y divide-border">
-            {cards.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {c.nome_cartao} · {c.banco}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Fecha dia {c.dia_fechamento} · vence dia {c.dia_vencimento}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className="text-sm font-bold">{formatCurrency(Number(c.limite))}</span>
-                  <button
-                    type="button"
-                    onClick={() => toggle.mutate({ id: c.id, ativo: !c.ativo })}
-                    className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
-                  >
-                    {c.ativo ? "Ativo" : "Inativo"}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="Remover cartão"
-                    onClick={() => remove.mutate(c.id)}
-                    className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
-                </div>
-              </li>
-            ))}
+            {cards.map((c) => {
+              const info = overview.porCartao.find((o) => o.card.id === c.id);
+              return (
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-4 py-4">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">
+                      {c.nome_cartao} · {c.banco}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Fecha dia {c.dia_fechamento} · vence dia {c.dia_vencimento}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>
+                        Limite:{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrency(Number(c.limite))}
+                        </span>
+                      </span>
+                      <span>
+                        Fatura atual:{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrency(info?.valorFaturaAtual ?? 0)}
+                        </span>
+                      </span>
+                      <span>
+                        Próximo vencimento:{" "}
+                        <span className="font-semibold text-foreground">
+                          {info?.proximoVencimento ? formatDate(info.proximoVencimento) : "—"}
+                        </span>
+                      </span>
+                      <span>
+                        Parcelas futuras:{" "}
+                        <span className="font-semibold text-foreground">
+                          {formatCurrency(info?.parcelasFuturas ?? 0)}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggle.mutate({ id: c.id, ativo: !c.ativo })}
+                      className="rounded-full border border-border px-3 py-1 text-xs font-medium text-muted-foreground hover:bg-muted"
+                    >
+                      {c.ativo ? "Ativo" : "Inativo"}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Remover cartão"
+                      onClick={() => remove.mutate(c.id)}
+                      className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">Nenhum cartão cadastrado ainda.</p>
         )}
       </Card>
+
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="text-base font-bold">Compromissos futuros</h2>
+          <p className="text-sm text-muted-foreground">
+            Fatura atual:{" "}
+            <span className="font-semibold text-foreground">
+              {formatCurrency(overview.faturaAtualTotal)}
+            </span>
+          </p>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Parcelas já compromissadas nos próximos meses.
+        </p>
+
+        {overview.isLoading ? (
+          <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
+        ) : overview.proximosMeses.some((m) => m.total > 0) ? (
+          <ul className="mt-4 grid gap-3 sm:grid-cols-3">
+            {overview.proximosMeses.map((m) => (
+              <li key={m.key} className="rounded-2xl border border-border p-4">
+                <p className="text-xs font-medium capitalize text-muted-foreground">{m.label}</p>
+                <p className="mt-1 text-lg font-bold">{formatCurrency(m.total)}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-4 text-sm text-muted-foreground">
+            Nenhuma parcela futura registrada. Compras parceladas no cartão aparecem aqui
+            automaticamente.
+          </p>
+        )}
+      </Card>
+
     </div>
   );
 }
