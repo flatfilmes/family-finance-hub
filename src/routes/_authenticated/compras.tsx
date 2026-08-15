@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
+import { useViewMode } from "@/components/view-mode";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
@@ -74,6 +75,8 @@ function Compras() {
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const view = useViewMode();
+  const membroResponsavel = view.isAdmin ? memberId : view.myMemberId;
 
   const total = purchaseTotal(items);
 
@@ -95,7 +98,7 @@ function Compras() {
       createPurchase({
         purchase: {
           family_id: family!.id,
-          member_id: memberId || null,
+          member_id: membroResponsavel || null,
           created_by: user?.id ?? null,
           estabelecimento: estabelecimento.trim(),
           data_compra: dataCompra,
@@ -163,7 +166,7 @@ function Compras() {
               toast.error("Adicione ao menos um produto.");
               return;
             }
-            if (!memberId) {
+            if (!membroResponsavel) {
               toast.error("Selecione quem fez a compra.");
               return;
             }
@@ -191,9 +194,10 @@ function Compras() {
             </Field>
             <MemberSelect
               familyId={family.id}
-              value={memberId}
-              onChange={setMemberId}
+              value={membroResponsavel}
+              onChange={(v) => view.isAdmin && setMemberId(v)}
               label="Quem comprou"
+              disabled={!view.isAdmin}
             />
             <Field label="Forma de pagamento">
               <select

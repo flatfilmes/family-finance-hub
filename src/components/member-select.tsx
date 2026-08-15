@@ -6,14 +6,20 @@ type Props = {
   value: string;
   onChange: (value: string) => void;
   label?: string;
+  disabled?: boolean;
 };
 
 /** Seleção do membro responsável por um registro financeiro (opcional). */
-export function MemberSelect({ familyId, value, onChange, label = "Responsável" }: Props) {
+export function MemberSelect({ familyId, value, onChange, label = "Responsável", disabled = false }: Props) {
   const { data: members } = useMembers(familyId);
   return (
     <Field label={label}>
-      <select className={inputClass} value={value} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className={inputClass}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
         <option value="">Família (sem responsável)</option>
         {(members ?? []).map((m) => (
           <option key={m.id} value={m.id}>

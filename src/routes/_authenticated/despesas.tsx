@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/finance";
 import { clearInstallments, generateInstallments } from "@/lib/card-invoices";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { MemberFilter } from "@/components/member-filter";
+import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 
 import {
   PAYMENT_METHOD_LABELS,
@@ -86,15 +87,17 @@ function DespesasPage() {
   const [month, setMonth] = useState(currentMonth());
   const [categoriaFiltro, setCategoriaFiltro] = useState("");
   const [membroFiltro, setMembroFiltro] = useState("");
+  const view = useViewMode();
+  const escopoMembro = view.scoped(membroFiltro);
   const [cartaoFiltro, setCartaoFiltro] = useState("");
   const filters = useMemo(
     () => ({
       month: month || undefined,
       categoriaId: categoriaFiltro || undefined,
-      memberId: membroFiltro || undefined,
+      memberId: escopoMembro || undefined,
       cartaoId: cartaoFiltro || undefined,
     }),
-    [month, categoriaFiltro, membroFiltro, cartaoFiltro],
+    [month, categoriaFiltro, escopoMembro, cartaoFiltro],
   );
   const { data: expenses, isLoading } = useExpenses(family?.id, filters);
 
@@ -312,8 +315,9 @@ function DespesasPage() {
           </Field>
           <MemberSelect
             familyId={family?.id}
-            value={form.member_id}
-            onChange={(v) => set("member_id", v)}
+            value={view.isAdmin ? form.member_id : view.myMemberId}
+            onChange={(v) => set("member_id", view.isAdmin ? v : view.myMemberId)}
+            disabled={!view.isAdmin}
           />
           <Field label="Forma de pagamento">
             <select
@@ -414,7 +418,13 @@ function DespesasPage() {
               ))}
             </select>
           </Field>
-          <MemberFilter familyId={family.id} value={membroFiltro} onChange={setMembroFiltro} />
+          {view.isAdmin ? (
+            <MemberFilter familyId={family.id} value={membroFiltro} onChange={setMembroFiltro} />
+          ) : (
+            <div className="flex items-end">
+              <ViewModeSwitch mode={view.mode} onChange={view.setMode} canSwitch={false} />
+            </div>
+          )}
           <Field label="Cartão">
             <select
               className={inputClass}

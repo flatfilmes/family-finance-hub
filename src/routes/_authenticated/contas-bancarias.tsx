@@ -4,6 +4,7 @@ import { Card, PageHeader } from "@/components/page-header";
 import { useFamily, useMembers } from "@/hooks/useFamilyData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
+import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import { formatCurrency } from "@/lib/finance";
 import { BANK_ACCOUNT_TYPE_LABELS } from "@/lib/bank-accounts";
 import { NoFamily } from "./receitas";
@@ -31,10 +32,11 @@ function ContasBancariasPage() {
   const { data: members } = useMembers(family?.id);
   const { data: accounts, isLoading } = useBankAccounts(family?.id);
   const [filtroMembro, setFiltroMembro] = useState("");
+  const view = useViewMode();
 
   if (!family) return <NoFamily />;
 
-  const lista = filterByMember(accounts ?? [], filtroMembro);
+  const lista = filterByMember(accounts ?? [], view.scoped(filtroMembro));
   const saldoTotal = lista
     .filter((a) => a.ativo)
     .reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
@@ -57,9 +59,13 @@ function ContasBancariasPage() {
             <p className="text-xs font-semibold text-muted-foreground">Saldo somado (contas ativas)</p>
             <p className="mt-1 text-2xl font-extrabold">{formatCurrency(saldoTotal)}</p>
           </div>
-          <div className="w-48">
-            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
-          </div>
+          {view.isAdmin ? (
+            <div className="w-48">
+              <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+            </div>
+          ) : (
+            <ViewModeSwitch mode={view.mode} onChange={view.setMode} canSwitch={false} />
+          )}
         </div>
       </Card>
 

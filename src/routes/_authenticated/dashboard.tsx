@@ -18,15 +18,21 @@ import {
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
-import { useFinancialSummary } from "@/hooks/useFinanceData";
+import { useFinancialSummary, useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useCardOverview } from "@/hooks/useCardInvoices";
+import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
+import { filterByMember } from "@/components/member-filter";
+import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
 import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -54,10 +60,13 @@ function Dashboard() {
   const gastos = useExpenseSummary(family?.id);
   const orcamento = useBudgetProgress(family?.id);
   const [filtroMembro, setFiltroMembro] = useState("");
-  const engine = useFinancialEngine(family?.id, filtroMembro);
+  const view = useViewMode();
+  const escopo = view.scoped(filtroMembro);
+  const engine = useFinancialEngine(family?.id, escopo);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
+  const nomeEscopo = (members ?? []).find((m) => m.id === escopo)?.nome;
 
   return (
     <div>
@@ -74,13 +83,35 @@ function Dashboard() {
 
       <section className="mb-6">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-lg font-bold tracking-tight">
-            {filtroMembro ? "Situação Financeira da pessoa" : "Minha Situação Financeira"}
-          </h2>
-          <div className="w-48">
-            <MemberFilter familyId={family?.id} value={filtroMembro} onChange={setFiltroMembro} />
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">
+              {escopo
+                ? `Situação financeira de ${nomeEscopo ?? "quem está logado"}`
+                : "Situação financeira da família"}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Seu perfil: {MEMBER_PROFILE_LABELS[view.tipo]}
+              {view.canSwitchView ? " · você pode alternar entre a visão da família e a sua." : " · você vê apenas os seus dados."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <ViewModeSwitch
+              mode={view.mode}
+              onChange={(m) => {
+                view.setMode(m);
+                if (m === "minha") setFiltroMembro("");
+              }}
+              canSwitch={view.canSwitchView}
+            />
+            {view.canSwitchView && view.mode === "familia" && (
+              <div className="w-48">
+                <MemberFilter familyId={family?.id} value={filtroMembro} onChange={setFiltroMembro} />
+              </div>
+            )}
           </div>
         </div>
+
+
 
         {engine.semDados && !engine.isLoading ? (
           <Card>
@@ -203,6 +234,9 @@ function Dashboard() {
                 loading={engine.isLoading}
               />
             </div>
+
+            <CapacidadeCartoes familyId={family?.id} memberId={escopo} />
+
 
             <Card className="mt-4">
               <div className="flex items-center gap-3">
@@ -473,7 +507,90 @@ function Dashboard() {
   );
 }
 
+/**
+ * Capacidade de pagamento dos cartões:
+ * soma das faturas abertas x saldo disponível nas contas bancárias.
+ */
+function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefined; memberId: string }) {
+  const { data: cards } = useCreditCards(familyId);
+  const { data: accounts } = useBankAccounts(familyId);
+  const cartoes = filterByMember(cards ?? [], memberId);
+  const overview = useCardOverview(familyId, cartoes);
+
+  const faturas = overview.porCartao.reduce((acc, o) => acc + o.valorFaturaAtual, 0);
+  const saldo = filterByMember(accounts ?? [], memberId)
+    .filter((a) => a.ativo)
+    .reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
+
+  const seguro = saldo >= faturas;
+  const cobertura = faturas > 0 ? Math.min(100, (saldo / faturas) * 100) : 100;
+
+  return (
+    <Card className="mt-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+            <CreditCard className="size-5" />
+          </span>
+          <div>
+            <h3 className="text-base font-bold">Capacidade de pagamento dos cartões</h3>
+            <p className="text-xs text-muted-foreground">
+              Faturas abertas comparadas ao saldo das contas bancárias
+            </p>
+          </div>
+        </div>
+        <span
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+            seguro
+              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+              : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
+          }`}
+        >
+          <span className={`size-2 rounded-full ${seguro ? "bg-emerald-500" : "bg-amber-500"}`} />
+          {seguro ? "Seguro" : "Atenção"}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">Faturas abertas</p>
+          <p className="mt-1 text-xl font-extrabold">{formatCurrency(faturas)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">Saldo bancário</p>
+          <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo)}</p>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground">Diferença</p>
+          <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo - faturas)}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className={`h-full rounded-full ${seguro ? "bg-emerald-500" : "bg-amber-500"}`}
+          style={{ width: `${cobertura}%` }}
+        />
+      </div>
+
+      {overview.porCartao.length > 0 && (
+        <ul className="mt-4 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+          {overview.porCartao.map((o) => (
+            <li key={o.card.id}>
+              {o.card.banco} · {o.card.nome_cartao}:{" "}
+              <span className="font-semibold text-foreground">
+                {formatCurrency(o.valorFaturaAtual)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
 function StatCard({
+
   icon,
   label,
   value,
