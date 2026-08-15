@@ -86,8 +86,8 @@ export async function createFamily(input: { nome: string; ownerId: string; owner
 
 export const ACTIVE_FAMILY_KEY = "ff.active-family";
 
-export function isDemoFamily(family?: { nome_da_familia: string } | null) {
-  return !!family && /demonstra/i.test(family.nome_da_familia);
+export function isDemoFamily(family?: { is_demo?: boolean | null } | null) {
+  return !!family?.is_demo;
 }
 
 export async function fetchMyFamilies() {

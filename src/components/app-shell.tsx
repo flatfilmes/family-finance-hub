@@ -154,7 +154,7 @@ function FamilySwitcher() {
       </select>
       {isDemoFamily(current) && (
         <p className="mt-2 rounded-lg bg-amber-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-          Ambiente de demonstração — dados fictícios
+          Modo Demonstração — dados fictícios
         </p>
       )}
     </div>

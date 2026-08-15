@@ -239,6 +239,41 @@ export type Database = {
           },
         ]
       }
+      demo_settings: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          family_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_settings_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: true
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       expense_categories: {
         Row: {
           ativo: boolean
@@ -430,6 +465,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_demo: boolean
           nome_da_familia: string
           owner_id: string
           updated_at: string
@@ -437,6 +473,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          is_demo?: boolean
           nome_da_familia: string
           owner_id: string
           updated_at?: string
@@ -444,6 +481,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          is_demo?: boolean
           nome_da_familia?: string
           owner_id?: string
           updated_at?: string
@@ -1075,6 +1113,7 @@ export type Database = {
         Args: { _family_id: string; _member_id: string; _user_id: string }
         Returns: boolean
       }
+      delete_demo_data: { Args: never; Returns: number }
       is_family_admin: {
         Args: { _family_id: string; _user_id: string }
         Returns: boolean
