@@ -108,3 +108,9 @@ export function healthStatus(input: {
   if (percentual > 60) return "AMARELO";
   return "VERDE";
 }
+
+export const HEALTH_MESSAGES: Record<HealthStatus, string> = {
+  VERDE: "Suas finanças estão dentro do planejado.",
+  AMARELO: "Atenção: sua margem financeira está reduzida.",
+  VERMELHO: "Risco financeiro: suas despesas estão acima da sua capacidade.",
+};
