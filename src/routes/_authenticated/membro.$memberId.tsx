@@ -81,8 +81,11 @@ function MembroPage() {
   const { data: purchases } = usePurchases(family?.id);
   const { data: expenses } = useExpenses(family?.id, { month });
   const { data: categories } = useExpenseCategories();
+  const overview = useCardOverview(family?.id, cards ?? []);
+  const engine = useFinancialEngine(family?.id, memberId);
 
   const [tab, setTab] = useState<Tab>("Resumo");
+
 
   if (!family) return <NoFamily />;
 
