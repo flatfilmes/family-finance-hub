@@ -60,10 +60,13 @@ function Dashboard() {
   const gastos = useExpenseSummary(family?.id);
   const orcamento = useBudgetProgress(family?.id);
   const [filtroMembro, setFiltroMembro] = useState("");
-  const engine = useFinancialEngine(family?.id, filtroMembro);
+  const view = useViewMode();
+  const escopo = view.scoped(filtroMembro);
+  const engine = useFinancialEngine(family?.id, escopo);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
+  const nomeEscopo = (members ?? []).find((m) => m.id === escopo)?.nome;
 
   return (
     <div>
@@ -80,13 +83,35 @@ function Dashboard() {
 
       <section className="mb-6">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
-          <h2 className="text-lg font-bold tracking-tight">
-            {filtroMembro ? "Situação Financeira da pessoa" : "Minha Situação Financeira"}
-          </h2>
-          <div className="w-48">
-            <MemberFilter familyId={family?.id} value={filtroMembro} onChange={setFiltroMembro} />
+          <div>
+            <h2 className="text-lg font-bold tracking-tight">
+              {escopo
+                ? `Situação financeira de ${nomeEscopo ?? "quem está logado"}`
+                : "Situação financeira da família"}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Seu perfil: {MEMBER_PROFILE_LABELS[view.tipo]}
+              {view.canSwitchView ? " · você pode alternar entre a visão da família e a sua." : " · você vê apenas os seus dados."}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <ViewModeSwitch
+              mode={view.mode}
+              onChange={(m) => {
+                view.setMode(m);
+                if (m === "minha") setFiltroMembro("");
+              }}
+              canSwitch={view.canSwitchView}
+            />
+            {view.canSwitchView && view.mode === "familia" && (
+              <div className="w-48">
+                <MemberFilter familyId={family?.id} value={filtroMembro} onChange={setFiltroMembro} />
+              </div>
+            )}
           </div>
         </div>
+
+
 
         {engine.semDados && !engine.isLoading ? (
           <Card>
