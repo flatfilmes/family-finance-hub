@@ -27,29 +27,43 @@ export function useFinancialSettings(familyId?: string) {
   });
 }
 
-/** Motor de cálculo financeiro: transforma os dados cadastrados em capacidade real de gasto. */
-export function useFinancialEngine(familyId?: string) {
+/**
+ * Motor de cálculo financeiro: transforma os dados cadastrados em capacidade real de gasto.
+ * `memberId` vazio = visão consolidada da família; preenchido = visão individual do membro.
+ */
+export function useFinancialEngine(familyId?: string, memberId = "") {
   const month = currentMonth();
   const incomes = useIncomes(familyId);
   const fixed = useFixedExpenses(familyId);
   const cards = useCreditCards(familyId);
-  const expenses = useExpenses(familyId, { month });
+  const expenses = useExpenses(familyId, { month, memberId: memberId || undefined });
   const settings = useFinancialSettings(familyId);
   const installments = useInstallments(familyId);
+  const invoices = useCardInvoices(familyId);
 
   const percentualReserva =
     Number(settings.data?.percentual_reserva ?? DEFAULT_SETTINGS.percentual_reserva) || 0;
   const limiteAlertaCartao =
     Number(settings.data?.limite_alerta_cartao ?? DEFAULT_SETTINGS.limite_alerta_cartao) || 0;
 
-  const receitaFixa = sumFixedIncome(incomes.data ?? []);
-  const receitaVariavel = averageVariableIncome(incomes.data ?? []);
+  const receitasLista = filterByMember(incomes.data ?? [], memberId);
+  const contasLista = filterByMember(fixed.data ?? [], memberId);
+  const cartoesLista = filterByMember(cards.data ?? [], memberId);
+
+  const receitaFixa = sumFixedIncome(receitasLista);
+  const receitaVariavel = averageVariableIncome(receitasLista);
   const receitaTotal = receitaFixa + receitaVariavel;
 
   const mesAtual = currentMonthKey();
-  const parcelas = installments.data ?? [];
+  const todasParcelas = installments.data ?? [];
+  const faturasDoMembro = (invoices.data ?? []).filter((i) =>
+    cartoesLista.some((c) => c.id === i.credit_card_id),
+  );
+  const parcelas = memberId
+    ? todasParcelas.filter((p) => faturasDoMembro.some((i) => i.id === p.card_invoice_id))
+    : todasParcelas;
 
-  const contasFixas = sumRecurringExpenses(fixed.data ?? []);
+  const contasFixas = sumRecurringExpenses(contasLista);
   /** Fatura atual: parcelas com vencimento no ciclo que vence neste mês. */
   const faturaCartoes = sumInstallmentsForMonth(parcelas, mesAtual);
   /** Compromisso futuro imediato: parcelas do próximo mês. */
