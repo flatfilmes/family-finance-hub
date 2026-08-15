@@ -14,6 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      budgets: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          created_by: string | null
+          family_id: string
+          id: string
+          periodo: Database["public"]["Enums"]["budget_period"]
+          updated_at: string
+          valor_planejado: number
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          id?: string
+          periodo?: Database["public"]["Enums"]["budget_period"]
+          updated_at?: string
+          valor_planejado?: number
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          id?: string
+          periodo?: Database["public"]["Enums"]["budget_period"]
+          updated_at?: string
+          valor_planejado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budgets_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           ativo: boolean
@@ -421,6 +469,7 @@ export type Database = {
       }
     }
     Enums: {
+      budget_period: "MENSAL"
       expense_category:
         | "ENERGIA"
         | "AGUA"
@@ -589,6 +638,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      budget_period: ["MENSAL"],
       expense_category: [
         "ENERGIA",
         "AGUA",
