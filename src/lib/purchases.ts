@@ -1,5 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { generateInstallments } from "@/lib/card-invoices";
+import { nextChargeDate, type ExpenseRecurrence } from "@/lib/recurring-expenses";
+import type { CreditCard } from "@/lib/finance";
+
 
 export type Purchase = Database["public"]["Tables"]["purchases"]["Row"];
 export type PurchaseInsert = Database["public"]["Tables"]["purchases"]["Insert"];
