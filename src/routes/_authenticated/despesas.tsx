@@ -162,6 +162,7 @@ function DespesasPage() {
       toast.success(editingId ? "Despesa atualizada." : "Despesa registrada.");
       setForm(emptyForm());
       setEditingId(null);
+      setShowForm(false);
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -182,6 +183,7 @@ function DespesasPage() {
 
   function startEdit(e: Expense) {
     setEditingId(e.id);
+    setShowForm(true);
     setForm({
       descricao: e.descricao,
       valor: String(e.valor ?? ""),
