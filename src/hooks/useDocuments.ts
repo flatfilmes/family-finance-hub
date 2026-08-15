@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { fetchDocuments, fetchImportItems, fetchPurchaseImports } from "@/lib/documents";
+import { fetchDocumentExtraction, fetchDocuments, fetchExtractionItems, fetchImportItems, fetchPurchaseImports } from "@/lib/documents";
 
 export function useDocuments(familyId?: string) {
   return useQuery({
@@ -22,5 +22,21 @@ export function useImportItems(importId?: string) {
     queryKey: ["purchase-import-items", importId],
     queryFn: () => fetchImportItems(importId!),
     enabled: !!importId,
+  });
+}
+
+export function useDocumentExtraction(documentId?: string) {
+  return useQuery({
+    queryKey: ["document-extraction", documentId],
+    queryFn: () => fetchDocumentExtraction(documentId!),
+    enabled: !!documentId,
+  });
+}
+
+export function useExtractionItems(extractionId?: string) {
+  return useQuery({
+    queryKey: ["document-extraction-items", extractionId],
+    queryFn: () => fetchExtractionItems(extractionId!),
+    enabled: !!extractionId,
   });
 }

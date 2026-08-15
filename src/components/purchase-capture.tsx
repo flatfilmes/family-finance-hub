@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Eye, FileText, ImagePlus, PencilLine, Plus, QrCode, Trash2, Upload } from "lucide-react";
+import { Camera, Eye, FileText, ImagePlus, PencilLine, Plus, QrCode, ScanLine, Trash2, Upload } from "lucide-react";
 import { Card, Field, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
-import { useDocuments, useImportItems, usePurchaseImports } from "@/hooks/useDocuments";
+import {
+  useDocumentExtraction,
+  useDocuments,
+  useExtractionItems,
+  useImportItems,
+  usePurchaseImports,
+} from "@/hooks/useDocuments";
 import { useExpenseCategories } from "@/hooks/useExpenses";
 import { usePurchases } from "@/hooks/usePurchases";
 import { filterByMember } from "@/components/member-filter";
@@ -20,6 +26,7 @@ import {
   confirmDocumentPurchase,
   deleteDocument,
   getDocumentUrl,
+  processDocumentPdf,
   rejectDocument,
   uploadDocument,
   type DocumentType,
@@ -135,16 +142,32 @@ function EnvioNotaFiscal({
   const [file, setFile] = useState<File | null>(null);
 
   const enviar = useMutation({
-    mutationFn: () =>
-      uploadDocument({
+    mutationFn: async () => {
+      const arquivo = file!;
+      const doc = await uploadDocument({
         familyId,
         memberId: memberId || null,
         createdBy: createdBy ?? null,
-        file: file!,
+        file: arquivo,
         tipo: MODOS[modo].tipo,
-      }),
-    onSuccess: () => {
-      toast.success("Nota enviada. Ela ficará em “Notas pendentes” aguardando processamento.");
+      });
+      const ehPdf = arquivo.type === "application/pdf" || /\.pdf$/i.test(arquivo.name);
+      if (!ehPdf) return { doc, lido: false };
+      try {
+        await processDocumentPdf({ doc, file: arquivo });
+        return { doc, lido: true };
+      } catch {
+        return { doc, lido: false, erro: true };
+      }
+    },
+    onSuccess: (r) => {
+      toast.success(
+        r.lido
+          ? "PDF lido. Confira a sugestão de compra em “Notas pendentes”."
+          : r.erro
+            ? "Nota enviada, mas não foi possível ler o PDF. Revise manualmente."
+            : "Nota enviada. Ela ficará em “Notas pendentes” aguardando revisão.",
+      );
       setFile(null);
       void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
     },
@@ -161,9 +184,10 @@ function EnvioNotaFiscal({
     <div className="mt-4 rounded-2xl border border-border p-4">
       <p className="text-sm font-bold">Enviar nota fiscal</p>
       <p className="mt-1 text-xs text-muted-foreground">
-        O arquivo fica guardado com segurança na pasta da família. A leitura automática dos produtos
-        chega em uma próxima etapa.
+        O arquivo fica guardado com segurança na pasta da família. Em PDF, o sistema já lê
+        estabelecimento, data, valor e produtos e monta uma sugestão de compra para você conferir.
       </p>
+
 
       <div className="mt-3 flex flex-wrap gap-2">
         {(Object.keys(MODOS) as ModoEnvio[]).map((m) => (
@@ -241,19 +265,36 @@ export function DocumentosSection({
 
   const docs = filterByMember(documents ?? [], escopo);
   const drafts = filterByMember(imports ?? [], escopo);
-  const pendentes = docs.filter((d) => d.status === "ENVIADO" || d.status === "PROCESSADO");
+  const pendentes = docs.filter(
+    (d) =>
+      d.status === "ENVIADO" ||
+      d.status === "PROCESSADO" ||
+      d.status === "PROCESSANDO" ||
+      d.status === "ERRO",
+  );
   const processados = docs.filter((d) => d.status === "CONFIRMADO" || d.status === "REJEITADO");
 
   const invalidar = () => {
     for (const key of ["documents", "purchase-imports", "purchases", "bank-accounts", "expenses"]) {
       void queryClient.invalidateQueries({ queryKey: [key, familyId] });
     }
+    void queryClient.invalidateQueries({ queryKey: ["document-extraction"] });
+    void queryClient.invalidateQueries({ queryKey: ["document-extraction-items"] });
   };
 
   const remove = useMutation({
     mutationFn: (doc: { id: string; url_arquivo: string | null }) => deleteDocument(doc),
     onSuccess: () => {
       toast.success("Documento removido.");
+      invalidar();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reprocessar = useMutation({
+    mutationFn: (doc: FinancialDocument) => processDocumentPdf({ doc }),
+    onSuccess: () => {
+      toast.success("PDF lido novamente.");
       invalidar();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -268,6 +309,7 @@ export function DocumentosSection({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const abrirArquivo = async (path: string) => {
     try {
@@ -320,6 +362,18 @@ export function DocumentosSection({
                     Ver documento
                   </button>
                 )}
+                {podeLancar && /\.pdf$/i.test(d.nome_arquivo ?? "") && (
+                  <button
+                    type="button"
+                    disabled={reprocessar.isPending}
+                    onClick={() => reprocessar.mutate(d)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-60"
+                  >
+                    <ScanLine className="size-3.5" />
+                    {reprocessar.isPending ? "Lendo..." : "Ler PDF"}
+                  </button>
+                )}
+
                 {podeLancar && (
                   <button
                     type="button"
@@ -434,6 +488,8 @@ function RevisarDocumento({
   onConfirmed: () => void;
 }) {
   const { data: itensExtraidos } = useImportItems(draft?.id);
+  const { data: extracao } = useDocumentExtraction(doc.id);
+  const { data: itensPdf } = useExtractionItems(extracao?.id);
   const { data: cards } = useCreditCards(familyId);
   const { data: contas } = useBankAccounts(familyId);
   const { data: categorias } = useExpenseCategories();
@@ -462,6 +518,32 @@ function RevisarDocumento({
       })),
     );
   }, [itensExtraidos]);
+
+  // Preenchimento automático com o que foi lido do PDF.
+  useEffect(() => {
+    if (!extracao) return;
+    if (extracao.estabelecimento) setEstabelecimento((v) => v || extracao.estabelecimento!);
+    if (extracao.data_compra) setDataCompra(extracao.data_compra);
+    if (extracao.member_id) setResponsavel((v) => v || extracao.member_id!);
+    if (extracao.forma_pagamento && FORMAS_REVISAO.includes(extracao.forma_pagamento)) {
+      setFormaPagamento(extracao.forma_pagamento);
+    }
+  }, [extracao]);
+
+  useEffect(() => {
+    if (!itensPdf || itensPdf.length === 0) return;
+    setItems(
+      itensPdf.map((i) => ({
+        product_id: "",
+        descricao_produto: i.descricao_produto,
+        quantidade: String(Number(i.quantidade) || 1),
+        unidade: i.unidade,
+        valor_unitario: String(Number(i.valor_unitario) || 0),
+        categoria_id: i.categoria_sugerida ?? "",
+      })),
+    );
+  }, [itensPdf]);
+
 
   const total = items.reduce(
     (acc, i) => acc + (Number(i.quantidade) || 0) * (Number(i.valor_unitario) || 0),
@@ -519,6 +601,16 @@ function RevisarDocumento({
           </button>
         )}
       </div>
+
+      {extracao && (
+        <p className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
+          {Number(extracao.valor_total) > 0
+            ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
+            : ""}
+          . Confira e ajuste o que precisar antes de confirmar.
+        </p>
+      )}
 
       <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
       <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

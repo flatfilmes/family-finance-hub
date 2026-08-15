@@ -3,15 +3,19 @@ import type { Database } from "@/integrations/supabase/types";
 import { createPurchase, itemTotal, type NewPurchaseItem, type PurchaseInsert } from "@/lib/purchases";
 import type { ExpenseRecurrence } from "@/lib/recurring-expenses";
 import type { CreditCard } from "@/lib/finance";
+import { readNotaFiscalPdf } from "@/lib/pdf-extract";
 
 export type FinancialDocument = Database["public"]["Tables"]["documents"]["Row"];
 export type FinancialDocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
 export type PurchaseImport = Database["public"]["Tables"]["purchase_imports"]["Row"];
 export type PurchaseImportItem = Database["public"]["Tables"]["purchase_import_items"]["Row"];
+export type DocumentExtraction = Database["public"]["Tables"]["document_extractions"]["Row"];
+export type DocumentExtractionItem = Database["public"]["Tables"]["document_extraction_items"]["Row"];
 
 export type DocumentType = Database["public"]["Enums"]["document_type"];
 export type DocumentStatus = Database["public"]["Enums"]["document_status"];
 export type PurchaseImportStatus = Database["public"]["Enums"]["purchase_import_status"];
+
 
 export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
   NOTA_FISCAL: "Nota fiscal",
@@ -247,4 +251,92 @@ export async function confirmDocumentPurchase(input: {
   if (docError) throw docError;
 
   return purchase;
+}
+
+/** Baixa o arquivo guardado no bucket privado. */
+export async function downloadDocumentFile(path: string): Promise<Blob> {
+  const { data, error } = await supabase.storage.from(DOCUMENTS_BUCKET).download(path);
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchDocumentExtraction(documentId: string) {
+  const { data, error } = await supabase
+    .from("document_extractions")
+    .select("*")
+    .eq("document_id", documentId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function fetchExtractionItems(extractionId: string) {
+  const { data, error } = await supabase
+    .from("document_extraction_items")
+    .select("*")
+    .eq("extraction_id", extractionId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Primeira camada de leitura automática: lê o PDF da nota fiscal,
+ * guarda a extração (dados da compra + produtos) e deixa o documento
+ * com status PROCESSADO, pronto para a revisão humana.
+ */
+export async function processDocumentPdf(input: {
+  doc: Pick<FinancialDocument, "id" | "family_id" | "member_id" | "url_arquivo" | "nome_arquivo">;
+  file?: Blob | undefined;
+}) {
+  const { doc } = input;
+  await supabase.from("documents").update({ status: "PROCESSANDO" }).eq("id", doc.id);
+
+  try {
+    const arquivo = input.file ?? (doc.url_arquivo ? await downloadDocumentFile(doc.url_arquivo) : null);
+    if (!arquivo) throw new Error("Arquivo do documento não encontrado.");
+
+    const lido = await readNotaFiscalPdf(arquivo);
+
+    // Uma extração por documento: substitui a leitura anterior.
+    await supabase.from("document_extractions").delete().eq("document_id", doc.id);
+
+    const { data: extraction, error } = await supabase
+      .from("document_extractions")
+      .insert({
+        document_id: doc.id,
+        family_id: doc.family_id,
+        member_id: doc.member_id,
+        estabelecimento: lido.estabelecimento,
+        data_compra: lido.data_compra,
+        valor_total: lido.valor_total,
+        forma_pagamento: lido.forma_pagamento,
+        dados_brutos_json: { linhas: lido.linhas, arquivo: doc.nome_arquivo },
+      })
+      .select()
+      .single();
+    if (error) throw error;
+
+    if (lido.items.length > 0) {
+      const { error: itemsError } = await supabase.from("document_extraction_items").insert(
+        lido.items.map((i) => ({
+          extraction_id: extraction.id,
+          descricao_produto: i.descricao_produto,
+          quantidade: i.quantidade,
+          unidade: i.unidade,
+          valor_unitario: i.valor_unitario,
+          valor_total: i.valor_total,
+        })),
+      );
+      if (itemsError) throw itemsError;
+    }
+
+    await supabase.from("documents").update({ status: "PROCESSADO" }).eq("id", doc.id);
+    return { extraction, items: lido.items };
+  } catch (e) {
+    await supabase.from("documents").update({ status: "ERRO" }).eq("id", doc.id);
+    throw e instanceof Error ? e : new Error("Não foi possível ler o PDF.");
+  }
 }
