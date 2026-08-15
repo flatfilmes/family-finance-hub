@@ -529,7 +529,8 @@ function UltimasMovimentacoes({
   memberId: string;
 }) {
   const { data, isLoading } = useTransactions(familyId);
-  const lista = filterByMember(data ?? [], memberId).slice(0, 8);
+  const rows: Transaction[] = data ?? [];
+  const lista = filterByMember(rows, memberId).slice(0, 8);
 
   return (
     <Card className="mt-4">
