@@ -64,7 +64,7 @@ export async function uploadDocument(input: {
   const path = documentPath(input.familyId, input.file.name || "nota-fiscal");
   const { error: uploadError } = await supabase.storage
     .from(DOCUMENTS_BUCKET)
-    .upload(path, input.file, { contentType: input.file.type || undefined, upsert: false });
+    .upload(path, input.file, { contentType: input.file.type || "application/octet-stream", upsert: false });
   if (uploadError) throw uploadError;
 
   const { data, error } = await supabase
