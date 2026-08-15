@@ -19,6 +19,7 @@ import { Route as AuthenticatedContasFixasRouteImport } from './routes/_authenti
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedMinhaFamiliaRouteImport } from './routes/_authenticated/minha-familia'
+import { Route as AuthenticatedOrcamentoRouteImport } from './routes/_authenticated/orcamento'
 import { Route as AuthenticatedPerfilFinanceiroRouteImport } from './routes/_authenticated/perfil-financeiro'
 import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticated/receitas'
 
@@ -74,6 +75,11 @@ const AuthenticatedMinhaFamiliaRoute =
     path: '/minha-familia',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedOrcamentoRoute = AuthenticatedOrcamentoRouteImport.update({
+  id: '/orcamento',
+  path: '/orcamento',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPerfilFinanceiroRoute =
   AuthenticatedPerfilFinanceiroRouteImport.update({
     id: '/perfil-financeiro',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
+  '/orcamento': typeof AuthenticatedOrcamentoRoute
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/receitas': typeof AuthenticatedReceitasRoute
 }
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/despesas': typeof AuthenticatedDespesasRoute
   '/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
+  '/orcamento': typeof AuthenticatedOrcamentoRoute
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/receitas': typeof AuthenticatedReceitasRoute
 }
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
+  '/_authenticated/orcamento': typeof AuthenticatedOrcamentoRoute
   '/_authenticated/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/despesas'
     | '/minha-familia'
+    | '/orcamento'
     | '/perfil-financeiro'
     | '/receitas'
   fileRoutesByTo: FileRoutesByTo
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/despesas'
     | '/minha-familia'
+    | '/orcamento'
     | '/perfil-financeiro'
     | '/receitas'
   id:
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/despesas'
     | '/_authenticated/minha-familia'
+    | '/_authenticated/orcamento'
     | '/_authenticated/perfil-financeiro'
     | '/_authenticated/receitas'
   fileRoutesById: FileRoutesById
@@ -249,6 +261,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMinhaFamiliaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/orcamento': {
+      id: '/_authenticated/orcamento'
+      path: '/orcamento'
+      fullPath: '/orcamento'
+      preLoaderRoute: typeof AuthenticatedOrcamentoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/perfil-financeiro': {
       id: '/_authenticated/perfil-financeiro'
       path: '/perfil-financeiro'
@@ -273,6 +292,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedMinhaFamiliaRoute: typeof AuthenticatedMinhaFamiliaRoute
+  AuthenticatedOrcamentoRoute: typeof AuthenticatedOrcamentoRoute
   AuthenticatedPerfilFinanceiroRoute: typeof AuthenticatedPerfilFinanceiroRoute
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
 }
@@ -284,6 +304,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedMinhaFamiliaRoute: AuthenticatedMinhaFamiliaRoute,
+  AuthenticatedOrcamentoRoute: AuthenticatedOrcamentoRoute,
   AuthenticatedPerfilFinanceiroRoute: AuthenticatedPerfilFinanceiroRoute,
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
 }

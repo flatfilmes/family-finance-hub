@@ -14,6 +14,7 @@ import {
   Receipt,
   CreditCard,
   ShoppingCart,
+  Target,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/despesas", label: "Despesas", icon: ShoppingCart },
   { to: "/contas-fixas", label: "Contas Fixas", icon: Receipt },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
+  { to: "/orcamento", label: "Orçamento Familiar", icon: Target },
   { to: "/minha-familia", label: "Minha Família", icon: Users },
   { to: "/perfil-financeiro", label: "Perfil Financeiro", icon: Wallet },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
