@@ -1,12 +1,18 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Camera, Eye, FileText, ImagePlus, PencilLine, Plus, QrCode, Trash2, Upload } from "lucide-react";
+import { Camera, Eye, FileText, ImagePlus, PencilLine, Plus, QrCode, ScanLine, Trash2, Upload } from "lucide-react";
 import { Card, Field, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
-import { useDocuments, useImportItems, usePurchaseImports } from "@/hooks/useDocuments";
+import {
+  useDocumentExtraction,
+  useDocuments,
+  useExtractionItems,
+  useImportItems,
+  usePurchaseImports,
+} from "@/hooks/useDocuments";
 import { useExpenseCategories } from "@/hooks/useExpenses";
 import { usePurchases } from "@/hooks/usePurchases";
 import { filterByMember } from "@/components/member-filter";
