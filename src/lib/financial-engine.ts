@@ -110,7 +110,7 @@ export function healthStatus(input: {
 }
 
 export const HEALTH_MESSAGES: Record<HealthStatus, string> = {
-  VERDE: "Suas finanças estão dentro do planejado.",
-  AMARELO: "Atenção: sua margem financeira está reduzida.",
-  VERMELHO: "Risco financeiro: suas despesas estão acima da sua capacidade.",
+  VERDE: "Suas finanças estão equilibradas.",
+  AMARELO: "Atenção: sua margem financeira está ficando reduzida.",
+  VERMELHO: "Alerta: seus compromissos estão acima da sua capacidade atual.",
 };
