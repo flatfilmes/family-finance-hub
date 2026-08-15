@@ -618,26 +618,3 @@ function Compras() {
   );
 }
 
-function PurchaseItems({ purchaseId }: { purchaseId: string }) {
-  const { data: items, isLoading } = usePurchaseItems(purchaseId);
-
-  if (isLoading) return <p className="mt-3 text-xs text-muted-foreground">Carregando itens...</p>;
-  if ((items ?? []).length === 0)
-    return <p className="mt-3 text-xs text-muted-foreground">Nenhum produto registrado.</p>;
-
-  return (
-    <ul className="mt-3 space-y-1.5 rounded-2xl bg-muted/50 p-4">
-      {(items ?? []).map((i) => (
-        <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="font-medium">{i.descricao_produto}</span>
-          <span className="text-muted-foreground">
-            {Number(i.quantidade)} {i.unidade} × {formatCurrency(Number(i.valor_unitario))} ={" "}
-            <span className="font-semibold text-foreground">
-              {formatCurrency(Number(i.valor_total))}
-            </span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
