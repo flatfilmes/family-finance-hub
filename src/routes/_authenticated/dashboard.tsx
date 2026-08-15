@@ -18,15 +18,21 @@ import {
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
-import { useFinancialSummary } from "@/hooks/useFinanceData";
+import { useFinancialSummary, useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useCardOverview } from "@/hooks/useCardInvoices";
+import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
+import { filterByMember } from "@/components/member-filter";
+import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
 import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
