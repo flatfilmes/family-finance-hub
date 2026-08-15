@@ -94,6 +94,50 @@ export async function fetchPurchaseItemsByPurchases(purchaseIds: string[]) {
   return data ?? [];
 }
 
+/** Itens completos de várias compras (usado na visão de consumo). */
+export async function fetchConsumptionItems(purchaseIds: string[]) {
+  if (purchaseIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("purchase_items")
+    .select("purchase_id, descricao_produto, quantidade, unidade, valor_total, categoria_id")
+    .in("purchase_id", purchaseIds);
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Parcelas geradas para uma compra (via despesa vinculada). */
+export async function fetchPurchaseInstallments(purchaseId: string) {
+  const { data: expenses, error } = await supabase
+    .from("expenses")
+    .select("id, parcelas_total, parcela_atual")
+    .eq("purchase_id", purchaseId);
+  if (error) throw error;
+  const ids = (expenses ?? []).map((e) => e.id);
+  if (ids.length === 0) return [];
+  const { data, error: parcelasError } = await supabase
+    .from("expense_installments")
+    .select("*")
+    .in("expense_id", ids)
+    .order("numero_parcela", { ascending: true });
+  if (parcelasError) throw parcelasError;
+  return data ?? [];
+}
+
+/** Tipos de compra que se repetem todo mês. */
+export function isRecorrente(tipo: string) {
+  return tipo === "COMPRA_RECORRENTE" || tipo === "CONTA_RECORRENTE";
+}
+
+/** Próxima cobrança de uma compra recorrente, a partir da data original. */
+export function proximaCobranca(dataCompra: string, hoje = new Date()) {
+  const [ano, mes, dia] = dataCompra.split("-").map(Number);
+  if (!ano || !mes || !dia) return dataCompra;
+  const proxima = new Date(Date.UTC(ano, mes - 1, dia));
+  const limite = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate()));
+  while (proxima <= limite) proxima.setUTCMonth(proxima.getUTCMonth() + 1);
+  return proxima.toISOString().slice(0, 10);
+}
+
 export async function fetchPurchaseItems(purchaseId: string) {
   const { data, error } = await supabase
     .from("purchase_items")

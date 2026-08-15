@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useViewMode } from "@/components/view-mode";
@@ -15,7 +15,6 @@ import { useExpenseCategories } from "@/hooks/useExpenses";
 import {
   useProducts,
   usePurchaseItemCategories,
-  usePurchaseItems,
   usePurchases,
 } from "@/hooks/usePurchases";
 import { formatCurrency } from "@/lib/finance";
@@ -40,6 +39,8 @@ import {
   type NewPurchaseItem,
 } from "@/lib/purchases";
 import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
+import { PurchaseDetail } from "@/components/purchase-detail";
+import { VisaoConsumo } from "@/components/purchase-consumption";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
@@ -95,7 +96,6 @@ function Compras() {
   const [contaId, setContaId] = useState("");
   const [observacao, setObservacao] = useState("");
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const view = useViewMode();
@@ -104,7 +104,9 @@ function Compras() {
   const [filtroMembro, setFiltroMembro] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroPagamento, setFiltroPagamento] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroMes, setFiltroMes] = useState("");
+  const [detalhe, setDetalhe] = useState<string | null>(null);
 
   const total = purchaseTotal(items);
 
@@ -112,6 +114,7 @@ function Compras() {
   const porEscopo = filterByMember(purchases ?? [], escopo).filter(
     (p) =>
       (!filtroPagamento || p.forma_pagamento === filtroPagamento) &&
+      (!filtroTipo || p.tipo_compra === filtroTipo) &&
       (!filtroMes || p.data_compra.slice(0, 7) === filtroMes),
   );
   const itemCategorias = usePurchaseItemCategories(porEscopo.map((p) => p.id));
@@ -122,6 +125,7 @@ function Compras() {
         ),
       )
     : porEscopo;
+  const compraDetalhe = lista.find((p) => p.id === detalhe) ?? null;
   const totalListado = lista.reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
 
   const setItem = (index: number, patch: Partial<NewPurchaseItem>) =>
@@ -478,10 +482,29 @@ function Compras() {
 
       <Card className="mt-4">
         <h2 className="text-base font-bold">Filtros</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {view.isAdmin && (
-            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+            <MemberFilter
+              familyId={family.id}
+              value={filtroMembro}
+              onChange={setFiltroMembro}
+              label="Pessoa responsável"
+            />
           )}
+          <Field label="Tipo de compra">
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Todas</option>
+              {PURCHASE_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {PURCHASE_TYPE_LABELS[k]}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Categoria">
             <select
               value={filtroCategoria}
@@ -550,15 +573,11 @@ function Compras() {
               <li key={p.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <button
-                    onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+                    onClick={() => setDetalhe(p.id)}
                     className="flex min-w-52 flex-1 items-center gap-2 text-left"
-                    aria-expanded={expanded === p.id}
+                    aria-label={`Ver detalhes da compra em ${p.estabelecimento}`}
                   >
-                    {expanded === p.id ? (
-                      <ChevronUp className="size-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="size-4 text-muted-foreground" />
-                    )}
+                    <ChevronRight className="size-4 text-muted-foreground" />
                     <span>
                       <span className="block text-sm font-semibold">{p.estabelecimento}</span>
                       <span className="block text-xs text-muted-foreground">
@@ -584,36 +603,18 @@ function Compras() {
                     </button>
                   )}
                 </div>
-                {expanded === p.id && <PurchaseItems purchaseId={p.id} />}
               </li>
             ))}
           </ul>
         )}
       </Card>
+
+      <VisaoConsumo purchaseIds={lista.map((p) => p.id)} />
+
+      {compraDetalhe && (
+        <PurchaseDetail purchase={compraDetalhe} onClose={() => setDetalhe(null)} />
+      )}
     </div>
   );
 }
 
-function PurchaseItems({ purchaseId }: { purchaseId: string }) {
-  const { data: items, isLoading } = usePurchaseItems(purchaseId);
-
-  if (isLoading) return <p className="mt-3 text-xs text-muted-foreground">Carregando itens...</p>;
-  if ((items ?? []).length === 0)
-    return <p className="mt-3 text-xs text-muted-foreground">Nenhum produto registrado.</p>;
-
-  return (
-    <ul className="mt-3 space-y-1.5 rounded-2xl bg-muted/50 p-4">
-      {(items ?? []).map((i) => (
-        <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-xs">
-          <span className="font-medium">{i.descricao_produto}</span>
-          <span className="text-muted-foreground">
-            {Number(i.quantidade)} {i.unidade} × {formatCurrency(Number(i.valor_unitario))} ={" "}
-            <span className="font-semibold text-foreground">
-              {formatCurrency(Number(i.valor_total))}
-            </span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
