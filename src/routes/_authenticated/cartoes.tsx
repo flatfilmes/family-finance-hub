@@ -6,6 +6,7 @@ import { useCreditCards } from "@/hooks/useFinanceData";
 import { useCardOverview } from "@/hooks/useCardInvoices";
 import { useMemberName } from "@/components/member-select";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
+import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "./receitas";
@@ -35,6 +36,7 @@ function CartoesPage() {
   const memberName = useMemberName(family?.id);
 
   const [filtroMembro, setFiltroMembro] = useState("");
+  const view = useViewMode();
   const [filtroBanco, setFiltroBanco] = useState("");
   const [mes, setMes] = useState("");
 
@@ -42,7 +44,7 @@ function CartoesPage() {
 
   const bancos = Array.from(new Set((cards ?? []).map((c) => c.banco))).sort();
 
-  const lista = filterByMember(cards ?? [], filtroMembro).filter((c) =>
+  const lista = filterByMember(cards ?? [], view.scoped(filtroMembro)).filter((c) =>
     filtroBanco ? c.banco === filtroBanco : true,
   );
 
@@ -78,7 +80,13 @@ function CartoesPage() {
 
       <Card className="mt-4">
         <div className="grid gap-4 sm:grid-cols-3">
-          <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+          {view.isAdmin ? (
+            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+          ) : (
+            <div className="flex items-end">
+              <ViewModeSwitch mode={view.mode} onChange={view.setMode} canSwitch={false} />
+            </div>
+          )}
           <Field label="Banco">
             <select
               className={inputClass}

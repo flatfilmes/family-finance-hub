@@ -5,6 +5,7 @@ import { useFamily } from "@/hooks/useFamilyData";
 import { useIncomes } from "@/hooks/useFinanceData";
 import { useMemberName } from "@/components/member-select";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
+import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import {
   INCOME_FREQUENCY_LABELS,
   INCOME_TYPE_LABELS,
@@ -37,12 +38,13 @@ function ReceitasPage() {
   const memberName = useMemberName(family?.id);
 
   const [filtroMembro, setFiltroMembro] = useState("");
+  const view = useViewMode();
   const [filtroTipo, setFiltroTipo] = useState<"" | IncomeType>("");
   const [mes, setMes] = useState("");
 
   if (!family) return <NoFamily />;
 
-  const lista = filterByMember(incomes ?? [], filtroMembro)
+  const lista = filterByMember(incomes ?? [], view.scoped(filtroMembro))
     .filter((i) => (filtroTipo ? i.tipo === filtroTipo : true))
     .filter((i) => (mes ? (i.data_recebimento ?? "").startsWith(mes) : true));
 
@@ -57,7 +59,13 @@ function ReceitasPage() {
 
       <Card>
         <div className="grid gap-4 sm:grid-cols-3">
-          <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+          {view.isAdmin ? (
+            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+          ) : (
+            <div className="flex items-end">
+              <ViewModeSwitch mode={view.mode} onChange={view.setMode} canSwitch={false} />
+            </div>
+          )}
           <Field label="Tipo">
             <select
               className={inputClass}
