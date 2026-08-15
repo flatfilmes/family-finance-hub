@@ -511,7 +511,7 @@ function Dashboard() {
  * Capacidade de pagamento dos cartões:
  * soma das faturas abertas x saldo disponível nas contas bancárias.
  */
-function CapacidadeCartoes({ familyId, memberId }: { familyId?: string; memberId: string }) {
+function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefined; memberId: string }) {
   const { data: cards } = useCreditCards(familyId);
   const { data: accounts } = useBankAccounts(familyId);
   const cartoes = filterByMember(cards ?? [], memberId);
