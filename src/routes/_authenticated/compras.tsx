@@ -95,6 +95,9 @@ function Compras() {
   const [cartaoId, setCartaoId] = useState("");
   const [contaId, setContaId] = useState("");
   const [observacao, setObservacao] = useState("");
+  const [parcelas, setParcelas] = useState("1");
+  const [periodicidade, setPeriodicidade] = useState<ExpenseRecurrence>("MENSAL");
+
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [showForm, setShowForm] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
