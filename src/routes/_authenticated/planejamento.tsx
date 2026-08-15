@@ -105,7 +105,7 @@ function PlanejamentoPage() {
   return (
     <div>
       <PageHeader
-        title="Planejamento"
+        title="Planejamento Financeiro"
         subtitle={`Limites mensais por categoria e comparação entre planejado e realizado em ${monthLabel(month)}.`}
       />
 
