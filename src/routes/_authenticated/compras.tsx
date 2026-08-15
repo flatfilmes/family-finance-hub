@@ -243,6 +243,10 @@ function Compras() {
 
       {showOptions && view.podeLancar && (
         <NovaCompraOptions
+          familyId={family.id}
+          memberId={view.myMemberId}
+          createdBy={user?.id}
+          podeLancar={view.podeLancar}
           onManual={() => {
             setShowForm(true);
             setShowOptions(false);
