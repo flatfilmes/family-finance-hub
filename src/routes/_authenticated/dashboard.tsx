@@ -11,11 +11,14 @@ import {
   ShoppingCart,
   PieChart,
   ArrowUpDown,
+  Target,
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
+import { useBudgetProgress } from "@/hooks/useBudgets";
+import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
@@ -44,6 +47,7 @@ function Dashboard() {
   const { data: financial } = useFinancialProfile(family?.id);
   const summary = useFinancialSummary(family?.id);
   const gastos = useExpenseSummary(family?.id);
+  const orcamento = useBudgetProgress(family?.id);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const comprometimento = summary.comprometimento;
@@ -129,6 +133,65 @@ function Dashboard() {
           loading={gastos.isLoading}
         />
       </div>
+
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+              <Target className="size-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold">Controle do orçamento</h2>
+              <p className="text-xs text-muted-foreground">
+                Planejado x gasto por categoria em {monthLabel(orcamento.month)}
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/orcamento"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
+          >
+            Gerenciar orçamento
+            <ArrowRight className="size-4" />
+          </Link>
+        </div>
+
+        {orcamento.isLoading ? (
+          <p className="mt-5 text-sm text-muted-foreground">Carregando...</p>
+        ) : orcamento.items.length === 0 ? (
+          <p className="mt-5 text-sm text-muted-foreground">
+            Nenhum limite definido ainda. Crie orçamentos por categoria para acompanhar o
+            planejado.
+          </p>
+        ) : (
+          <ul className="mt-5 space-y-4">
+            {orcamento.items.map((item) => {
+              const cls = BUDGET_STATUS_CLASSES[item.status];
+              return (
+                <li key={item.id}>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span className="font-semibold">{item.categoria}</span>
+                    <span className="text-muted-foreground">
+                      {formatCurrency(item.gasto)} de {formatCurrency(item.planejado)}
+                    </span>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cls.badge}`}>
+                      {item.percentual.toFixed(0)}% · {BUDGET_STATUS_LABELS[item.status]}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className={`h-full rounded-full ${cls.bar}`}
+                      style={{ width: `${Math.min(100, item.percentual)}%` }}
+                    />
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </Card>
+
+
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Card>
