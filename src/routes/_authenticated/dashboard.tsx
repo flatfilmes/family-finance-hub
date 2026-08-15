@@ -23,7 +23,7 @@ import { useFinancialEngine } from "@/hooks/useFinancialEngine";
 import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
-import { GOAL_LABELS } from "@/lib/family";
+import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -62,6 +62,12 @@ function Dashboard() {
         title={primeiroNome ? `Olá, ${primeiroNome}` : "Olá"}
         subtitle="Visão geral do núcleo financeiro da sua família."
       />
+
+      {isDemoFamily(family) && (
+        <div className="mb-4 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400">
+          Ambiente de demonstração: os dados desta família são fictícios e servem apenas para testes.
+        </div>
+      )}
 
       <section className="mb-6">
         <h2 className="mb-3 text-lg font-bold tracking-tight">Minha Situação Financeira</h2>

@@ -83,3 +83,18 @@ export async function createFamily(input: { nome: string; ownerId: string; owner
 
   return family;
 }
+
+export const ACTIVE_FAMILY_KEY = "ff.active-family";
+
+export function isDemoFamily(family?: { nome_da_familia: string } | null) {
+  return !!family && /demonstra/i.test(family.nome_da_familia);
+}
+
+export async function fetchMyFamilies() {
+  const { data, error } = await supabase
+    .from("families")
+    .select("*")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}

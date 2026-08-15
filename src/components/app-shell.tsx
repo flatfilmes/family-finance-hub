@@ -17,6 +17,8 @@ import {
   Target,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useFamilies, useActiveFamilyId, useSetActiveFamily } from "@/hooks/useFamilyData";
+import { isDemoFamily } from "@/lib/family";
 import { cn } from "@/lib/utils";
 
 const NAV = [
@@ -72,7 +74,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar p-5 lg:flex">
         <Brand />
-        <div className="mt-8 flex-1">{nav}</div>
+        <FamilySwitcher />
+        <div className="mt-6 flex-1 overflow-y-auto">{nav}</div>
         <FutureHint />
         <button
           onClick={handleSignOut}
@@ -122,6 +125,40 @@ function Brand() {
       </span>
       <span className="text-[15px] font-bold tracking-tight">Família Finance AI</span>
     </Link>
+  );
+}
+
+function FamilySwitcher() {
+  const { data: families } = useFamilies();
+  const activeId = useActiveFamilyId();
+  const setActive = useSetActiveFamily();
+  const list = families ?? [];
+  if (list.length === 0) return null;
+  const current = list.find((f) => f.id === activeId) ?? list[0];
+  if (!current) return null;
+
+  return (
+    <div className="mt-6">
+      <label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Família ativa
+      </label>
+      <select
+        value={current.id}
+        onChange={(e) => setActive(e.target.value)}
+        className="mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium"
+      >
+        {list.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.nome_da_familia}
+          </option>
+        ))}
+      </select>
+      {isDemoFamily(current) && (
+        <p className="mt-2 rounded-lg bg-amber-500/15 px-2.5 py-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+          Ambiente de demonstração — dados fictícios
+        </p>
+      )}
+    </div>
   );
 }
 
