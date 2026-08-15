@@ -12,7 +12,15 @@ export const PURCHASE_TYPE_LABELS: Record<PurchaseType, string> = {
   A_VISTA: "À vista",
   CARTAO_CREDITO: "Cartão de crédito",
   PARCELADO: "Parcelado",
+  COMPRA_NORMAL: "Compra normal",
+  COMPRA_RECORRENTE: "Compra recorrente",
+  COMPRA_PARCELADA: "Compra parcelada",
+  CONTA_RECORRENTE: "Conta recorrente",
 };
+
+/** Tipos usados no lançamento de despesa avulsa (fluxo antigo, mantido). */
+export const EXPENSE_PURCHASE_TYPES: PurchaseType[] = ["A_VISTA", "CARTAO_CREDITO", "PARCELADO"];
+
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   DINHEIRO: "Dinheiro",
