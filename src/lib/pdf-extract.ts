@@ -70,7 +70,7 @@ export async function extractPdfText(file: Blob): Promise<string[]> {
     }
   }
 
-  await doc.destroy();
+  await doc.cleanup();
   return linhas;
 }
 
