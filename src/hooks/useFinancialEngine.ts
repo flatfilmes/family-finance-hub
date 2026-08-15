@@ -110,6 +110,7 @@ export function useFinancialEngine(familyId?: string) {
       fixed.isLoading ||
       cards.isLoading ||
       expenses.isLoading ||
+      installments.isLoading ||
       settings.isLoading,
     month,
     percentualReserva,
@@ -119,7 +120,11 @@ export function useFinancialEngine(familyId?: string) {
     receitaTotal,
     contasFixas,
     faturaCartoes,
+    parcelasFuturas,
+    parcelasFuturasTotal,
+    proximosMeses,
     compromissos,
+
     gastosRealizados,
     gastosAvulsos,
     reserva,
