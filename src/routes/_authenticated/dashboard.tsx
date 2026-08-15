@@ -173,7 +173,7 @@ function Dashboard() {
                 icon={<Receipt className="size-5" />}
                 label="Comprometido"
                 value={formatCurrency(engine.compromissos)}
-                hint={`Contas ${formatCurrency(engine.contasFixas)} · cartões ${formatCurrency(engine.faturaCartoes)} · despesas ${formatCurrency(engine.gastosAvulsos)}`}
+                hint={`Contas ${formatCurrency(engine.contasFixas)} · fatura atual ${formatCurrency(engine.faturaCartoes)} · parcelas futuras ${formatCurrency(engine.parcelasFuturas)}`}
                 to="/contas-fixas"
                 loading={engine.isLoading}
               />
