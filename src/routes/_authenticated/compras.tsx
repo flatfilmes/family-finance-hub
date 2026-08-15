@@ -96,6 +96,7 @@ function Compras() {
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const view = useViewMode();
   const membroResponsavel = view.isAdmin ? memberId : view.myMemberId;
 
