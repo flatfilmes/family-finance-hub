@@ -28,13 +28,16 @@ export const PAYMENT_STATUS_LABELS: Record<PurchasePaymentStatus, string> = {
   PAGO: "Pago",
   COMPROMETIDO: "Comprometido no cartão",
   PENDENTE: "Pendente (boleto)",
+  CANCELADO: "Cancelado",
 };
 
 export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = {
   PAGO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   COMPROMETIDO: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   PENDENTE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  CANCELADO: "bg-muted text-muted-foreground",
 };
+
 
 /** Formas de pagamento que saem direto de uma conta bancária. */
 export const BANK_PAYMENT_METHODS = ["PIX", "DEBITO", "TRANSFERENCIA"] as const;
