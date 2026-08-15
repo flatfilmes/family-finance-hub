@@ -1425,6 +1425,7 @@ export type Database = {
         | "PROCESSADO"
         | "CONFIRMADO"
         | "ERRO"
+        | "REJEITADO"
       document_type:
         | "NOTA_FISCAL"
         | "QR_CODE"
@@ -1633,6 +1634,7 @@ export const Constants = {
         "PROCESSADO",
         "CONFIRMADO",
         "ERRO",
+        "REJEITADO",
       ],
       document_type: [
         "NOTA_FISCAL",
