@@ -237,6 +237,8 @@ function Dashboard() {
 
             <CapacidadeCartoes familyId={family?.id} memberId={escopo} />
 
+            <UltimasMovimentacoes familyId={family?.id} memberId={escopo} />
+
 
             <Card className="mt-4">
               <div className="flex items-center gap-3">
