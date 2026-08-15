@@ -9,6 +9,7 @@ import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { supabase } from "@/integrations/supabase/client";
 import { useIncomes, useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenses } from "@/hooks/useExpenses";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useMemberProfiles } from "@/hooks/useMemberProfiles";
 import { currentMonth } from "@/lib/expenses";
 import { formatCurrency, monthlyIncomeValue } from "@/lib/finance";
