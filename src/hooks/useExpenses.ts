@@ -17,7 +17,14 @@ export function useExpenseCategories() {
 
 export function useExpenses(familyId?: string, filters: ExpenseFilters = {}) {
   return useQuery({
-    queryKey: ["expenses", familyId, filters.month ?? null, filters.categoriaId ?? null],
+    queryKey: [
+      "expenses",
+      familyId,
+      filters.month ?? null,
+      filters.categoriaId ?? null,
+      filters.memberId ?? null,
+      filters.cartaoId ?? null,
+    ],
     queryFn: () => fetchExpenses(familyId!, filters),
     enabled: !!familyId,
   });

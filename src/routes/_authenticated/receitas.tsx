@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useIncomes } from "@/hooks/useFinanceData";
 import { MemberSelect, useMemberName } from "@/components/member-select";
+import { MemberFilter, filterByMember } from "@/components/member-filter";
 import {
   INCOME_FREQUENCY_LABELS,
   INCOME_TYPE_LABELS,
@@ -47,6 +48,7 @@ function ReceitasPage() {
   const [frequencia, setFrequencia] = useState<IncomeFrequency>("MENSAL");
   const [dataRecebimento, setDataRecebimento] = useState("");
   const [memberId, setMemberId] = useState("");
+  const [filtroMembro, setFiltroMembro] = useState("");
   const memberName = useMemberName(family?.id);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["incomes", family?.id] });
@@ -88,9 +90,8 @@ function ReceitasPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const total = (incomes ?? [])
-    .filter((i) => i.ativo)
-    .reduce((acc, i) => acc + monthlyIncomeValue(i), 0);
+  const lista = filterByMember(incomes ?? [], filtroMembro);
+  const total = lista.filter((i) => i.ativo).reduce((acc, i) => acc + monthlyIncomeValue(i), 0);
 
   if (!family) return <NoFamily />;
 
@@ -178,19 +179,22 @@ function ReceitasPage() {
       </Card>
 
       <Card className="mt-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-base font-bold">Receitas cadastradas</h2>
-          <p className="text-sm text-muted-foreground">
-            Total mensal ativo:{" "}
-            <span className="font-semibold text-foreground">{formatCurrency(total)}</span>
-          </p>
+          <div className="w-48">
+            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+          </div>
         </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Total mensal ativo:{" "}
+          <span className="font-semibold text-foreground">{formatCurrency(total)}</span>
+        </p>
 
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
-        ) : incomes?.length ? (
+        ) : lista.length ? (
           <ul className="mt-4 divide-y divide-border">
-            {incomes.map((i) => (
+            {lista.map((i) => (
               <li key={i.id} className="flex items-center justify-between gap-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{i.descricao}</p>

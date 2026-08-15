@@ -14,6 +14,63 @@ export type Database = {
   }
   public: {
     Tables: {
+      bank_accounts: {
+        Row: {
+          ativo: boolean
+          banco: string
+          created_at: string
+          created_by: string | null
+          family_id: string
+          id: string
+          member_id: string | null
+          nome_conta: string
+          saldo_atual: number
+          tipo_conta: Database["public"]["Enums"]["bank_account_type"]
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          banco: string
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          id?: string
+          member_id?: string | null
+          nome_conta: string
+          saldo_atual?: number
+          tipo_conta?: Database["public"]["Enums"]["bank_account_type"]
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          banco?: string
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          id?: string
+          member_id?: string | null
+          nome_conta?: string
+          saldo_atual?: number
+          tipo_conta?: Database["public"]["Enums"]["bank_account_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_accounts_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budgets: {
         Row: {
           ano_referencia: number
@@ -919,6 +976,7 @@ export type Database = {
       }
     }
     Enums: {
+      bank_account_type: "CORRENTE" | "POUPANCA" | "PAGAMENTO" | "INVESTIMENTO"
       budget_period: "MENSAL"
       expense_category:
         | "ENERGIA"
@@ -1095,6 +1153,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      bank_account_type: ["CORRENTE", "POUPANCA", "PAGAMENTO", "INVESTIMENTO"],
       budget_period: ["MENSAL"],
       expense_category: [
         "ENERGIA",
