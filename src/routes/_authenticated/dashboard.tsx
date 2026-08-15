@@ -331,8 +331,8 @@ function Dashboard() {
           <p className="mt-5 text-sm text-muted-foreground">Carregando...</p>
         ) : orcamento.items.length === 0 ? (
           <p className="mt-5 text-sm text-muted-foreground">
-            Nenhum planejamento criado ainda. Crie o planejamento mensal por categoria para
-            acompanhar o controle do mês.
+            Você ainda não criou seu planejamento mensal. Defina limites para acompanhar seus
+            gastos.
           </p>
         ) : (
           <>
@@ -342,14 +342,30 @@ function Dashboard() {
                 <p className="mt-1 text-lg font-bold">{orcamento.dentroDoLimite.length}</p>
               </div>
               <div className="rounded-2xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Próximas do limite</p>
+                <p className="mt-1 text-lg font-bold">{orcamento.proximosDoLimite.length}</p>
+              </div>
+              <div className="rounded-2xl border border-border p-3">
                 <p className="text-xs text-muted-foreground">Acima do limite</p>
                 <p className="mt-1 text-lg font-bold">{orcamento.acimaDoLimite.length}</p>
               </div>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border p-3">
-                <p className="text-xs text-muted-foreground">Percentual geral utilizado</p>
+                <p className="text-xs text-muted-foreground">Orçamento total</p>
                 <p className="mt-1 text-lg font-bold">
-                  {orcamento.percentualGeral.toFixed(0)}%
+                  {formatCurrency(orcamento.totalPlanejado)}
                 </p>
+              </div>
+              <div className="rounded-2xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Gasto total</p>
+                <p className="mt-1 text-lg font-bold">{formatCurrency(orcamento.totalGasto)}</p>
+              </div>
+              <div className="rounded-2xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">
+                  Diferença · {orcamento.percentualGeral.toFixed(0)}% utilizado
+                </p>
+                <p className="mt-1 text-lg font-bold">{formatCurrency(orcamento.diferenca)}</p>
               </div>
             </div>
             <ul className="mt-5 space-y-4">

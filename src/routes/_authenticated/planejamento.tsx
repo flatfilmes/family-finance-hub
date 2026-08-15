@@ -105,7 +105,7 @@ function PlanejamentoPage() {
   return (
     <div>
       <PageHeader
-        title="Planejamento"
+        title="Planejamento Financeiro"
         subtitle={`Limites mensais por categoria e comparação entre planejado e realizado em ${monthLabel(month)}.`}
       />
 
@@ -194,8 +194,8 @@ function PlanejamentoPage() {
           <p className="mt-5 text-sm text-muted-foreground">Carregando...</p>
         ) : progress.items.length === 0 ? (
           <p className="mt-5 text-sm text-muted-foreground">
-            Nenhum planejamento definido para {monthLabel(month)}. Crie o primeiro limite por
-            categoria acima para comparar planejamento e realidade.
+            Você ainda não criou seu planejamento mensal. Defina limites para acompanhar seus
+            gastos.
           </p>
         ) : (
           <ul className="mt-5 space-y-4">
