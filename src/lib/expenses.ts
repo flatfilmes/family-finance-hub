@@ -73,6 +73,9 @@ export async function fetchExpenseCategories() {
 export type ExpenseFilters = {
   month?: string | undefined;
   categoriaId?: string | undefined;
+  /** id do membro responsável, ou "sem" para despesas sem responsável */
+  memberId?: string | undefined;
+  cartaoId?: string | undefined;
 };
 
 export async function fetchExpenses(familyId: string, filters: ExpenseFilters = {}) {
@@ -88,6 +91,9 @@ export async function fetchExpenses(familyId: string, filters: ExpenseFilters = 
     query = query.gte("data_compra", start).lte("data_compra", end);
   }
   if (filters.categoriaId) query = query.eq("categoria_id", filters.categoriaId);
+  if (filters.memberId === "sem") query = query.is("member_id", null);
+  else if (filters.memberId) query = query.eq("member_id", filters.memberId);
+  if (filters.cartaoId) query = query.eq("cartao_id", filters.cartaoId);
 
   const { data, error } = await query;
   if (error) throw error;

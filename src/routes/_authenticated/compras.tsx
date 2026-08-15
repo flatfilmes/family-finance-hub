@@ -151,6 +151,10 @@ function Compras() {
               toast.error("Adicione ao menos um produto.");
               return;
             }
+            if (!memberId) {
+              toast.error("Selecione quem fez a compra.");
+              return;
+            }
             create.mutate();
           }}
         >
@@ -173,7 +177,12 @@ function Compras() {
                 className={inputClass}
               />
             </Field>
-            <MemberSelect familyId={family.id} value={memberId} onChange={setMemberId} />
+            <MemberSelect
+              familyId={family.id}
+              value={memberId}
+              onChange={setMemberId}
+              label="Quem comprou"
+            />
             <Field label="Forma de pagamento">
               <select
                 value={formaPagamento}

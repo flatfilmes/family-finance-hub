@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -196,7 +196,13 @@ function MinhaFamilia() {
           {(members ?? []).map((m) => (
             <li key={m.id} className="flex flex-wrap items-center gap-3 py-3">
               <div className="min-w-56 flex-1">
-                <p className="text-sm font-semibold">{m.nome}</p>
+                <Link
+                  to="/membro/$memberId"
+                  params={{ memberId: m.id }}
+                  className="text-sm font-semibold text-primary hover:underline"
+                >
+                  {m.nome}
+                </Link>
                 <p className="text-xs text-muted-foreground">
                   {m.relacionamento || "Sem relacionamento definido"} ·{" "}
                   {MEMBER_PROFILE_LABELS[perfilDe(m.id)]}

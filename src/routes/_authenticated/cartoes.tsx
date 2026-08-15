@@ -9,6 +9,7 @@ import { useFamily } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useCardOverview } from "@/hooks/useCardInvoices";
 import { MemberSelect, useMemberName } from "@/components/member-select";
+import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { formatDate } from "@/lib/expenses";
 import { NoFamily } from "./receitas";
 import {
@@ -46,6 +47,7 @@ function CartoesPage() {
   const [fechamento, setFechamento] = useState("1");
   const [vencimento, setVencimento] = useState("10");
   const [memberId, setMemberId] = useState("");
+  const [filtroMembro, setFiltroMembro] = useState("");
   const memberName = useMemberName(family?.id);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["credit-cards", family?.id] });
@@ -89,7 +91,8 @@ function CartoesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const totalLimite = (cards ?? [])
+  const lista = filterByMember(cards ?? [], filtroMembro);
+  const totalLimite = lista
     .filter((c) => c.ativo)
     .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
 
@@ -171,19 +174,22 @@ function CartoesPage() {
       </Card>
 
       <Card className="mt-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-base font-bold">Cartões cadastrados</h2>
-          <p className="text-sm text-muted-foreground">
-            Limite total ativo:{" "}
-            <span className="font-semibold text-foreground">{formatCurrency(totalLimite)}</span>
-          </p>
+          <div className="w-48">
+            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+          </div>
         </div>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Limite total ativo:{" "}
+          <span className="font-semibold text-foreground">{formatCurrency(totalLimite)}</span>
+        </p>
 
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
-        ) : cards?.length ? (
+        ) : lista.length ? (
           <ul className="mt-4 divide-y divide-border">
-            {cards.map((c) => {
+            {lista.map((c) => {
               const info = overview.porCartao.find((o) => o.card.id === c.id);
               return (
                 <li key={c.id} className="flex flex-wrap items-center justify-between gap-4 py-4">

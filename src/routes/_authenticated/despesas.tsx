@@ -12,6 +12,7 @@ import { NoFamily } from "./receitas";
 import { formatCurrency } from "@/lib/finance";
 import { clearInstallments, generateInstallments } from "@/lib/card-invoices";
 import { MemberSelect, useMemberName } from "@/components/member-select";
+import { MemberFilter } from "@/components/member-filter";
 
 import {
   PAYMENT_METHOD_LABELS,
@@ -84,9 +85,16 @@ function DespesasPage() {
 
   const [month, setMonth] = useState(currentMonth());
   const [categoriaFiltro, setCategoriaFiltro] = useState("");
+  const [membroFiltro, setMembroFiltro] = useState("");
+  const [cartaoFiltro, setCartaoFiltro] = useState("");
   const filters = useMemo(
-    () => ({ month: month || undefined, categoriaId: categoriaFiltro || undefined }),
-    [month, categoriaFiltro],
+    () => ({
+      month: month || undefined,
+      categoriaId: categoriaFiltro || undefined,
+      memberId: membroFiltro || undefined,
+      cartaoId: cartaoFiltro || undefined,
+    }),
+    [month, categoriaFiltro, membroFiltro, cartaoFiltro],
   );
   const { data: expenses, isLoading } = useExpenses(family?.id, filters);
 
@@ -386,12 +394,30 @@ function DespesasPage() {
               ))}
             </select>
           </Field>
+          <MemberFilter familyId={family.id} value={membroFiltro} onChange={setMembroFiltro} />
+          <Field label="Cartão">
+            <select
+              className={inputClass}
+              value={cartaoFiltro}
+              onChange={(e) => setCartaoFiltro(e.target.value)}
+              aria-label="Cartão"
+            >
+              <option value="">Todos</option>
+              {(cards ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome_cartao} · {c.banco}
+                </option>
+              ))}
+            </select>
+          </Field>
           <div className="flex items-end">
             <button
               type="button"
               onClick={() => {
                 setMonth("");
                 setCategoriaFiltro("");
+                setMembroFiltro("");
+                setCartaoFiltro("");
               }}
               className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
             >
