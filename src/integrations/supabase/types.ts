@@ -965,6 +965,103 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          bank_account_id: string | null
+          card_invoice_id: string | null
+          created_at: string
+          created_by: string | null
+          credit_card_id: string | null
+          data_movimento: string
+          descricao: string
+          family_id: string
+          id: string
+          member_id: string | null
+          purchase_id: string | null
+          status: Database["public"]["Enums"]["transaction_status"]
+          tipo: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          bank_account_id?: string | null
+          card_invoice_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          data_movimento?: string
+          descricao?: string
+          family_id: string
+          id?: string
+          member_id?: string | null
+          purchase_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          tipo: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          bank_account_id?: string | null
+          card_invoice_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          data_movimento?: string
+          descricao?: string
+          family_id?: string
+          id?: string
+          member_id?: string | null
+          purchase_id?: string | null
+          status?: Database["public"]["Enums"]["transaction_status"]
+          tipo?: Database["public"]["Enums"]["transaction_type"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_card_invoice_id_fkey"
+            columns: ["card_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "card_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -989,6 +1086,10 @@ export type Database = {
       is_own_family_member: {
         Args: { _member_id: string; _user_id: string }
         Returns: boolean
+      }
+      pay_card_invoice: {
+        Args: { _bank_account_id: string; _data?: string; _invoice_id: string }
+        Returns: string
       }
     }
     Enums: {
@@ -1050,6 +1151,12 @@ export type Database = {
         | "COMPRA_RECORRENTE"
         | "COMPRA_PARCELADA"
         | "CONTA_RECORRENTE"
+      transaction_status: "CONFIRMADA" | "PENDENTE" | "CANCELADA"
+      transaction_type:
+        | "ENTRADA"
+        | "SAIDA"
+        | "TRANSFERENCIA"
+        | "PAGAMENTO_CARTAO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1235,6 +1342,13 @@ export const Constants = {
         "COMPRA_RECORRENTE",
         "COMPRA_PARCELADA",
         "CONTA_RECORRENTE",
+      ],
+      transaction_status: ["CONFIRMADA", "PENDENTE", "CANCELADA"],
+      transaction_type: [
+        "ENTRADA",
+        "SAIDA",
+        "TRANSFERENCIA",
+        "PAGAMENTO_CARTAO",
       ],
     },
   },

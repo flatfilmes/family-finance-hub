@@ -29,7 +29,14 @@ import { filterByMember } from "@/components/member-filter";
 import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
 import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
-import { monthLabel } from "@/lib/expenses";
+import { monthLabel, formatDate } from "@/lib/expenses";
+import { useTransactions } from "@/hooks/useTransactions";
+import {
+  TRANSACTION_STATUS_CLASSES,
+  TRANSACTION_STATUS_LABELS,
+  TRANSACTION_TYPE_LABELS,
+  type Transaction,
+} from "@/lib/transactions";
 import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
 
@@ -236,6 +243,8 @@ function Dashboard() {
             </div>
 
             <CapacidadeCartoes familyId={family?.id} memberId={escopo} />
+
+            <UltimasMovimentacoes familyId={family?.id} memberId={escopo} />
 
 
             <Card className="mt-4">
@@ -511,83 +520,182 @@ function Dashboard() {
  * Capacidade de pagamento dos cartões:
  * soma das faturas abertas x saldo disponível nas contas bancárias.
  */
+/** Últimas movimentações reais (compras, pagamentos de fatura, entradas e saídas). */
+function UltimasMovimentacoes({
+  familyId,
+  memberId,
+}: {
+  familyId?: string | undefined;
+  memberId: string;
+}) {
+  const { data, isLoading } = useTransactions(familyId);
+  const rows: Transaction[] = data ?? [];
+  const lista = filterByMember(rows, memberId).slice(0, 8);
+
+  return (
+    <Card className="mt-4">
+      <div className="flex items-center gap-3">
+        <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+          <ArrowUpDown className="size-5" />
+        </span>
+        <div>
+          <h3 className="text-base font-bold">Últimas movimentações</h3>
+          <p className="text-xs text-muted-foreground">
+            Saídas, entradas e pagamentos de fatura registrados
+          </p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
+      ) : lista.length ? (
+        <ul className="mt-2 divide-y divide-border">
+          {lista.map((t) => (
+            <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{t.descricao}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatDate(t.data_movimento)} · {TRANSACTION_TYPE_LABELS[t.tipo]}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${TRANSACTION_STATUS_CLASSES[t.status]}`}
+                >
+                  {TRANSACTION_STATUS_LABELS[t.status]}
+                </span>
+                <span className="text-sm font-bold">
+                  {t.tipo === "ENTRADA" ? "+" : "-"} {formatCurrency(Number(t.valor))}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Nenhuma movimentação ainda. Registre uma compra para começar o fluxo financeiro.
+        </p>
+      )}
+    </Card>
+  );
+}
+
 function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefined; memberId: string }) {
   const { data: cards } = useCreditCards(familyId);
   const { data: accounts } = useBankAccounts(familyId);
   const cartoes = filterByMember(cards ?? [], memberId);
   const overview = useCardOverview(familyId, cartoes);
 
-  const faturas = overview.porCartao.reduce((acc, o) => acc + o.valorFaturaAtual, 0);
-  const saldo = filterByMember(accounts ?? [], memberId)
-    .filter((a) => a.ativo)
-    .reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
+  const faturas = overview.porCartao
+    .filter((o) => o.faturaAtual?.status !== "PAGA")
+    .reduce((acc, o) => acc + o.valorFaturaAtual, 0);
+  const contas = filterByMember(accounts ?? [], memberId).filter((a) => a.ativo);
+  const saldo = contas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
 
-  const seguro = saldo >= faturas;
-  const cobertura = faturas > 0 ? Math.min(100, (saldo / faturas) * 100) : 100;
+  const cobertura = faturas > 0 ? (saldo / faturas) * 100 : 100;
+  const status: "verde" | "amarelo" | "vermelho" =
+    cobertura >= 120 ? "verde" : cobertura >= 100 ? "amarelo" : "vermelho";
+
+  const tone = {
+    verde: {
+      badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+      dot: "bg-emerald-500",
+      bar: "bg-emerald-500",
+      label: "Saldo cobre os cartões",
+    },
+    amarelo: {
+      badge: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+      dot: "bg-amber-500",
+      bar: "bg-amber-500",
+      label: "Saldo próximo do limite",
+    },
+    vermelho: {
+      badge: "bg-red-500/15 text-red-700 dark:text-red-400",
+      dot: "bg-red-500",
+      bar: "bg-red-500",
+      label: "Saldo insuficiente",
+    },
+  }[status];
 
   return (
-    <Card className="mt-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-            <CreditCard className="size-5" />
-          </span>
-          <div>
-            <h3 className="text-base font-bold">Capacidade de pagamento dos cartões</h3>
-            <p className="text-xs text-muted-foreground">
-              Faturas abertas comparadas ao saldo das contas bancárias
-            </p>
-          </div>
-        </div>
-        <span
-          className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-            seguro
-              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-              : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
-          }`}
-        >
-          <span className={`size-2 rounded-full ${seguro ? "bg-emerald-500" : "bg-amber-500"}`} />
-          {seguro ? "Seguro" : "Atenção"}
-        </span>
-      </div>
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-3">
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground">Faturas abertas</p>
-          <p className="mt-1 text-xl font-extrabold">{formatCurrency(faturas)}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground">Saldo bancário</p>
-          <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo)}</p>
-        </div>
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground">Diferença</p>
-          <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo - faturas)}</p>
-        </div>
-      </div>
-
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={`h-full rounded-full ${seguro ? "bg-emerald-500" : "bg-amber-500"}`}
-          style={{ width: `${cobertura}%` }}
+    <>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <StatCard
+          icon={<Wallet className="size-5" />}
+          label="Minha liquidez"
+          value={formatCurrency(saldo)}
+          hint={`${contas.length} conta(s) bancária(s) ativa(s)`}
+          to="/contas-bancarias"
+        />
+        <StatCard
+          icon={<CreditCard className="size-5" />}
+          label="Compromissos de cartão"
+          value={formatCurrency(faturas)}
+          hint="Total das faturas em aberto"
+          to="/cartoes"
         />
       </div>
 
-      {overview.porCartao.length > 0 && (
-        <ul className="mt-4 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-          {overview.porCartao.map((o) => (
-            <li key={o.card.id}>
-              {o.card.banco} · {o.card.nome_cartao}:{" "}
-              <span className="font-semibold text-foreground">
-                {formatCurrency(o.valorFaturaAtual)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+      <Card className="mt-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+              <CreditCard className="size-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-bold">Capacidade de pagamento</h3>
+              <p className="text-xs text-muted-foreground">
+                Faturas abertas comparadas ao saldo das contas bancárias
+              </p>
+            </div>
+          </div>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${tone.badge}`}
+          >
+            <span className={`size-2 rounded-full ${tone.dot}`} />
+            {tone.label}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Faturas abertas</p>
+            <p className="mt-1 text-xl font-extrabold">{formatCurrency(faturas)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Saldo bancário</p>
+            <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">Diferença</p>
+            <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo - faturas)}</p>
+          </div>
+        </div>
+
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={`h-full rounded-full ${tone.bar}`}
+            style={{ width: `${Math.max(0, Math.min(100, cobertura))}%` }}
+          />
+        </div>
+
+        {overview.porCartao.length > 0 && (
+          <ul className="mt-4 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
+            {overview.porCartao.map((o) => (
+              <li key={o.card.id}>
+                {o.card.banco} · {o.card.nome_cartao}:{" "}
+                <span className="font-semibold text-foreground">
+                  {formatCurrency(o.valorFaturaAtual)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </>
   );
 }
+
 
 function StatCard({
 
@@ -602,7 +710,7 @@ function StatCard({
   label: string;
   value: string;
   hint: string;
-  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/despesas";
+  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/despesas" | "/contas-bancarias";
   loading?: boolean;
 }) {
   return (
