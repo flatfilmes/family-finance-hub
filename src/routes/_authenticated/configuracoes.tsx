@@ -184,7 +184,10 @@ function Configuracoes() {
         </div>
       </Card>
 
+      <DemoModeCard />
+
       <Card className="mt-4 max-w-xl">
+
         <h2 className="text-base font-bold">Conta</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Encerre sua sessão neste dispositivo.
