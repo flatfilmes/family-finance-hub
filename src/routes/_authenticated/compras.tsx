@@ -40,6 +40,8 @@ import {
   type NewPurchaseItem,
 } from "@/lib/purchases";
 import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
+import { PurchaseDetail } from "@/components/purchase-detail";
+import { VisaoConsumo } from "@/components/purchase-consumption";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
