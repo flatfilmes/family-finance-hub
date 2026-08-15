@@ -98,7 +98,7 @@ export function DocumentosSection({
 }: {
   familyId: string;
   memberId: string;
-  createdBy?: string;
+  createdBy?: string | undefined;
   podeLancar: boolean;
   escopo: string;
 }) {
@@ -235,7 +235,7 @@ function ConfiraSuaCompra({
 }: {
   familyId: string;
   memberId: string;
-  createdBy?: string;
+  createdBy?: string | undefined;
   draft: PurchaseImport;
   onClose: () => void;
   onReject: () => void;
