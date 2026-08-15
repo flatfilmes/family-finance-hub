@@ -71,8 +71,8 @@ export async function fetchExpenseCategories() {
 }
 
 export type ExpenseFilters = {
-  month?: string;
-  categoriaId?: string;
+  month?: string | undefined;
+  categoriaId?: string | undefined;
 };
 
 export async function fetchExpenses(familyId: string, filters: ExpenseFilters = {}) {

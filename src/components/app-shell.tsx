@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Receipt,
   CreditCard,
+  ShoppingCart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/receitas", label: "Receitas", icon: TrendingUp },
+  { to: "/despesas", label: "Despesas", icon: ShoppingCart },
   { to: "/contas-fixas", label: "Contas Fixas", icon: Receipt },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/minha-familia", label: "Minha Família", icon: Users },
