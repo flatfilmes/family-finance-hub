@@ -104,7 +104,9 @@ function Compras() {
   const [filtroMembro, setFiltroMembro] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroPagamento, setFiltroPagamento] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroMes, setFiltroMes] = useState("");
+  const [detalhe, setDetalhe] = useState<string | null>(null);
 
   const total = purchaseTotal(items);
 
@@ -112,6 +114,7 @@ function Compras() {
   const porEscopo = filterByMember(purchases ?? [], escopo).filter(
     (p) =>
       (!filtroPagamento || p.forma_pagamento === filtroPagamento) &&
+      (!filtroTipo || p.tipo_compra === filtroTipo) &&
       (!filtroMes || p.data_compra.slice(0, 7) === filtroMes),
   );
   const itemCategorias = usePurchaseItemCategories(porEscopo.map((p) => p.id));
@@ -122,6 +125,7 @@ function Compras() {
         ),
       )
     : porEscopo;
+  const compraDetalhe = lista.find((p) => p.id === detalhe) ?? null;
   const totalListado = lista.reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
 
   const setItem = (index: number, patch: Partial<NewPurchaseItem>) =>
