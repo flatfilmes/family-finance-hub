@@ -106,6 +106,22 @@ function Compras() {
 
   const total = purchaseTotal(items);
 
+  const escopo = view.scoped(filtroMembro);
+  const porEscopo = filterByMember(purchases ?? [], escopo).filter(
+    (p) =>
+      (!filtroPagamento || p.forma_pagamento === filtroPagamento) &&
+      (!filtroMes || p.data_compra.slice(0, 7) === filtroMes),
+  );
+  const itemCategorias = usePurchaseItemCategories(porEscopo.map((p) => p.id));
+  const lista = filtroCategoria
+    ? porEscopo.filter((p) =>
+        (itemCategorias.data ?? []).some(
+          (i) => i.purchase_id === p.id && i.categoria_id === filtroCategoria,
+        ),
+      )
+    : porEscopo;
+  const totalListado = lista.reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
+
   const setItem = (index: number, patch: Partial<NewPurchaseItem>) =>
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
 
@@ -178,6 +194,7 @@ function Compras() {
           title="Compras"
           subtitle="Histórico das compras da família, com cada produto, quantidade e valor."
         />
+        {view.podeLancar && (
         <button
           type="button"
           onClick={() => setShowForm((v) => !v)}
@@ -185,9 +202,10 @@ function Compras() {
         >
           {showForm ? "Fechar" : "+ Nova compra"}
         </button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && view.podeLancar && (
       <Card>
         <h2 className="text-base font-bold">Nova compra</h2>
         <form
@@ -200,6 +218,14 @@ function Compras() {
             }
             if (!membroResponsavel) {
               toast.error("Selecione quem fez a compra.");
+              return;
+            }
+            if (formaPagamento === "CREDITO" && !cartaoId) {
+              toast.error("Selecione o cartão usado na compra.");
+              return;
+            }
+            if (usesBankAccount(formaPagamento) && !contaId) {
+              toast.error("Selecione a conta bancária usada no pagamento.");
               return;
             }
             create.mutate();
@@ -410,6 +436,16 @@ function Compras() {
               <Plus className="size-4" /> Adicionar produto
             </button>
           </div>
+
+          <p className="rounded-2xl bg-muted/60 px-4 py-3 text-xs text-muted-foreground">
+            {formaPagamento === "CREDITO"
+              ? "Cartão de crédito: nada sai da conta agora — a compra vira compromisso futuro no cartão."
+              : formaPagamento === "BOLETO"
+                ? "Boleto: a compra fica registrada como obrigação financeira pendente."
+                : usesBankAccount(formaPagamento)
+                  ? "O valor será debitado do saldo da conta bancária selecionada."
+                  : "Dinheiro: registra a saída do caixa da família."}
+          </p>
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-4">
             <p className="text-sm text-muted-foreground">
