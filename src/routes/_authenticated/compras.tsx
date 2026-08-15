@@ -2,7 +2,7 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronDown, ChevronUp, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useViewMode } from "@/components/view-mode";
@@ -15,7 +15,6 @@ import { useExpenseCategories } from "@/hooks/useExpenses";
 import {
   useProducts,
   usePurchaseItemCategories,
-  usePurchaseItems,
   usePurchases,
 } from "@/hooks/usePurchases";
 import { formatCurrency } from "@/lib/finance";
@@ -97,7 +96,6 @@ function Compras() {
   const [contaId, setContaId] = useState("");
   const [observacao, setObservacao] = useState("");
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
-  const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const view = useViewMode();
