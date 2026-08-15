@@ -484,10 +484,29 @@ function Compras() {
 
       <Card className="mt-4">
         <h2 className="text-base font-bold">Filtros</h2>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {view.isAdmin && (
-            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
+            <MemberFilter
+              familyId={family.id}
+              value={filtroMembro}
+              onChange={setFiltroMembro}
+              label="Pessoa responsável"
+            />
           )}
+          <Field label="Tipo de compra">
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Todas</option>
+              {PURCHASE_KINDS.map((k) => (
+                <option key={k} value={k}>
+                  {PURCHASE_TYPE_LABELS[k]}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Categoria">
             <select
               value={filtroCategoria}
