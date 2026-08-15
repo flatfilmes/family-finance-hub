@@ -4,19 +4,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
   Users,
-  Wallet,
   Settings,
   LogOut,
   Menu,
   X,
   Sparkles,
-  TrendingUp,
-  Receipt,
   CreditCard,
-  Landmark,
   ShoppingBasket,
   ShoppingCart,
   Target,
+  BarChart3,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFamilies, useActiveFamilyId, useSetActiveFamily } from "@/hooks/useFamilyData";
@@ -25,17 +22,15 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/receitas", label: "Receitas", icon: TrendingUp },
-  { to: "/despesas", label: "Despesas", icon: ShoppingCart },
-  { to: "/compras", label: "Compras", icon: ShoppingBasket },
-  { to: "/contas-fixas", label: "Contas Fixas", icon: Receipt },
-  { to: "/cartoes", label: "Cartões", icon: CreditCard },
-  { to: "/contas-bancarias", label: "Contas Bancárias", icon: Landmark },
-  { to: "/planejamento", label: "Planejamento", icon: Target },
   { to: "/minha-familia", label: "Minha Família", icon: Users },
-  { to: "/perfil-financeiro", label: "Perfil Financeiro", icon: Wallet },
+  { to: "/compras", label: "Compras", icon: ShoppingBasket },
+  { to: "/despesas", label: "Despesas", icon: ShoppingCart },
+  { to: "/cartoes", label: "Cartões", icon: CreditCard },
+  { to: "/planejamento", label: "Planejamento", icon: Target },
+  { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
