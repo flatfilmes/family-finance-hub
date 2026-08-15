@@ -20,10 +20,11 @@ export const DOCUMENT_TYPE_LABELS: Record<DocumentType, string> = {
 };
 
 export const DOCUMENT_STATUS_LABELS: Record<DocumentStatus, string> = {
-  ENVIADO: "Enviado",
+  ENVIADO: "Aguardando revisão",
   PROCESSANDO: "Processando",
   PROCESSADO: "Aguardando confirmação",
-  CONFIRMADO: "Confirmado",
+  CONFIRMADO: "Compra criada",
+  REJEITADO: "Rejeitado",
   ERRO: "Erro na leitura",
 };
 
@@ -32,8 +33,10 @@ export const DOCUMENT_STATUS_CLASSES: Record<DocumentStatus, string> = {
   PROCESSANDO: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   PROCESSADO: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
   CONFIRMADO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  REJEITADO: "bg-muted text-muted-foreground",
   ERRO: "bg-destructive/15 text-destructive",
 };
+
 
 export const IMPORT_STATUS_LABELS: Record<PurchaseImportStatus, string> = {
   PENDENTE_APROVACAO: "Aguardando confirmação",
