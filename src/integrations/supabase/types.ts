@@ -64,6 +64,109 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          icone: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          icone?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          icone?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      expenses: {
+        Row: {
+          cartao_id: string | null
+          categoria_id: string | null
+          created_at: string
+          created_by: string | null
+          data_compra: string
+          descricao: string
+          family_id: string
+          forma_pagamento: Database["public"]["Enums"]["payment_method"]
+          id: string
+          observacao: string | null
+          parcela_atual: number
+          parcelas_total: number
+          tipo_compra: Database["public"]["Enums"]["purchase_type"]
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          cartao_id?: string | null
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_compra?: string
+          descricao: string
+          family_id: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"]
+          id?: string
+          observacao?: string | null
+          parcela_atual?: number
+          parcelas_total?: number
+          tipo_compra?: Database["public"]["Enums"]["purchase_type"]
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          cartao_id?: string | null
+          categoria_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_compra?: string
+          descricao?: string
+          family_id?: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"]
+          id?: string
+          observacao?: string | null
+          parcela_atual?: number
+          parcelas_total?: number
+          tipo_compra?: Database["public"]["Enums"]["purchase_type"]
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expenses_cartao_id_fkey"
+            columns: ["cartao_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expenses_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       families: {
         Row: {
           created_at: string
@@ -350,6 +453,15 @@ export type Database = {
         | "ANUAL"
         | "EVENTUAL"
       income_type: "FIXA" | "VARIAVEL"
+      payment_method:
+        | "DINHEIRO"
+        | "PIX"
+        | "DEBITO"
+        | "CREDITO"
+        | "BOLETO"
+        | "TRANSFERENCIA"
+        | "OUTRO"
+      purchase_type: "A_VISTA" | "CARTAO_CREDITO" | "PARCELADO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -507,6 +619,16 @@ export const Constants = {
       ],
       income_frequency: ["MENSAL", "SEMANAL", "QUINZENAL", "ANUAL", "EVENTUAL"],
       income_type: ["FIXA", "VARIAVEL"],
+      payment_method: [
+        "DINHEIRO",
+        "PIX",
+        "DEBITO",
+        "CREDITO",
+        "BOLETO",
+        "TRANSFERENCIA",
+        "OUTRO",
+      ],
+      purchase_type: ["A_VISTA", "CARTAO_CREDITO", "PARCELADO"],
     },
   },
 } as const

@@ -17,6 +17,7 @@ import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedContasFixasRouteImport } from './routes/_authenticated/contas-fixas'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedDespesasRouteImport } from './routes/_authenticated/despesas'
 import { Route as AuthenticatedMinhaFamiliaRouteImport } from './routes/_authenticated/minha-familia'
 import { Route as AuthenticatedPerfilFinanceiroRouteImport } from './routes/_authenticated/perfil-financeiro'
 import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticated/receitas'
@@ -62,6 +63,11 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDespesasRoute = AuthenticatedDespesasRouteImport.update({
+  id: '/despesas',
+  path: '/despesas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedMinhaFamiliaRoute =
   AuthenticatedMinhaFamiliaRouteImport.update({
     id: '/minha-familia',
@@ -88,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/despesas': typeof AuthenticatedDespesasRoute
   '/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/receitas': typeof AuthenticatedReceitasRoute
@@ -100,6 +107,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/despesas': typeof AuthenticatedDespesasRoute
   '/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
   '/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/receitas': typeof AuthenticatedReceitasRoute
@@ -114,6 +122,7 @@ export interface FileRoutesById {
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contas-fixas': typeof AuthenticatedContasFixasRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/despesas': typeof AuthenticatedDespesasRoute
   '/_authenticated/minha-familia': typeof AuthenticatedMinhaFamiliaRoute
   '/_authenticated/perfil-financeiro': typeof AuthenticatedPerfilFinanceiroRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
@@ -128,6 +137,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas-fixas'
     | '/dashboard'
+    | '/despesas'
     | '/minha-familia'
     | '/perfil-financeiro'
     | '/receitas'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/contas-fixas'
     | '/dashboard'
+    | '/despesas'
     | '/minha-familia'
     | '/perfil-financeiro'
     | '/receitas'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/_authenticated/configuracoes'
     | '/_authenticated/contas-fixas'
     | '/_authenticated/dashboard'
+    | '/_authenticated/despesas'
     | '/_authenticated/minha-familia'
     | '/_authenticated/perfil-financeiro'
     | '/_authenticated/receitas'
@@ -223,6 +235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/despesas': {
+      id: '/_authenticated/despesas'
+      path: '/despesas'
+      fullPath: '/despesas'
+      preLoaderRoute: typeof AuthenticatedDespesasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/minha-familia': {
       id: '/_authenticated/minha-familia'
       path: '/minha-familia'
@@ -252,6 +271,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContasFixasRoute: typeof AuthenticatedContasFixasRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedDespesasRoute: typeof AuthenticatedDespesasRoute
   AuthenticatedMinhaFamiliaRoute: typeof AuthenticatedMinhaFamiliaRoute
   AuthenticatedPerfilFinanceiroRoute: typeof AuthenticatedPerfilFinanceiroRoute
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
@@ -262,6 +282,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContasFixasRoute: AuthenticatedContasFixasRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedDespesasRoute: AuthenticatedDespesasRoute,
   AuthenticatedMinhaFamiliaRoute: AuthenticatedMinhaFamiliaRoute,
   AuthenticatedPerfilFinanceiroRoute: AuthenticatedPerfilFinanceiroRoute,
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
