@@ -135,6 +135,7 @@ function FamilySwitcher() {
   const list = families ?? [];
   if (list.length === 0) return null;
   const current = list.find((f) => f.id === activeId) ?? list[0];
+  if (!current) return null;
 
   return (
     <div className="mt-6">
