@@ -9,16 +9,34 @@ import { useViewMode } from "@/components/view-mode";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
+import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useExpenseCategories } from "@/hooks/useExpenses";
-import { useProducts, usePurchaseItems, usePurchases } from "@/hooks/usePurchases";
-import { formatCurrency } from "@/lib/finance";
-import { PAYMENT_METHOD_LABELS, formatDate, type PaymentMethod } from "@/lib/expenses";
 import {
+  useProducts,
+  usePurchaseItemCategories,
+  usePurchaseItems,
+  usePurchases,
+} from "@/hooks/usePurchases";
+import { formatCurrency } from "@/lib/finance";
+import {
+  PAYMENT_METHOD_LABELS,
+  PURCHASE_TYPE_LABELS,
+  formatDate,
+  type PaymentMethod,
+  type PurchaseType,
+} from "@/lib/expenses";
+import {
+  PAYMENT_STATUS_CLASSES,
+  PAYMENT_STATUS_LABELS,
+  PURCHASE_KINDS,
+  PURCHASE_KIND_HINTS,
   UNIDADES,
   createPurchase,
   deletePurchase,
   itemTotal,
   purchaseTotal,
+  usesBankAccount,
   type NewPurchaseItem,
 } from "@/lib/purchases";
 
@@ -62,6 +80,7 @@ function Compras() {
   const { data: family } = useFamily();
   const { data: purchases, isLoading } = usePurchases(family?.id);
   const { data: cards } = useCreditCards(family?.id);
+  const { data: contas } = useBankAccounts(family?.id);
   const { data: products } = useProducts();
   const { data: categorias } = useExpenseCategories();
   const memberName = useMemberName(family?.id);
@@ -69,14 +88,21 @@ function Compras() {
   const [estabelecimento, setEstabelecimento] = useState("");
   const [dataCompra, setDataCompra] = useState(today());
   const [memberId, setMemberId] = useState("");
+  const [tipoCompra, setTipoCompra] = useState<PurchaseType>("COMPRA_NORMAL");
   const [formaPagamento, setFormaPagamento] = useState<PaymentMethod>("DINHEIRO");
   const [cartaoId, setCartaoId] = useState("");
+  const [contaId, setContaId] = useState("");
   const [observacao, setObservacao] = useState("");
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const view = useViewMode();
   const membroResponsavel = view.isAdmin ? memberId : view.myMemberId;
+
+  const [filtroMembro, setFiltroMembro] = useState("");
+  const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [filtroPagamento, setFiltroPagamento] = useState("");
+  const [filtroMes, setFiltroMes] = useState("");
 
   const total = purchaseTotal(items);
 
@@ -87,8 +113,10 @@ function Compras() {
     setEstabelecimento("");
     setDataCompra(today());
     setMemberId("");
+    setTipoCompra("COMPRA_NORMAL");
     setFormaPagamento("DINHEIRO");
     setCartaoId("");
+    setContaId("");
     setObservacao("");
     setItems([{ ...emptyItem }]);
   };
@@ -102,8 +130,10 @@ function Compras() {
           created_by: user?.id ?? null,
           estabelecimento: estabelecimento.trim(),
           data_compra: dataCompra,
+          tipo_compra: tipoCompra,
           forma_pagamento: formaPagamento,
           credit_card_id: formaPagamento === "CREDITO" ? cartaoId || null : null,
+          bank_account_id: usesBankAccount(formaPagamento) ? contaId || null : null,
           observacao: observacao.trim() || null,
         },
         items: items.filter((i) => i.descricao_produto.trim() !== ""),
@@ -113,6 +143,7 @@ function Compras() {
       reset();
       setShowForm(false);
       queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts", family?.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -122,6 +153,7 @@ function Compras() {
     onSuccess: () => {
       toast.success("Compra excluída.");
       queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
+      queryClient.invalidateQueries({ queryKey: ["bank-accounts", family?.id] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -199,6 +231,19 @@ function Compras() {
               label="Quem comprou"
               disabled={!view.isAdmin}
             />
+            <Field label="Tipo de compra">
+              <select
+                value={tipoCompra}
+                onChange={(e) => setTipoCompra(e.target.value as PurchaseType)}
+                className={inputClass}
+              >
+                {PURCHASE_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {PURCHASE_TYPE_LABELS[k]} — {PURCHASE_KIND_HINTS[k]}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <Field label="Forma de pagamento">
               <select
                 value={formaPagamento}
@@ -225,6 +270,24 @@ function Compras() {
                       {c.nome_cartao} · {c.banco}
                     </option>
                   ))}
+                </select>
+              </Field>
+            )}
+            {usesBankAccount(formaPagamento) && (
+              <Field label="Conta bancária">
+                <select
+                  value={contaId}
+                  onChange={(e) => setContaId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Selecione</option>
+                  {filterByMember(contas ?? [], membroResponsavel)
+                    .filter((c) => c.ativo)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.banco} · {c.nome_conta}
+                      </option>
+                    ))}
                 </select>
               </Field>
             )}
