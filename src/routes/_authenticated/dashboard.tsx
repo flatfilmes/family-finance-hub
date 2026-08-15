@@ -20,7 +20,7 @@ import { useFinancialSummary } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
-import { HEALTH_CLASSES, HEALTH_LABELS } from "@/lib/financial-engine";
+import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel } from "@/lib/expenses";
 import { GOAL_LABELS } from "@/lib/family";
