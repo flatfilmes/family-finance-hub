@@ -47,6 +47,8 @@ function ContasFixasPage() {
   const [categoria, setCategoria] = useState<ExpenseCategory>("ENERGIA");
   const [recorrencia, setRecorrencia] = useState<ExpenseRecurrence>("MENSAL");
   const [vencimento, setVencimento] = useState("5");
+  const [memberId, setMemberId] = useState("");
+  const memberName = useMemberName(family?.id);
 
   const invalidate = () =>
     queryClient.invalidateQueries({ queryKey: ["fixed-expenses", family?.id] });
