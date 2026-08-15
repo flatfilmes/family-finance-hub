@@ -13,6 +13,7 @@ import {
   TrendingUp,
   Receipt,
   CreditCard,
+  ShoppingBasket,
   ShoppingCart,
   Target,
 } from "lucide-react";
@@ -25,6 +26,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/receitas", label: "Receitas", icon: TrendingUp },
   { to: "/despesas", label: "Despesas", icon: ShoppingCart },
+  { to: "/compras", label: "Compras", icon: ShoppingBasket },
   { to: "/contas-fixas", label: "Contas Fixas", icon: Receipt },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/planejamento", label: "Planejamento", icon: Target },
