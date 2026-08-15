@@ -73,6 +73,7 @@ function Compras() {
   const [observacao, setObservacao] = useState("");
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   const total = purchaseTotal(items);
 
@@ -107,6 +108,7 @@ function Compras() {
     onSuccess: () => {
       toast.success("Compra registrada.");
       reset();
+      setShowForm(false);
       queryClient.invalidateQueries({ queryKey: ["purchases", family?.id] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -136,11 +138,21 @@ function Compras() {
 
   return (
     <div>
-      <PageHeader
-        title="Compras"
-        subtitle="Registre a compra completa com cada produto, quantidade e valor. Essa base alimentará o histórico de consumo da família."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader
+          title="Compras"
+          subtitle="Histórico das compras da família, com cada produto, quantidade e valor."
+        />
+        <button
+          type="button"
+          onClick={() => setShowForm((v) => !v)}
+          className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+        >
+          {showForm ? "Fechar" : "+ Nova compra"}
+        </button>
+      </div>
 
+      {showForm && (
       <Card>
         <h2 className="text-base font-bold">Nova compra</h2>
         <form
@@ -345,6 +357,7 @@ function Compras() {
           </div>
         </form>
       </Card>
+      )}
 
       <Card className="mt-4">
         <h2 className="text-base font-bold">Histórico de compras</h2>
