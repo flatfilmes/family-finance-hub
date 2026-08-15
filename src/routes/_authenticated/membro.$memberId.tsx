@@ -169,84 +169,137 @@ function MembroPage() {
       </div>
 
       {tab === "Resumo" && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {stats.map((s) => (
-            <Card key={s.label}>
-              <p className="text-xs font-semibold text-muted-foreground">{s.label}</p>
-              <p className="mt-2 text-2xl font-extrabold">{s.value}</p>
-            </Card>
-          ))}
-        </div>
+        <>
+          <Card className="mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-bold">Saúde financeira de {member.nome}</h2>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${HEALTH_CLASSES[engine.status].badge}`}
+              >
+                <span className={`size-2 rounded-full ${HEALTH_CLASSES[engine.status].dot}`} />
+                {HEALTH_LABELS[engine.status]}
+              </span>
+            </div>
+            <p className="mt-3 text-sm font-semibold">{HEALTH_MESSAGES[engine.status]}</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Disponível real estimado:{" "}
+              <span className="font-semibold text-foreground">
+                {formatCurrency(engine.disponivel)}
+              </span>
+            </p>
+          </Card>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {stats.map((s) => (
+              <Card key={s.label}>
+                <p className="text-xs font-semibold text-muted-foreground">{s.label}</p>
+                <p className="mt-2 text-2xl font-extrabold">{s.value}</p>
+              </Card>
+            ))}
+          </div>
+        </>
       )}
 
       {tab === "Receitas" && (
-        <Card>
-          <h2 className="text-base font-bold">Receitas de {member.nome}</h2>
-          {myIncomes.length ? (
-            <ul className="mt-2 divide-y divide-border">
-              {myIncomes.map((i) => (
-                <Row
-                  key={i.id}
-                  title={i.descricao}
-                  subtitle={`${i.tipo === "FIXA" ? "Fixa" : "Variável"} · ${i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
-                  value={formatCurrency(Number(i.valor))}
-                />
-              ))}
-            </ul>
-          ) : (
-            <Empty>
-              Nenhuma receita vinculada. Cadastre em Receitas escolhendo {member.nome} como
-              responsável.
-            </Empty>
-          )}
-        </Card>
+        <>
+          <Card>
+            <h2 className="text-base font-bold">Nova receita de {member.nome}</h2>
+            <p className="mb-4 mt-1 text-xs text-muted-foreground">
+              Salário como receita fixa, comissão como variável.
+            </p>
+            <IncomeForm familyId={family.id} memberId={member.id} />
+          </Card>
+          <Card className="mt-4">
+            <h2 className="text-base font-bold">Histórico de receitas</h2>
+            {myIncomes.length ? (
+              <ul className="mt-2 divide-y divide-border">
+                {myIncomes.map((i) => (
+                  <Row
+                    key={i.id}
+                    title={i.descricao}
+                    subtitle={`${i.tipo === "FIXA" ? "Fixa" : "Variável"} · ${i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
+                    value={formatCurrency(Number(i.valor))}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <Empty>Nenhuma receita cadastrada para {member.nome} ainda.</Empty>
+            )}
+          </Card>
+        </>
       )}
 
       {tab === "Contas bancárias" && (
-        <Card>
-          <h2 className="text-base font-bold">Contas bancárias</h2>
-          {myAccounts.length ? (
-            <ul className="mt-2 divide-y divide-border">
-              {myAccounts.map((a) => (
-                <Row
-                  key={a.id}
-                  title={`${a.banco} · ${a.nome_conta}`}
-                  subtitle={`${BANK_ACCOUNT_TYPE_LABELS[a.tipo_conta]}${a.ativo ? "" : " · inativa"}`}
-                  value={formatCurrency(Number(a.saldo_atual))}
-                />
-              ))}
-            </ul>
-          ) : (
-            <Empty>
-              Nenhuma conta bancária cadastrada para {member.nome}. Adicione em Contas Bancárias.
-            </Empty>
-          )}
-        </Card>
+        <>
+          <Card>
+            <h2 className="text-base font-bold">Nova conta bancária</h2>
+            <p className="mb-4 mt-1 text-xs text-muted-foreground">
+              A conta fica registrada com {member.nome} como titular.
+            </p>
+            <BankAccountForm familyId={family.id} memberId={member.id} />
+          </Card>
+          <Card className="mt-4">
+            <h2 className="text-base font-bold">Contas de {member.nome}</h2>
+            {myAccounts.length ? (
+              <ul className="mt-2 divide-y divide-border">
+                {myAccounts.map((a) => (
+                  <Row
+                    key={a.id}
+                    title={`${a.banco} · ${a.nome_conta}`}
+                    subtitle={`${BANK_ACCOUNT_TYPE_LABELS[a.tipo_conta]} · titular ${member.nome}${a.ativo ? "" : " · inativa"}`}
+                    value={formatCurrency(Number(a.saldo_atual))}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <Empty>Nenhuma conta bancária cadastrada para {member.nome}.</Empty>
+            )}
+          </Card>
+        </>
       )}
 
       {tab === "Cartões" && (
-        <Card>
-          <h2 className="text-base font-bold">Cartões</h2>
-          {myCards.length ? (
-            <ul className="mt-2 divide-y divide-border">
-              {myCards.map((c) => (
-                <Row
-                  key={c.id}
-                  title={`${c.banco} · ${c.nome_cartao}`}
-                  subtitle={`Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}${c.ativo ? "" : " · inativo"}`}
-                  value={formatCurrency(Number(c.limite))}
-                />
-              ))}
-            </ul>
-          ) : (
-            <Empty>Nenhum cartão vinculado a {member.nome}. Cadastre na página Cartões.</Empty>
-          )}
-        </Card>
+        <>
+          <Card>
+            <h2 className="text-base font-bold">Novo cartão</h2>
+            <p className="mb-4 mt-1 text-xs text-muted-foreground">
+              O cartão fica vinculado a {member.nome}.
+            </p>
+            <CreditCardForm familyId={family.id} memberId={member.id} />
+          </Card>
+          <Card className="mt-4">
+            <h2 className="text-base font-bold">Cartões de {member.nome}</h2>
+            {myCards.length ? (
+              <ul className="mt-2 divide-y divide-border">
+                {myCards.map((c) => {
+                  const info = overview.porCartao.find((o) => o.card.id === c.id);
+                  return (
+                    <Row
+                      key={c.id}
+                      title={`${c.banco} · ${c.nome_cartao}`}
+                      subtitle={`Limite ${formatCurrency(Number(c.limite))} · fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento} · fatura atual ${formatCurrency(info?.valorFaturaAtual ?? 0)}${c.ativo ? "" : " · inativo"}`}
+                      value={formatCurrency(info?.valorFaturaAtual ?? 0)}
+                    />
+                  );
+                })}
+              </ul>
+            ) : (
+              <Empty>Nenhum cartão vinculado a {member.nome}.</Empty>
+            )}
+          </Card>
+        </>
       )}
 
       {tab === "Compras" && (
         <Card>
-          <h2 className="text-base font-bold">Compras</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-base font-bold">Compras</h2>
+            <Link
+              to="/compras"
+              className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+            >
+              Registrar compra
+            </Link>
+          </div>
           {myPurchases.length ? (
             <ul className="mt-2 divide-y divide-border">
               {myPurchases.map((p) => (
@@ -263,6 +316,7 @@ function MembroPage() {
           )}
         </Card>
       )}
+
 
       {tab === "Despesas" && (
         <Card>
