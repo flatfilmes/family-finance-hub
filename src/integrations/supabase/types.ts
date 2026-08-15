@@ -274,6 +274,121 @@ export type Database = {
           },
         ]
       }
+      document_extraction_items: {
+        Row: {
+          categoria_sugerida: string | null
+          created_at: string
+          descricao_produto: string
+          extraction_id: string
+          id: string
+          quantidade: number
+          unidade: string
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          categoria_sugerida?: string | null
+          created_at?: string
+          descricao_produto: string
+          extraction_id: string
+          id?: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          categoria_sugerida?: string | null
+          created_at?: string
+          descricao_produto?: string
+          extraction_id?: string
+          id?: string
+          quantidade?: number
+          unidade?: string
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_extraction_items_categoria_sugerida_fkey"
+            columns: ["categoria_sugerida"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extraction_items_extraction_id_fkey"
+            columns: ["extraction_id"]
+            isOneToOne: false
+            referencedRelation: "document_extractions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_extractions: {
+        Row: {
+          created_at: string
+          dados_brutos_json: Json | null
+          data_compra: string | null
+          document_id: string
+          estabelecimento: string | null
+          family_id: string
+          forma_pagamento: Database["public"]["Enums"]["payment_method"] | null
+          id: string
+          member_id: string | null
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          dados_brutos_json?: Json | null
+          data_compra?: string | null
+          document_id: string
+          estabelecimento?: string | null
+          family_id: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          id?: string
+          member_id?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          dados_brutos_json?: Json | null
+          data_compra?: string | null
+          document_id?: string
+          estabelecimento?: string | null
+          family_id?: string
+          forma_pagamento?: Database["public"]["Enums"]["payment_method"] | null
+          id?: string
+          member_id?: string | null
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_extractions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extractions_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_extractions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documents: {
         Row: {
           chave_documento: string | null
