@@ -312,17 +312,17 @@ function Dashboard() {
               <Target className="size-5" />
             </span>
             <div>
-              <h2 className="text-base font-bold">Controle do orçamento</h2>
+              <h2 className="text-base font-bold">Controle do mês</h2>
               <p className="text-xs text-muted-foreground">
                 Planejado x gasto por categoria em {monthLabel(orcamento.month)}
               </p>
             </div>
           </div>
           <Link
-            to="/orcamento"
+            to="/planejamento"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
           >
-            Gerenciar orçamento
+            Gerenciar planejamento
             <ArrowRight className="size-4" />
           </Link>
         </div>
@@ -331,11 +331,28 @@ function Dashboard() {
           <p className="mt-5 text-sm text-muted-foreground">Carregando...</p>
         ) : orcamento.items.length === 0 ? (
           <p className="mt-5 text-sm text-muted-foreground">
-            Nenhum limite definido ainda. Crie orçamentos por categoria para acompanhar o
-            planejado.
+            Nenhum planejamento criado ainda. Crie o planejamento mensal por categoria para
+            acompanhar o controle do mês.
           </p>
         ) : (
-          <ul className="mt-5 space-y-4">
+          <>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Dentro do orçamento</p>
+                <p className="mt-1 text-lg font-bold">{orcamento.dentroDoLimite.length}</p>
+              </div>
+              <div className="rounded-2xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Acima do limite</p>
+                <p className="mt-1 text-lg font-bold">{orcamento.acimaDoLimite.length}</p>
+              </div>
+              <div className="rounded-2xl border border-border p-3">
+                <p className="text-xs text-muted-foreground">Percentual geral utilizado</p>
+                <p className="mt-1 text-lg font-bold">
+                  {orcamento.percentualGeral.toFixed(0)}%
+                </p>
+              </div>
+            </div>
+            <ul className="mt-5 space-y-4">
             {orcamento.items.map((item) => {
               const cls = BUDGET_STATUS_CLASSES[item.status];
               return (
@@ -358,7 +375,8 @@ function Dashboard() {
                 </li>
               );
             })}
-          </ul>
+            </ul>
+          </>
         )}
       </Card>
 

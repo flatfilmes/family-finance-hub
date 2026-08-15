@@ -10,46 +10,49 @@ import { useExpenseCategories } from "@/hooks/useExpenses";
 import { useBudgetProgress, useBudgets } from "@/hooks/useBudgets";
 import { NoFamily } from "./receitas";
 import { formatCurrency } from "@/lib/finance";
-import { monthLabel } from "@/lib/expenses";
+import { currentMonth, monthLabel } from "@/lib/expenses";
 import {
-  BUDGET_PERIOD_LABELS,
   BUDGET_STATUS_CLASSES,
   BUDGET_STATUS_LABELS,
   createBudget,
   deleteBudget,
+  monthToRef,
   updateBudget,
-  type BudgetPeriod,
 } from "@/lib/budgets";
 
-export const Route = createFileRoute("/_authenticated/orcamento")({
+export const Route = createFileRoute("/_authenticated/planejamento")({
   head: () => ({
     meta: [
-      { title: "Orçamento Familiar — Família Finance AI" },
+      { title: "Planejamento Financeiro — Família Finance AI" },
       {
         name: "description",
         content:
-          "Defina limites de gastos por categoria e acompanhe o progresso do orçamento da família.",
+          "Defina limites mensais de gastos por categoria e compare o planejamento com a realidade da família.",
       },
-      { property: "og:title", content: "Orçamento Familiar — Família Finance AI" },
+      { property: "og:title", content: "Planejamento Financeiro — Família Finance AI" },
       {
         property: "og:description",
-        content: "Planeje limites por categoria e veja se a família está dentro do planejado.",
+        content: "Planeje limites por categoria e acompanhe o saldo disponível de cada uma.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: OrcamentoPage,
+  component: PlanejamentoPage,
 });
 
-type FormState = { category_id: string; valor_planejado: string; periodo: BudgetPeriod };
+type FormState = { category_id: string; valor_planejado: string };
 
-const emptyForm = (): FormState => ({ category_id: "", valor_planejado: "", periodo: "MENSAL" });
+const emptyForm = (): FormState => ({ category_id: "", valor_planejado: "" });
 
-function OrcamentoPage() {
+function PlanejamentoPage() {
   const { user } = useAuth();
   const { data: family } = useFamily();
   const { data: categories } = useExpenseCategories();
-  const { data: budgets } = useBudgets(family?.id);
-  const progress = useBudgetProgress(family?.id);
+
+  const [month, setMonth] = useState(currentMonth());
+  const { data: budgets } = useBudgets(family?.id, month);
+  const progress = useBudgetProgress(family?.id, month);
   const queryClient = useQueryClient();
 
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -60,10 +63,13 @@ function OrcamentoPage() {
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["budgets"] });
 
+  const ref = monthToRef(month);
+
   const payload = () => ({
     category_id: form.category_id || null,
     valor_planejado: Number(form.valor_planejado.replace(",", ".")) || 0,
-    periodo: form.periodo,
+    mes_referencia: ref.mes,
+    ano_referencia: ref.ano,
   });
 
   const save = useMutation({
@@ -72,7 +78,7 @@ function OrcamentoPage() {
       return createBudget({ family_id: family!.id, created_by: user?.id ?? null, ...payload() });
     },
     onSuccess: () => {
-      toast.success(editingId ? "Orçamento atualizado." : "Orçamento criado.");
+      toast.success(editingId ? "Planejamento atualizado." : "Planejamento criado.");
       setForm(emptyForm());
       setEditingId(null);
       invalidate();
@@ -80,7 +86,7 @@ function OrcamentoPage() {
     onError: (e: Error) =>
       toast.error(
         e.message.includes("duplicate")
-          ? "Já existe um orçamento para essa categoria."
+          ? "Já existe um planejamento para essa categoria neste mês."
           : e.message,
       ),
   });
@@ -88,7 +94,7 @@ function OrcamentoPage() {
   const remove = useMutation({
     mutationFn: (id: string) => deleteBudget(id),
     onSuccess: () => {
-      toast.success("Orçamento excluído.");
+      toast.success("Planejamento excluído.");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -99,14 +105,14 @@ function OrcamentoPage() {
   return (
     <div>
       <PageHeader
-        title="Orçamento Familiar"
-        subtitle={`Limites de gastos por categoria e acompanhamento do progresso em ${monthLabel(progress.month)}.`}
+        title="Planejamento"
+        subtitle={`Limites mensais por categoria e comparação entre planejado e realizado em ${monthLabel(month)}.`}
       />
 
       <Card>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-bold">
-            {editingId ? "Editar orçamento" : "Novo orçamento"}
+            {editingId ? "Editar planejamento" : "Novo planejamento"}
           </h2>
           {editingId && (
             <button
@@ -156,24 +162,19 @@ function OrcamentoPage() {
               placeholder="0,00"
             />
           </Field>
-          <Field label="Período">
-            <select
+          <Field label="Mês de referência">
+            <input
+              type="month"
               className={inputClass}
-              value={form.periodo}
-              onChange={(e) => set("periodo", e.target.value as BudgetPeriod)}
-            >
-              {Object.entries(BUDGET_PERIOD_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
+              value={month}
+              onChange={(e) => setMonth(e.target.value || currentMonth())}
+            />
           </Field>
           <div className="flex items-end sm:col-span-3">
             <PrimaryButton type="submit" disabled={save.isPending}>
               <span className="inline-flex items-center gap-2">
                 <Plus className="size-4" />
-                {editingId ? "Salvar alterações" : "Criar orçamento"}
+                {editingId ? "Salvar alterações" : "Criar planejamento"}
               </span>
             </PrimaryButton>
           </div>
@@ -182,10 +183,10 @@ function OrcamentoPage() {
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <h2 className="text-base font-bold">Progresso do orçamento</h2>
+          <h2 className="text-base font-bold">Planejado x realizado</h2>
           <p className="text-sm text-muted-foreground">
             {formatCurrency(progress.totalGasto)} de {formatCurrency(progress.totalPlanejado)}{" "}
-            planejados
+            planejados · {progress.percentualGeral.toFixed(0)}% utilizado
           </p>
         </div>
 
@@ -193,7 +194,8 @@ function OrcamentoPage() {
           <p className="mt-5 text-sm text-muted-foreground">Carregando...</p>
         ) : progress.items.length === 0 ? (
           <p className="mt-5 text-sm text-muted-foreground">
-            Nenhum orçamento definido ainda. Crie o primeiro limite por categoria acima.
+            Nenhum planejamento definido para {monthLabel(month)}. Crie o primeiro limite por
+            categoria acima para comparar planejamento e realidade.
           </p>
         ) : (
           <ul className="mt-5 space-y-4">
@@ -219,14 +221,13 @@ function OrcamentoPage() {
                         {item.percentual.toFixed(0)}% · {BUDGET_STATUS_LABELS[item.status]}
                       </span>
                       <button
-                        aria-label="Editar orçamento"
+                        aria-label="Editar planejamento"
                         onClick={() => {
                           if (!budget) return;
                           setEditingId(budget.id);
                           setForm({
                             category_id: budget.category_id ?? "",
                             valor_planejado: String(budget.valor_planejado ?? ""),
-                            periodo: budget.periodo,
                           });
                           if (typeof window !== "undefined")
                             window.scrollTo({ top: 0, behavior: "smooth" });
@@ -236,7 +237,7 @@ function OrcamentoPage() {
                         <Pencil className="size-4" />
                       </button>
                       <button
-                        aria-label="Excluir orçamento"
+                        aria-label="Excluir planejamento"
                         onClick={() => remove.mutate(item.id)}
                         className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
                       >

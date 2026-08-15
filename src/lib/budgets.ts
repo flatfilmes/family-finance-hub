@@ -31,12 +31,22 @@ export const BUDGET_STATUS_CLASSES: Record<BudgetStatus, { badge: string; bar: s
   estourado: { badge: "bg-red-500/15 text-red-700", bar: "bg-red-500" },
 };
 
-export async function fetchBudgets(familyId: string) {
-  const { data, error } = await supabase
-    .from("budgets")
-    .select("*")
-    .eq("family_id", familyId)
-    .order("created_at", { ascending: true });
+export type BudgetPeriodRef = { mes: number; ano: number };
+
+/** Converte "YYYY-MM" em mês/ano de referência. */
+export function monthToRef(month: string): BudgetPeriodRef {
+  const [ano, mes] = month.split("-").map(Number);
+  return { mes: mes ?? 1, ano: ano ?? 1970 };
+}
+
+export function refToMonth(ref: BudgetPeriodRef) {
+  return `${ref.ano}-${String(ref.mes).padStart(2, "0")}`;
+}
+
+export async function fetchBudgets(familyId: string, ref?: BudgetPeriodRef) {
+  let query = supabase.from("budgets").select("*").eq("family_id", familyId);
+  if (ref) query = query.eq("mes_referencia", ref.mes).eq("ano_referencia", ref.ano);
+  const { data, error } = await query.order("created_at", { ascending: true });
   if (error) throw error;
   return data ?? [];
 }

@@ -16,31 +16,37 @@ export type Database = {
     Tables: {
       budgets: {
         Row: {
+          ano_referencia: number
           category_id: string | null
           created_at: string
           created_by: string | null
           family_id: string
           id: string
+          mes_referencia: number
           periodo: Database["public"]["Enums"]["budget_period"]
           updated_at: string
           valor_planejado: number
         }
         Insert: {
+          ano_referencia?: number
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           family_id: string
           id?: string
+          mes_referencia?: number
           periodo?: Database["public"]["Enums"]["budget_period"]
           updated_at?: string
           valor_planejado?: number
         }
         Update: {
+          ano_referencia?: number
           category_id?: string | null
           created_at?: string
           created_by?: string | null
           family_id?: string
           id?: string
+          mes_referencia?: number
           periodo?: Database["public"]["Enums"]["budget_period"]
           updated_at?: string
           valor_planejado?: number

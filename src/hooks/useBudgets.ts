@@ -1,12 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { budgetStatus, fetchBudgets, type BudgetStatus } from "@/lib/budgets";
+import {
+  budgetStatus,
+  fetchBudgets,
+  monthToRef,
+  type BudgetStatus,
+} from "@/lib/budgets";
 import { currentMonth } from "@/lib/expenses";
 import { useExpenseCategories, useExpenses } from "@/hooks/useExpenses";
 
-export function useBudgets(familyId?: string) {
+export function useBudgets(familyId?: string, month?: string) {
+  const ref = month ? monthToRef(month) : undefined;
   return useQuery({
-    queryKey: ["budgets", familyId],
-    queryFn: () => fetchBudgets(familyId!),
+    queryKey: ["budgets", familyId, month ?? null],
+    queryFn: () => fetchBudgets(familyId!, ref),
     enabled: !!familyId,
   });
 }
@@ -22,10 +28,10 @@ export type BudgetProgress = {
   status: BudgetStatus;
 };
 
-/** Compara budgets.valor_planejado com o total de expenses.valor do mês corrente. */
-export function useBudgetProgress(familyId?: string) {
-  const month = currentMonth();
-  const budgets = useBudgets(familyId);
+/** Compara budgets.valor_planejado com o total de expenses.valor do mês de referência. */
+export function useBudgetProgress(familyId?: string, monthArg?: string) {
+  const month = monthArg ?? currentMonth();
+  const budgets = useBudgets(familyId, month);
   const expenses = useExpenses(familyId, { month });
   const categories = useExpenseCategories();
 
@@ -62,6 +68,8 @@ export function useBudgetProgress(familyId?: string) {
   return {
     month,
     items,
+    dentroDoLimite: items.filter((i) => i.status !== "estourado"),
+    acimaDoLimite: items.filter((i) => i.status === "estourado"),
     totalPlanejado,
     totalGasto,
     percentualGeral,
