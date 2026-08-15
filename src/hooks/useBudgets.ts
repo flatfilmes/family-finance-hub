@@ -68,10 +68,12 @@ export function useBudgetProgress(familyId?: string, monthArg?: string) {
   return {
     month,
     items,
-    dentroDoLimite: items.filter((i) => i.status !== "estourado"),
+    dentroDoLimite: items.filter((i) => i.status === "ok"),
+    proximosDoLimite: items.filter((i) => i.status === "atencao"),
     acimaDoLimite: items.filter((i) => i.status === "estourado"),
     totalPlanejado,
     totalGasto,
+    diferenca: totalPlanejado - totalGasto,
     percentualGeral,
     statusGeral: budgetStatus(percentualGeral),
     isLoading: budgets.isLoading || expenses.isLoading,
