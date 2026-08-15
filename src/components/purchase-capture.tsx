@@ -260,19 +260,36 @@ export function DocumentosSection({
 
   const docs = filterByMember(documents ?? [], escopo);
   const drafts = filterByMember(imports ?? [], escopo);
-  const pendentes = docs.filter((d) => d.status === "ENVIADO" || d.status === "PROCESSADO");
+  const pendentes = docs.filter(
+    (d) =>
+      d.status === "ENVIADO" ||
+      d.status === "PROCESSADO" ||
+      d.status === "PROCESSANDO" ||
+      d.status === "ERRO",
+  );
   const processados = docs.filter((d) => d.status === "CONFIRMADO" || d.status === "REJEITADO");
 
   const invalidar = () => {
     for (const key of ["documents", "purchase-imports", "purchases", "bank-accounts", "expenses"]) {
       void queryClient.invalidateQueries({ queryKey: [key, familyId] });
     }
+    void queryClient.invalidateQueries({ queryKey: ["document-extraction"] });
+    void queryClient.invalidateQueries({ queryKey: ["document-extraction-items"] });
   };
 
   const remove = useMutation({
     mutationFn: (doc: { id: string; url_arquivo: string | null }) => deleteDocument(doc),
     onSuccess: () => {
       toast.success("Documento removido.");
+      invalidar();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reprocessar = useMutation({
+    mutationFn: (doc: FinancialDocument) => processDocumentPdf({ doc }),
+    onSuccess: () => {
+      toast.success("PDF lido novamente.");
       invalidar();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -287,6 +304,7 @@ export function DocumentosSection({
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const abrirArquivo = async (path: string) => {
     try {
