@@ -39,6 +39,7 @@ import {
   usesBankAccount,
   type NewPurchaseItem,
 } from "@/lib/purchases";
+import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
@@ -96,6 +97,7 @@ function Compras() {
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const view = useViewMode();
   const membroResponsavel = view.isAdmin ? memberId : view.myMemberId;
 
@@ -197,13 +199,25 @@ function Compras() {
         {view.podeLancar && (
         <button
           type="button"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={() => {
+            setShowOptions((v) => !v);
+            setShowForm(false);
+          }}
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
         >
-          {showForm ? "Fechar" : "+ Nova compra"}
+          {showOptions || showForm ? "Fechar" : "+ Nova compra"}
         </button>
         )}
       </div>
+
+      {showOptions && view.podeLancar && (
+        <NovaCompraOptions
+          onManual={() => {
+            setShowForm(true);
+            setShowOptions(false);
+          }}
+        />
+      )}
 
       {showForm && view.podeLancar && (
       <Card>
@@ -506,6 +520,15 @@ function Compras() {
           </Field>
         </div>
       </Card>
+
+      <DocumentosSection
+        familyId={family.id}
+        memberId={view.myMemberId}
+        createdBy={user?.id}
+        podeLancar={view.podeLancar}
+        escopo={escopo}
+      />
+
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
