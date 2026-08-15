@@ -575,15 +575,11 @@ function Compras() {
               <li key={p.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <button
-                    onClick={() => setExpanded(expanded === p.id ? null : p.id)}
+                    onClick={() => setDetalhe(p.id)}
                     className="flex min-w-52 flex-1 items-center gap-2 text-left"
-                    aria-expanded={expanded === p.id}
+                    aria-label={`Ver detalhes da compra em ${p.estabelecimento}`}
                   >
-                    {expanded === p.id ? (
-                      <ChevronUp className="size-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="size-4 text-muted-foreground" />
-                    )}
+                    <ChevronRight className="size-4 text-muted-foreground" />
                     <span>
                       <span className="block text-sm font-semibold">{p.estabelecimento}</span>
                       <span className="block text-xs text-muted-foreground">
@@ -609,12 +605,17 @@ function Compras() {
                     </button>
                   )}
                 </div>
-                {expanded === p.id && <PurchaseItems purchaseId={p.id} />}
               </li>
             ))}
           </ul>
         )}
       </Card>
+
+      <VisaoConsumo purchaseIds={lista.map((p) => p.id)} />
+
+      {compraDetalhe && (
+        <PurchaseDetail purchase={compraDetalhe} onClose={() => setDetalhe(null)} />
+      )}
     </div>
   );
 }
