@@ -7,6 +7,7 @@ import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useIncomes } from "@/hooks/useFinanceData";
+import { MemberSelect, useMemberName } from "@/components/member-select";
 import {
   INCOME_FREQUENCY_LABELS,
   INCOME_TYPE_LABELS,
@@ -45,6 +46,8 @@ function ReceitasPage() {
   const [tipo, setTipo] = useState<IncomeType>("FIXA");
   const [frequencia, setFrequencia] = useState<IncomeFrequency>("MENSAL");
   const [dataRecebimento, setDataRecebimento] = useState("");
+  const [memberId, setMemberId] = useState("");
+  const memberName = useMemberName(family?.id);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["incomes", family?.id] });
 
@@ -58,6 +61,7 @@ function ReceitasPage() {
         tipo,
         frequencia,
         data_recebimento: dataRecebimento || null,
+        member_id: memberId || null,
       }),
     onSuccess: () => {
       setDescricao("");
@@ -153,6 +157,7 @@ function ReceitasPage() {
               ))}
             </select>
           </Field>
+          <MemberSelect familyId={family?.id} value={memberId} onChange={setMemberId} />
           <Field label="Data de recebimento">
             <input
               type="date"
@@ -190,7 +195,8 @@ function ReceitasPage() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{i.descricao}</p>
                   <p className="text-xs text-muted-foreground">
-                    {INCOME_TYPE_LABELS[i.tipo]} · {INCOME_FREQUENCY_LABELS[i.frequencia]}
+                    {memberName(i.member_id)} · {INCOME_TYPE_LABELS[i.tipo]} ·{" "}
+                    {INCOME_FREQUENCY_LABELS[i.frequencia]}
                     {i.data_recebimento ? ` · ${i.data_recebimento.split("-").reverse().join("/")}` : ""}
                   </p>
                 </div>

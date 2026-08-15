@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useCardOverview } from "@/hooks/useCardInvoices";
+import { MemberSelect, useMemberName } from "@/components/member-select";
 import { formatDate } from "@/lib/expenses";
 import { NoFamily } from "./receitas";
 import {
@@ -44,6 +45,8 @@ function CartoesPage() {
   const [limite, setLimite] = useState("");
   const [fechamento, setFechamento] = useState("1");
   const [vencimento, setVencimento] = useState("10");
+  const [memberId, setMemberId] = useState("");
+  const memberName = useMemberName(family?.id);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["credit-cards", family?.id] });
 
@@ -59,6 +62,7 @@ function CartoesPage() {
         limite: Number(limite.replace(",", ".")) || 0,
         dia_fechamento: clampDay(fechamento),
         dia_vencimento: clampDay(vencimento),
+        member_id: memberId || null,
       }),
     onSuccess: () => {
       setBanco("");
@@ -136,6 +140,7 @@ function CartoesPage() {
               placeholder="0,00"
             />
           </Field>
+          <MemberSelect familyId={family?.id} value={memberId} onChange={setMemberId} label="Titular" />
           <div className="grid grid-cols-2 gap-4">
             <Field label="Dia de fechamento">
               <input
@@ -187,7 +192,8 @@ function CartoesPage() {
                       {c.nome_cartao} · {c.banco}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Fecha dia {c.dia_fechamento} · vence dia {c.dia_vencimento}
+                      {memberName(c.member_id)} · fecha dia {c.dia_fechamento} · vence dia{" "}
+                      {c.dia_vencimento}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>

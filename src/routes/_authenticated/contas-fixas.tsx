@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
+import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useFixedExpenses } from "@/hooks/useFinanceData";
 import { NoFamily } from "./receitas";
 import {
@@ -60,6 +61,7 @@ function ContasFixasPage() {
         recorrencia,
         valor: Number(valor.replace(",", ".")) || 0,
         vencimento: Math.min(31, Math.max(1, Number(vencimento) || 1)),
+        member_id: memberId || null,
       }),
     onSuccess: () => {
       setDescricao("");
@@ -154,6 +156,7 @@ function ContasFixasPage() {
               ))}
             </select>
           </Field>
+          <MemberSelect familyId={family?.id} value={memberId} onChange={setMemberId} />
           <Field label="Dia do vencimento">
             <input
               className={inputClass}
