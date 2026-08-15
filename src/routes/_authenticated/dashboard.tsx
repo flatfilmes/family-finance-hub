@@ -29,7 +29,14 @@ import { filterByMember } from "@/components/member-filter";
 import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
 import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
-import { monthLabel } from "@/lib/expenses";
+import { monthLabel, formatDate } from "@/lib/expenses";
+import { useTransactions } from "@/hooks/useTransactions";
+import {
+  TRANSACTION_STATUS_CLASSES,
+  TRANSACTION_STATUS_LABELS,
+  TRANSACTION_TYPE_LABELS,
+  type Transaction,
+} from "@/lib/transactions";
 import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
 
