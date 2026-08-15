@@ -68,6 +68,60 @@ export type Database = {
           },
         ]
       }
+      card_invoices: {
+        Row: {
+          created_at: string
+          credit_card_id: string
+          data_fechamento: string
+          data_inicio_ciclo: string
+          data_vencimento: string
+          family_id: string
+          id: string
+          status: Database["public"]["Enums"]["invoice_status"]
+          updated_at: string
+          valor_total: number
+        }
+        Insert: {
+          created_at?: string
+          credit_card_id: string
+          data_fechamento: string
+          data_inicio_ciclo: string
+          data_vencimento: string
+          family_id: string
+          id?: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Update: {
+          created_at?: string
+          credit_card_id?: string
+          data_fechamento?: string
+          data_inicio_ciclo?: string
+          data_vencimento?: string
+          family_id?: string
+          id?: string
+          status?: Database["public"]["Enums"]["invoice_status"]
+          updated_at?: string
+          valor_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_invoices_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_invoices_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           ativo: boolean
@@ -144,6 +198,70 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      expense_installments: {
+        Row: {
+          card_invoice_id: string | null
+          created_at: string
+          data_vencimento: string
+          expense_id: string
+          family_id: string
+          id: string
+          numero_parcela: number
+          status: Database["public"]["Enums"]["installment_status"]
+          total_parcelas: number
+          updated_at: string
+          valor_parcela: number
+        }
+        Insert: {
+          card_invoice_id?: string | null
+          created_at?: string
+          data_vencimento: string
+          expense_id: string
+          family_id: string
+          id?: string
+          numero_parcela?: number
+          status?: Database["public"]["Enums"]["installment_status"]
+          total_parcelas?: number
+          updated_at?: string
+          valor_parcela?: number
+        }
+        Update: {
+          card_invoice_id?: string | null
+          created_at?: string
+          data_vencimento?: string
+          expense_id?: string
+          family_id?: string
+          id?: string
+          numero_parcela?: number
+          status?: Database["public"]["Enums"]["installment_status"]
+          total_parcelas?: number
+          updated_at?: string
+          valor_parcela?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "expense_installments_card_invoice_id_fkey"
+            columns: ["card_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "card_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_installments_expense_id_fkey"
+            columns: ["expense_id"]
+            isOneToOne: false
+            referencedRelation: "expenses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_installments_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       expenses: {
         Row: {
@@ -543,6 +661,8 @@ export type Database = {
         | "ANUAL"
         | "EVENTUAL"
       income_type: "FIXA" | "VARIAVEL"
+      installment_status: "PENDENTE" | "PAGO"
+      invoice_status: "ABERTA" | "FECHADA" | "PAGA"
       payment_method:
         | "DINHEIRO"
         | "PIX"
@@ -710,6 +830,8 @@ export const Constants = {
       ],
       income_frequency: ["MENSAL", "SEMANAL", "QUINZENAL", "ANUAL", "EVENTUAL"],
       income_type: ["FIXA", "VARIAVEL"],
+      installment_status: ["PENDENTE", "PAGO"],
+      invoice_status: ["ABERTA", "FECHADA", "PAGA"],
       payment_method: [
         "DINHEIRO",
         "PIX",
