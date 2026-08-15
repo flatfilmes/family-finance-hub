@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
-import { itemTotal, type NewPurchaseItem, type PurchaseInsert } from "@/lib/purchases";
+import { createPurchase, itemTotal, type NewPurchaseItem, type PurchaseInsert } from "@/lib/purchases";
+import type { ExpenseRecurrence } from "@/lib/recurring-expenses";
+import type { CreditCard } from "@/lib/finance";
 
 export type FinancialDocument = Database["public"]["Tables"]["documents"]["Row"];
 export type FinancialDocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
@@ -189,6 +191,54 @@ export async function confirmImport(input: {
     .update({ status: "APROVADO" })
     .eq("id", input.importId);
   if (importError) throw importError;
+
+  const { error: docError } = await supabase
+    .from("documents")
+    .update({ status: "CONFIRMADO", purchase_id: purchase.id })
+    .eq("id", input.documentId);
+  if (docError) throw docError;
+
+  return purchase;
+}
+
+/** Recusa um documento enviado: ele não vira compra e sai da fila de revisão. */
+export async function rejectDocument(documentId: string) {
+  const { error } = await supabase
+    .from("documents")
+    .update({ status: "REJEITADO" })
+    .eq("id", documentId);
+  if (error) throw error;
+}
+
+/**
+ * Etapa de aprovação manual: transforma um documento revisado em compra oficial,
+ * com todo o impacto financeiro (conta, cartão, parcelas, recorrência),
+ * vincula o documento à compra e marca o documento como CONFIRMADO.
+ */
+export async function confirmDocumentPurchase(input: {
+  documentId: string;
+  importId?: string | null;
+  purchase: Omit<PurchaseInsert, "valor_total">;
+  items: NewPurchaseItem[];
+  parcelas?: number;
+  periodicidade?: ExpenseRecurrence;
+  cards?: CreditCard[];
+}) {
+  const purchase = await createPurchase({
+    purchase: input.purchase,
+    items: input.items.filter((i) => i.descricao_produto.trim() !== ""),
+    ...(input.parcelas !== undefined ? { parcelas: input.parcelas } : {}),
+    ...(input.periodicidade !== undefined ? { periodicidade: input.periodicidade } : {}),
+    ...(input.cards !== undefined ? { cards: input.cards } : {}),
+  });
+
+  if (input.importId) {
+    const { error: importError } = await supabase
+      .from("purchase_imports")
+      .update({ status: "APROVADO" })
+      .eq("id", input.importId);
+    if (importError) throw importError;
+  }
 
   const { error: docError } = await supabase
     .from("documents")
