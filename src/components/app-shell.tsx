@@ -72,7 +72,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background">
       <aside className="fixed inset-y-0 left-0 hidden w-64 flex-col border-r border-sidebar-border bg-sidebar p-5 lg:flex">
         <Brand />
-        <div className="mt-8 flex-1">{nav}</div>
+        <FamilySwitcher />
+        <div className="mt-6 flex-1 overflow-y-auto">{nav}</div>
         <FutureHint />
         <button
           onClick={handleSignOut}
