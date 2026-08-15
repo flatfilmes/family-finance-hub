@@ -521,6 +521,15 @@ function Compras() {
         </div>
       </Card>
 
+      <DocumentosSection
+        familyId={family.id}
+        memberId={view.myMemberId}
+        createdBy={user?.id}
+        podeLancar={view.podeLancar}
+        escopo={escopo}
+      />
+
+
       <Card className="mt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-base font-bold">Histórico de compras</h2>
