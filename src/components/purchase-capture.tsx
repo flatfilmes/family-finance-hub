@@ -30,7 +30,6 @@ import {
   rejectDocument,
   uploadDocument,
   type DocumentType,
-  type DocumentExtraction,
   type FinancialDocument,
   type PurchaseImport,
 } from "@/lib/documents";
@@ -602,6 +601,16 @@ function RevisarDocumento({
           </button>
         )}
       </div>
+
+      {extracao && (
+        <p className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
+          {Number(extracao.valor_total) > 0
+            ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
+            : ""}
+          . Confira e ajuste o que precisar antes de confirmar.
+        </p>
+      )}
 
       <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
       <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
