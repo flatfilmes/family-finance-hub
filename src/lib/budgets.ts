@@ -13,9 +13,9 @@ export const BUDGET_PERIOD_LABELS: Record<BudgetPeriod, string> = {
 export type BudgetStatus = "ok" | "atencao" | "estourado";
 
 export const BUDGET_STATUS_LABELS: Record<BudgetStatus, string> = {
-  ok: "Dentro do planejado",
-  atencao: "Atenção",
-  estourado: "Acima do planejado",
+  ok: "Dentro do planejado.",
+  atencao: "Atenção: próximo do limite.",
+  estourado: "Acima do orçamento.",
 };
 
 /** Verde até 80%, amarelo de 80% a 100%, vermelho acima de 100%. */
