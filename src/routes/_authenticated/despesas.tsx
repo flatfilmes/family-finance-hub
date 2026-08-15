@@ -10,6 +10,8 @@ import { useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenseCategories, useExpenses } from "@/hooks/useExpenses";
 import { NoFamily } from "./receitas";
 import { formatCurrency } from "@/lib/finance";
+import { clearInstallments, generateInstallments } from "@/lib/card-invoices";
+
 import {
   PAYMENT_METHOD_LABELS,
   PURCHASE_TYPE_LABELS,
