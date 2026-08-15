@@ -20,9 +20,11 @@ import {
   confirmDocumentPurchase,
   deleteDocument,
   getDocumentUrl,
+  processDocumentPdf,
   rejectDocument,
   uploadDocument,
   type DocumentType,
+  type DocumentExtraction,
   type FinancialDocument,
   type PurchaseImport,
 } from "@/lib/documents";
