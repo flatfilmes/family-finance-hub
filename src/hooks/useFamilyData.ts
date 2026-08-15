@@ -53,12 +53,11 @@ export function useProfile() {
 }
 
 export function useFamily() {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["family", user?.id],
-    queryFn: fetchMyFamily,
-    enabled: !!user,
-  });
+  const families = useFamilies();
+  const activeId = useActiveFamilyId();
+  const list = families.data ?? [];
+  const data = list.find((f) => f.id === activeId) ?? list[0] ?? null;
+  return { ...families, data };
 }
 
 export function useMembers(familyId?: string) {
