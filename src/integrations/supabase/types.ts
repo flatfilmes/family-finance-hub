@@ -1113,6 +1113,7 @@ export type Database = {
           ocr_status: string
           status_pagamento: Database["public"]["Enums"]["purchase_payment_status"]
           tipo_compra: Database["public"]["Enums"]["purchase_type"]
+          transaction_id: string | null
           updated_at: string
           valor_total: number
         }
@@ -1135,6 +1136,7 @@ export type Database = {
           ocr_status?: string
           status_pagamento?: Database["public"]["Enums"]["purchase_payment_status"]
           tipo_compra?: Database["public"]["Enums"]["purchase_type"]
+          transaction_id?: string | null
           updated_at?: string
           valor_total?: number
         }
@@ -1157,6 +1159,7 @@ export type Database = {
           ocr_status?: string
           status_pagamento?: Database["public"]["Enums"]["purchase_payment_status"]
           tipo_compra?: Database["public"]["Enums"]["purchase_type"]
+          transaction_id?: string | null
           updated_at?: string
           valor_total?: number
         }
@@ -1187,6 +1190,100 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_expenses: {
+        Row: {
+          ativo: boolean
+          bank_account_id: string | null
+          created_at: string
+          created_by: string | null
+          credit_card_id: string | null
+          family_id: string
+          id: string
+          member_id: string | null
+          nome: string
+          periodicidade: Database["public"]["Enums"]["expense_recurrence"]
+          proxima_cobranca: string
+          purchase_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          ativo?: boolean
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          family_id: string
+          id?: string
+          member_id?: string | null
+          nome: string
+          periodicidade?: Database["public"]["Enums"]["expense_recurrence"]
+          proxima_cobranca: string
+          purchase_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Update: {
+          ativo?: boolean
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          family_id?: string
+          id?: string
+          member_id?: string | null
+          nome?: string
+          periodicidade?: Database["public"]["Enums"]["expense_recurrence"]
+          proxima_cobranca?: string
+          purchase_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_expenses_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_expenses_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
         ]
@@ -1382,7 +1479,11 @@ export type Database = {
         | "TRANSFERENCIA"
         | "OUTRO"
       purchase_import_status: "PENDENTE_APROVACAO" | "APROVADO" | "REJEITADO"
-      purchase_payment_status: "PAGO" | "COMPROMETIDO" | "PENDENTE"
+      purchase_payment_status:
+        | "PAGO"
+        | "COMPROMETIDO"
+        | "PENDENTE"
+        | "CANCELADO"
       purchase_type:
         | "A_VISTA"
         | "CARTAO_CREDITO"
@@ -1588,7 +1689,12 @@ export const Constants = {
         "OUTRO",
       ],
       purchase_import_status: ["PENDENTE_APROVACAO", "APROVADO", "REJEITADO"],
-      purchase_payment_status: ["PAGO", "COMPROMETIDO", "PENDENTE"],
+      purchase_payment_status: [
+        "PAGO",
+        "COMPROMETIDO",
+        "PENDENTE",
+        "CANCELADO",
+      ],
       purchase_type: [
         "A_VISTA",
         "CARTAO_CREDITO",
