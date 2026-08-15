@@ -1025,7 +1025,14 @@ export type Database = {
         | "BOLETO"
         | "TRANSFERENCIA"
         | "OUTRO"
-      purchase_type: "A_VISTA" | "CARTAO_CREDITO" | "PARCELADO"
+      purchase_type:
+        | "A_VISTA"
+        | "CARTAO_CREDITO"
+        | "PARCELADO"
+        | "COMPRA_NORMAL"
+        | "COMPRA_RECORRENTE"
+        | "COMPRA_PARCELADA"
+        | "CONTA_RECORRENTE"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1202,7 +1209,15 @@ export const Constants = {
         "TRANSFERENCIA",
         "OUTRO",
       ],
-      purchase_type: ["A_VISTA", "CARTAO_CREDITO", "PARCELADO"],
+      purchase_type: [
+        "A_VISTA",
+        "CARTAO_CREDITO",
+        "PARCELADO",
+        "COMPRA_NORMAL",
+        "COMPRA_RECORRENTE",
+        "COMPRA_PARCELADA",
+        "CONTA_RECORRENTE",
+      ],
     },
   },
 } as const
