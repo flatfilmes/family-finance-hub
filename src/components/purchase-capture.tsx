@@ -233,7 +233,7 @@ export function DocumentosSection({
   const importadas = drafts.filter((i) => i.status === "APROVADO");
 
   const remove = useMutation({
-    mutationFn: deleteDocument,
+    mutationFn: (doc: { id: string; url_arquivo: string | null }) => deleteDocument(doc),
     onSuccess: () => {
       toast.success("Documento removido.");
       void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
@@ -254,16 +254,15 @@ export function DocumentosSection({
   return (
     <>
       <Card className="mt-4">
-        <h2 className="text-base font-bold">Documentos pendentes</h2>
+        <h2 className="text-base font-bold">Notas pendentes</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Notas, cupons e comprovantes enviados que ainda não viraram compra.
+          Notas e comprovantes enviados que ainda não viraram compra.
         </p>
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
         ) : docs.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            Nenhum documento enviado ainda. Quando o envio de notas e a leitura de QR Code forem
-            ligados, eles aparecem aqui aguardando confirmação.
+            Nenhuma nota enviada ainda. Use “Enviar nota fiscal” em “+ Nova compra”.
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-border">
@@ -277,8 +276,9 @@ export function DocumentosSection({
                       {d.nome_arquivo || DOCUMENT_TYPE_LABELS[d.tipo_documento]}
                     </span>
                     <span className="block text-xs text-muted-foreground">
-                      {DOCUMENT_TYPE_LABELS[d.tipo_documento]} · {memberName(d.member_id)} ·{" "}
-                      {formatDate(d.created_at.slice(0, 10))}
+                      {DOCUMENT_TYPE_LABELS[d.tipo_documento]} · {memberName(d.member_id)} · enviado
+                      em {formatDate(d.created_at.slice(0, 10))}
+                      {d.status === "ENVIADO" ? " · aguardando processamento" : ""}
                     </span>
                   </span>
                   <span
@@ -286,6 +286,23 @@ export function DocumentosSection({
                   >
                     {DOCUMENT_STATUS_LABELS[d.status]}
                   </span>
+                  {d.url_arquivo && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const url = await getDocumentUrl(d.url_arquivo!);
+                          window.open(url, "_blank", "noopener");
+                        } catch (e) {
+                          toast.error(e instanceof Error ? e.message : "Não foi possível abrir.");
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+                    >
+                      <Eye className="size-3.5" />
+                      Ver documento
+                    </button>
+                  )}
                   {draft && podeLancar && (
                     <button
                       type="button"
@@ -299,7 +316,7 @@ export function DocumentosSection({
                     <button
                       type="button"
                       aria-label="Remover documento"
-                      onClick={() => remove.mutate(d.id)}
+                      onClick={() => remove.mutate({ id: d.id, url_arquivo: d.url_arquivo })}
                       className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                     >
                       <Trash2 className="size-4" />
@@ -571,7 +588,7 @@ function ConfiraSuaCompra({
             onClick={onReject}
             className="rounded-full border border-border px-4 py-2 text-sm font-semibold transition-colors hover:bg-muted"
           >
-            Descartar
+            Cancelar
           </button>
           <button
             type="button"
