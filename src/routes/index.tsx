@@ -72,7 +72,6 @@ function Landing() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               to="/auth"
-              search={{ mode: "signup" }}
               className="rounded-full bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-card transition-colors hover:bg-primary/90"
             >
               Criar conta gratuita
