@@ -12,7 +12,6 @@ import {
   composicaoUtilizado,
   faturaDoCiclo,
   linhasDaFatura,
-  linhasDaFatura,
   obrigacaoAbertaDoCartao,
   parcelamentosAtivos,
   proximasObrigacoes,
