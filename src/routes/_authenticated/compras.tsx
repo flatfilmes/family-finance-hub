@@ -153,25 +153,43 @@ function Compras() {
       matchesSearch(busca, p.estabelecimento, p.observacao),
   );
   const itemCategorias = usePurchaseItemCategories(porEscopo.map((p) => p.id));
-  const lista = filtroCategoria
+  const parcelasDaLista = usePurchaseInstallmentsByPurchases(porEscopo.map((p) => p.id));
+  const parcelasDe = (purchaseId: string) =>
+    (parcelasDaLista.data ?? []).filter((p) => p.purchase_id === purchaseId);
+  /** Competências de fatura disponíveis (mês de vencimento das parcelas). */
+  const faturasDisponiveis = [
+    ...new Set((parcelasDaLista.data ?? []).map((p) => p.data_vencimento.slice(0, 7))),
+  ].sort();
+  const porCategoria = filtroCategoria
     ? porEscopo.filter((p) =>
         (itemCategorias.data ?? []).some(
           (i) => i.purchase_id === p.id && i.categoria_id === filtroCategoria,
         ),
       )
     : porEscopo;
+  // Filtro por fatura ≠ filtro por mês da compra: aqui vale o ciclo em que a parcela cai.
+  const lista = filtroFatura
+    ? porCategoria.filter((p) =>
+        parcelasDe(p.id).some((i) => i.data_vencimento.startsWith(filtroFatura)),
+      )
+    : porCategoria;
   const compraDetalhe = lista.find((p) => p.id === detalhe) ?? null;
-  const parcelasDaLista = usePurchaseInstallmentsByPurchases(lista.map((p) => p.id));
   /** Parcela do período de uma compra parcelada (base do valor em destaque). */
   const parcelaDaCompra = (purchaseId: string) => {
-    const parcela = parcelaDoPeriodo(
-      (parcelasDaLista.data ?? []).filter((p) => p.purchase_id === purchaseId),
-      filtroMes,
-    );
+    const parcela = parcelaDoPeriodo(parcelasDe(purchaseId), filtroFatura || filtroMes);
     return parcela && parcela.total_parcelas > 1 ? parcela : null;
   };
+  /** Estado derivado do parcelamento: a compra nunca some depois da 1ª parcela paga. */
+  const progressoDaCompra = (purchaseId: string) => progressoParcelamento(parcelasDe(purchaseId));
   const temFiltro = Boolean(
-    busca || filtroMembro || filtroCategoria || filtroPagamento || filtroTipo || filtroMes || filtroStatus,
+    busca ||
+      filtroMembro ||
+      filtroCategoria ||
+      filtroPagamento ||
+      filtroTipo ||
+      filtroMes ||
+      filtroFatura ||
+      filtroStatus,
   );
   const limparFiltros = () => {
     setBusca("");
@@ -180,12 +198,14 @@ function Compras() {
     setFiltroPagamento("");
     setFiltroTipo("");
     setFiltroMes("");
+    setFiltroFatura("");
     setFiltroStatus("");
   };
   const totalListado = lista.reduce((acc, p) => {
     const parcela = parcelaDaCompra(p.id);
     return acc + (parcela ? parcela.valor_parcela : Number(p.valor_total) || 0);
   }, 0);
+
 
 
   const setItem = (index: number, patch: Partial<NewPurchaseItem>) =>
