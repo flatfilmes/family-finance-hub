@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isStatementConfirmed } from "@/lib/card-statements";
 import {
   agruparCiclos,
+  composicaoUtilizado,
   classificarCiclosDoCartao,
   faturasFechadasEmAberto,
   obrigacaoAbertaDoCartao,
