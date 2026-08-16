@@ -227,6 +227,9 @@ export async function reprocessStatementCheckpoints(input: {
       .eq("id", alvo.id);
     if (upError) throw upError;
 
+    // Cronologia: só depois dos saldos, e só a data contábil dos lançamentos.
+    const datasCorrigidas = await corrigirCronologia(alvo.id, parsed);
+
     return {
       status: "OK",
       arquivo,
@@ -235,8 +238,10 @@ export async function reprocessStatementCheckpoints(input: {
       periodoFim: parsed.periodoFim,
       saldoInicial: parsed.saldoInicial,
       saldoFinal: parsed.saldoFinal,
+      checkpointsPdf: (parsed.checkpoints ?? []).length,
       checkpoints: unicos.length,
       movimentos: parsed.movimentos.length,
+      datasCorrigidas,
       vinculo: porFingerprint ? "FINGERPRINT" : "PERIODO",
     };
   } catch (e) {
