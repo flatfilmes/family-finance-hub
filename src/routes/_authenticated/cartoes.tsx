@@ -157,9 +157,14 @@ function CartoesPage() {
     const base = upcomingInstallmentMonths(doCartao, 3);
     const meses = base.map((m) => m.key);
     const ativas = recorrenciasDoCartao(cardId).filter((r) => r.ativo);
+    // Se a competência já virou parcela registrada, não projeta de novo (evita dupla contagem).
+    const jaLancada = (purchaseId: string | null, mes: string) =>
+      !!purchaseId &&
+      doCartao.some((p) => p.purchase_id === purchaseId && p.data_vencimento.slice(0, 7) === mes);
     return base.map((m) => {
       const recorrente = ativas.reduce(
-        (acc, r) => acc + (chargesInMonths(r, meses)[m.key] ?? 0),
+        (acc, r) =>
+          acc + (jaLancada(r.purchase_id, m.key) ? 0 : (chargesInMonths(r, meses)[m.key] ?? 0)),
         0,
       );
       return { ...m, parcelas: m.total, recorrencias: recorrente, total: m.total + recorrente };
