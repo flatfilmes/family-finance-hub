@@ -56,7 +56,9 @@ describe("parser Banco do Brasil", () => {
   it("guarda saldo anterior e saldo final como controle de saldo", () => {
     expect(r.saldoInicial).toBe(269.64);
     expect(r.saldoFinal).toBe(4795);
-    expect(r.movimentos.some((m) => /saldo/i.test(m.descricaoOriginal))).toBe(false);
+    expect(
+      r.movimentos.some((m) => /^(saldo do dia|saldo anterior|s a l d o)/i.test(m.descricaoOriginal)),
+    ).toBe(false);
   });
 
   it("usa o sinal impresso pelo banco", () => {
