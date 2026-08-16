@@ -1078,9 +1078,6 @@ export async function confirmStatementImport(input: {
         await criarEConciliar("CREDITO", -valor);
         resultado.creditos += 1;
       } else if (acao === "ASSOCIATE_EXISTING") {
-        if (item.match_status === "DIVERGENT" && item.decisao === "USAR_VALOR_FATURA") {
-          // tratado abaixo pela decisão de divergência
-        }
         await associar();
       } else if (acao === "POSSIBLE_MATCH") {
         // Divergência de valor com decisão explícita mantém o fluxo já validado.
