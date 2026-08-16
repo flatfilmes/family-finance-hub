@@ -354,17 +354,28 @@ function RevisarFaturaPage() {
       )}
 
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <Metric label="Conciliados" value={String(conta("MATCHED"))} />
-        <Metric label="Possíveis" value={String(conta("POSSIBLE_MATCH"))} />
-        <Metric
-          label="Novos"
-          value={String(conta("UNMATCHED") + conta("CONFIRMED_NEW"))}
-          hint={`${conta("CONFIRMED_NEW")} confirmado(s)`}
-        />
-        <Metric label="Divergentes" value={String(conta("DIVERGENT"))} />
-        <Metric label="Ignorados" value={String(conta("IGNORED"))} />
-      </div>
+      <Card className="mt-4">
+        <SectionTitle title="O que vai acontecer ao confirmar" />
+        <p className="mt-1 text-sm text-muted-foreground">
+          {resumo.total} lançamento(s) encontrados. Tudo entra por padrão — só fica de fora o que
+          você marcar como ignorado.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <Metric label="Novas compras" value={String(resumo.CREATE_PURCHASE)} />
+          <Metric label="Associadas" value={String(resumo.ASSOCIATE_EXISTING)} />
+          <Metric label="Possíveis correspondências" value={String(resumo.POSSIBLE_MATCH)} />
+          <Metric label="Taxas" value={String(resumo.REGISTER_FEE)} />
+          <Metric label="Créditos/estornos" value={String(resumo.REGISTER_CREDIT)} />
+          <Metric label="Ignorados" value={String(resumo.IGNORE)} />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {resumo.atencao > 0
+            ? `${resumo.atencao} lançamento(s) precisam de atenção antes de confirmar.`
+            : "Nenhum lançamento pendente de decisão."}
+          {resumo.POSSIBLE_MATCH > 0 &&
+            " Possíveis correspondências sem escolha serão criadas como compras novas."}
+        </p>
+      </Card>
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -373,7 +384,7 @@ function RevisarFaturaPage() {
               <select
                 className={inputClass}
                 value={filtro}
-                onChange={(e) => setFiltro(e.target.value as "" | MatchStatus)}
+                onChange={(e) => setFiltro(e.target.value as Filtro)}
               >
                 {FILTROS.map((f) => (
                   <option key={f.valor} value={f.valor}>
@@ -397,13 +408,26 @@ function RevisarFaturaPage() {
                   ))}
                 </select>
               </Field>
-
             )}
           </div>
-          {selecionados.length > 0 && !jaConfirmada && !foraDeControle && (
-            <PrimaryButton type="button" onClick={criarSelecionados}>
-              Criar lançamentos selecionados ({selecionados.length})
-            </PrimaryButton>
+          {!jaConfirmada && (
+            <div className="flex flex-wrap items-center gap-2">
+              <AcaoBotao onClick={selecionarTodos}>
+                {selecionados.length === filtradas.length && filtradas.length > 0
+                  ? "Limpar seleção"
+                  : "Selecionar todos"}
+              </AcaoBotao>
+              {selecionados.length > 0 && (
+                <>
+                  <AcaoBotao onClick={() => aplicarEmLote("IGNORE")}>
+                    Ignorar selecionados ({selecionados.length})
+                  </AcaoBotao>
+                  <AcaoBotao onClick={() => aplicarEmLote(null)}>
+                    Restaurar selecionados
+                  </AcaoBotao>
+                </>
+              )}
+            </div>
           )}
         </div>
 
