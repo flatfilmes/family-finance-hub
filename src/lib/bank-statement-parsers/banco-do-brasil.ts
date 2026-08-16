@@ -22,8 +22,27 @@ export const BB_PARSER_ID = "EXTRATO_BANCO_DO_BRASIL_PDF";
 
 /** Valor seguido do sinal impresso pelo banco. */
 const VALOR_COM_SINAL = /(\d{1,3}(?:\.\d{3})*,\d{2})\s*\(\s*([+-])\s*\)/;
+/** Sinal impresso ANTES do valor (algumas páginas invertem a ordem das células). */
+const SINAL_ANTES_DO_VALOR = /\(\s*([+-])\s*\)\s*(\d{1,3}(?:\.\d{3})*,\d{2})/;
 /** Sinal isolado (quando o PDF quebra a linha antes do parêntese). */
 const SINAL_SOZINHO = /^\(\s*([+-])\s*\)$/;
+const DATA_INICIAL = /^(\d{2})\/(\d{2})\/(\d{4}|\d{2})/;
+
+/** Lê valor + sinal em qualquer das duas ordens possíveis. */
+function lerValorComSinal(texto: string): { valor: number; bruto: string } | null {
+  const depois = texto.match(VALOR_COM_SINAL);
+  if (depois) {
+    const abs = Math.abs(parseValorBr(depois[1]!));
+    return { valor: depois[2] === "-" ? -abs : abs, bruto: depois[0]! };
+  }
+  const antes = texto.match(SINAL_ANTES_DO_VALOR);
+  if (antes) {
+    const abs = Math.abs(parseValorBr(antes[2]!));
+    return { valor: antes[1] === "-" ? -abs : abs, bruto: antes[0]! };
+  }
+  return null;
+}
+
 const DATA_INICIAL = /^(\d{2})\/(\d{2})\/(\d{4}|\d{2})/;
 
 type Secao = "MOVIMENTOS" | "FUTUROS" | "METADATA";
