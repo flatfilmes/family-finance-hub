@@ -23,12 +23,47 @@ import {
 import { normalizeDescricao, semAcento, tituloEstabelecimento } from "./generic";
 import type {
   ParsedStatement,
+  StatementBlockAudit,
   StatementCardSubtotal,
   StatementEntry,
   StatementItemKind,
   StatementMetadata,
   StatementParser,
+  StatementRejectedLine,
+  StatementRejectionReason,
 } from "./types";
+
+/** Confere os lançamentos extraídos contra os subtotais impressos por cartão. */
+export function auditarBlocos(
+  entries: StatementEntry[],
+  subtotais: StatementCardSubtotal[],
+): StatementBlockAudit[] {
+  const finais = new Set<string>();
+  for (const e of entries) if (e.card_last4) finais.add(e.card_last4);
+  for (const s of subtotais) finais.add(s.card_last4);
+  return [...finais].map((card) => {
+    const doBloco = entries.filter((e) => e.card_last4 === card);
+    const total = doBloco.reduce((s, e) => s + e.valor, 0);
+    const creditos = doBloco.filter((e) => e.valor < 0).reduce((s, e) => s + e.valor, 0);
+    const oficial = subtotais.find((s) => s.card_last4 === card)?.valor ?? null;
+    const diferenca = oficial === null ? null : Number((oficial - total).toFixed(2));
+    return {
+      card_last4: card,
+      subtotal_oficial: oficial,
+      total_extraido: Number(total.toFixed(2)),
+      quantidade: doBloco.length,
+      creditos: Number(creditos.toFixed(2)),
+      diferenca,
+      status:
+        diferenca === null
+          ? ("BLOCK_UNVERIFIED" as const)
+          : Math.abs(diferenca) <= 0.05
+            ? ("BLOCK_OK" as const)
+            : ("BLOCK_INCOMPLETE" as const),
+    };
+  });
+}
+
 
 // ------------------------------------------------------------------ utilidades
 
@@ -446,8 +481,10 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
   const entries: StatementEntry[] = [];
   const futuras: StatementEntry[] = [];
   const subtotais: StatementCardSubtotal[] = [];
+  const rejeitadas: StatementRejectedLine[] = [];
 
   let secao: Secao = "IGNORADA";
+  let jaViuLancamentos = false;
   let cardLast4: string | null = finalPrincipal;
   let dataPendente: string | null = null;
   let descricaoPendente = "";
@@ -461,29 +498,50 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
   for (const pdfLinha of pdfLinhas) {
     const linha = pdfLinha.text.replace(/\s+/g, " ").trim();
     if (!linha) continue;
+    const rejeitar = (motivo: StatementRejectionReason) => {
+      rejeitadas.push({
+        texto: linha,
+        motivo,
+        ...(pdfLinha.page === undefined ? {} : { page: pdfLinha.page }),
+        ...(pdfLinha.column ? { column: pdfLinha.column } : {}),
+      });
+
+    };
     const chaveContexto = `${pdfLinha.page ?? 1}:${pdfLinha.column ?? "UNICA"}`;
     if (chaveContexto !== contexto) {
       // troca de coluna/página: nunca continuar um bloco de outro lado
       contexto = chaveContexto;
       limpaPendente();
     }
-    const p = plano(linha);
 
-    // troca de seção
-    const nova = secaoDaLinha(linha);
+    const comDataInicial = linha.match(DATA_CURTA);
+    const valorInicial = lerValorFinal(linha);
+    /** Linha claramente transacional: data + valor. Nunca é cabeçalho de seção. */
+    const pareceLancamento = Boolean(comDataInicial && valorInicial);
+
+    // troca de seção (uma linha com data + valor jamais é cabeçalho)
+    const nova = pareceLancamento ? null : secaoDaLinha(linha);
     if (nova) {
       secao = nova;
+      if (nova === "COMPRAS" || nova === "INTERNACIONAL" || nova === "SERVICOS") {
+        jaViuLancamentos = true;
+      }
+      // internacionais e produtos/serviços não pertencem ao subtotal de um final
+      if (nova === "INTERNACIONAL" || nova === "SERVICOS" || nova === "FUTURAS") {
+        cardLast4 = null;
+      }
       limpaPendente();
+      rejeitar("section_header");
       continue;
     }
+
 
     // blindagem: limites, simulações e ofertas nunca viram lançamento nem trocam de cartão
     if (ehProibido(linha)) {
       limpaPendente();
+      rejeitar("simulation");
       continue;
     }
-
-
 
     // final do cartão corrente / subtotais impressos
     const subtotal = linha.match(/lan[çc]amentos no cart[ãa]o\s*\(?\s*final\s*(\d{4})\)?/i);
@@ -491,39 +549,57 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       cardLast4 = subtotal[1]!;
       const v = lerValorFinal(linha);
       if (v) subtotais.push({ card_last4: cardLast4, valor: v.valor });
+      // um subtotal por cartão marca o início de um bloco de lançamentos
+      if (secao === "IGNORADA") secao = "COMPRAS";
+      jaViuLancamentos = true;
       limpaPendente();
+      rejeitar("subtotal");
       continue;
     }
     const finalLinha = linha.match(/(?:cart[ãa]o\s*)?final\s*(\d{4})\b/i);
     if (finalLinha && !DATA_CURTA.test(linha)) {
       cardLast4 = finalLinha[1]!;
       limpaPendente();
+      rejeitar("metadata");
       continue;
     }
-
-    if (secao === "IGNORADA") continue;
 
     // subtotais, totais, cotação de câmbio e pagamento anterior: só metadata
     if (ehMetadataItau(linha)) {
       limpaPendente();
+      rejeitar("metadata");
       continue;
     }
 
     if (ehRuido(linha)) {
       limpaPendente();
+      rejeitar("noise");
       continue;
     }
 
+    // Recuperação de bloco: caixas intermediárias ("Limites", "Simulação") jogam
+    // a seção para IGNORADA no meio das páginas de lançamentos. Uma linha
+    // transacional legítima reabre a seção de compras.
+    if (secao === "IGNORADA" && pareceLancamento && jaViuLancamentos) {
+      secao = "COMPRAS";
+    }
+
+    if (secao === "IGNORADA") {
+      limpaPendente();
+      rejeitar("outside_section");
+      continue;
+    }
 
     const alvo = secao === "FUTURAS" ? futuras : entries;
-    const comData = linha.match(DATA_CURTA);
-    const valorLido = lerValorFinal(linha);
+    const comData = comDataInicial;
+    const valorLido = valorInicial;
 
     // linha completa: data + descrição + valor
     if (comData && valorLido) {
       const descricao = valorLido.resto.slice(comData[0].length).trim();
       const item = montar(comData[0], descricao, valorLido.valor, secao, cardLast4, anoBase, mesVencimento);
       if (item) alvo.push(item);
+      else rejeitar("missing_description");
       limpaPendente();
       continue;
     }
@@ -540,26 +616,34 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       const descricao = `${descricaoPendente} ${valorLido.resto}`.trim();
       const item = montar(dataPendente, descricao, valorLido.valor, secao, cardLast4, anoBase, mesVencimento);
       if (item) alvo.push(item);
+      else rejeitar("missing_description");
       limpaPendente();
       continue;
     }
 
-    // descrição solta de um bloco aberto
+    // descrição solta de um bloco aberto (categoria/cidade do lançamento anterior)
     if (!comData && !valorLido && dataPendente) {
       descricaoPendente = `${descricaoPendente} ${linha}`.trim();
       continue;
     }
 
     // valor sem data: seções de serviços/internacional (anuidade, IOF) e parcelas futuras
-    if (
-      !comData &&
-      valorLido &&
-      (secao === "SERVICOS" || secao === "INTERNACIONAL" || secao === "FUTURAS")
-    ) {
-      const item = montar(null, valorLido.resto, valorLido.valor, secao, cardLast4, anoBase, mesVencimento);
-      if (item) alvo.push(item);
+    if (!comData && valorLido) {
+      if (secao === "SERVICOS" || secao === "INTERNACIONAL" || secao === "FUTURAS") {
+        const item = montar(null, valorLido.resto, valorLido.valor, secao, cardLast4, anoBase, mesVencimento);
+        if (item) alvo.push(item);
+        else rejeitar("missing_description");
+      } else {
+        rejeitar("missing_date");
+      }
+      continue;
     }
+
+    rejeitar("missing_value");
   }
+
+  const blocos = auditarBlocos(entries, subtotais);
+
 
   // O pagamento da fatura anterior é histórico: fica apenas em
   // metadata.previous_invoice_payment e nunca vira lançamento.
@@ -578,6 +662,8 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       ambiguo: e.ambiguo,
       card_last4: e.card_last4,
     })));
+    console.debug("[ITAU_PDF] blocos", blocos);
+    console.debug("[ITAU_PDF] rejeitadas", rejeitadas);
   }
 
   return {
@@ -593,9 +679,12 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     entries,
     futuras,
     subtotais,
+    blocos,
+    rejeitadas,
     metadata,
     linhas: textos,
   };
+
 }
 
 export function parseItauLayout(pages: PdfPageLayout[]): ParsedStatement {

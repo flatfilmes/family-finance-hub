@@ -71,6 +71,37 @@ export type StatementMetadata = {
 /** Subtotal impresso pelo banco por cartão (usado só para validação). */
 export type StatementCardSubtotal = { card_last4: string; valor: number };
 
+/** Motivo pelo qual uma linha do PDF não virou lançamento. */
+export type StatementRejectionReason =
+  | "missing_date"
+  | "missing_value"
+  | "missing_description"
+  | "outside_section"
+  | "metadata"
+  | "subtotal"
+  | "simulation"
+  | "noise"
+  | "section_header";
+
+export type StatementRejectedLine = {
+  texto: string;
+  motivo: StatementRejectionReason;
+  page?: number;
+  column?: string;
+};
+
+/** Conferência de completude por bloco (final de cartão). */
+export type StatementBlockAudit = {
+  card_last4: string;
+  subtotal_oficial: number | null;
+  total_extraido: number;
+  quantidade: number;
+  creditos: number;
+  diferenca: number | null;
+  status: "BLOCK_OK" | "BLOCK_INCOMPLETE" | "BLOCK_UNVERIFIED";
+};
+
+
 export type ParsedStatement = StatementHeader & {
   parser: string;
   entries: StatementEntry[];
@@ -81,8 +112,13 @@ export type ParsedStatement = StatementHeader & {
   subtotais?: StatementCardSubtotal[];
   /** Parcelas de próximas faturas — informativas, fora do ciclo atual. */
   futuras?: StatementEntry[];
+  /** Conferência de completude por final de cartão. */
+  blocos?: StatementBlockAudit[];
+  /** Linhas descartadas e o motivo (sem rejeição silenciosa). */
+  rejeitadas?: StatementRejectedLine[];
   extraction_status?: "READY" | "REVIEW_REQUIRED";
   positional_debug?: PdfPageLayoutDebug[];
+
 };
 
 export type StatementParser = {
