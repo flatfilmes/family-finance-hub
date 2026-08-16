@@ -42,6 +42,8 @@ import {
   type StatementDraftRow,
 } from "@/lib/bank-statements";
 import { clearStatementDraft, loadStatementDraft } from "@/lib/bank-statements/draft";
+import { toCanonicalStatement } from "@/lib/bank-statements/canonical";
+import { validateStatement } from "@/lib/bank-statements/validate";
 
 export const Route = createFileRoute("/_authenticated/bancos_/$accountId/extratos/revisar")({
   head: () => ({
@@ -133,6 +135,19 @@ function RevisarExtrato() {
 
   const draft = useMemo(() => loadStatementDraft(accountId), [accountId]);
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
+
+  // TRAVA DE QUALIDADE: extrato lido com período, saldo ou soma inconsistentes
+  // não pode ser gravado. A conferência é feita sobre o documento canônico.
+  const validacao = useMemo(() => {
+    if (!draft) return null;
+    const canonical = toCanonicalStatement(draft.resumo, {
+      statementId: draft.fingerprint ?? draft.nomeArquivo,
+      bank: draft.resumo.identificacao?.banco ?? null,
+      account: draft.resumo.identificacao?.conta ?? null,
+    });
+    return validateStatement(canonical);
+  }, [draft]);
+  const bloqueado = validacao?.status === "PARSED_STATEMENT_INVALID";
 
   const [linhas, setLinhas] = useState<StatementDraftRow[] | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
@@ -562,10 +577,12 @@ function RevisarExtrato() {
             </button>
             <PrimaryButton
               type="button"
-              disabled={confirmar.isPending || rows.length === 0}
+              disabled={confirmar.isPending || rows.length === 0 || bloqueado}
               onClick={() => confirmar.mutate()}
             >
-              {confirmar.isPending
+              {bloqueado
+                ? "Leitura inválida"
+                : confirmar.isPending
                 ? "Confirmando…"
                 : `Confirmar ${contagem.total} movimentaç${contagem.total === 1 ? "ão" : "ões"}`}
             </PrimaryButton>
