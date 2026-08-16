@@ -431,6 +431,8 @@ export async function processStatementPdf(input: {
         metadata: parsed.metadata ?? null,
         subtotais: parsed.subtotais ?? [],
         futuras: (parsed.futuras ?? []).slice(0, 200),
+        extraction_status: parsed.extraction_status ?? "READY",
+        positional_debug: parsed.positional_debug ?? [],
       },
     })
 

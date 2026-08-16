@@ -66,6 +66,38 @@ const semAcento = (s: string) =>
 /** Item bruto de texto do PDF com posição preservada. */
 export type PdfTextItem = { text: string; x: number; y: number; width: number };
 
+export type PdfPageLayout = {
+  page: number;
+  width: number;
+  height: number;
+  items: PdfTextItem[];
+};
+
+export type PdfColumnBounds = {
+  left: { minX: number; maxX: number };
+  right: { minX: number; maxX: number };
+  gutter: { minX: number; maxX: number };
+  source: "HEADERS" | "SPATIAL_GAP";
+};
+
+export type PdfPageLayoutDebug = {
+  page: number;
+  pageWidth: number;
+  textItems: number;
+  bounds: PdfColumnBounds | null;
+  leftItems: number;
+  rightItems: number;
+  unassignedItems: number;
+  samples: Array<{
+    text: string;
+    x: number;
+    y: number;
+    width: number;
+    centerX: number;
+    column: PdfLine["column"];
+  }>;
+};
+
 const Y_TOLERANCIA = 3;
 
 function agruparEmLinhas(
@@ -93,21 +125,77 @@ function agruparEmLinhas(
  * Procura um corte vertical (duas colunas) próximo ao meio da página.
  * Só aceita o corte quando praticamente nenhum item atravessa a faixa central.
  */
-function acharCorteDeColuna(itens: PdfTextItem[], pageWidth: number): number | null {
+const textoPlano = (texto: string) =>
+  texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+
+const centroX = (item: PdfTextItem) => item.x + Math.max(0, item.width) / 2;
+
+/**
+ * Detecta as duas tabelas pelo cabeçalho repetido do Itaú. Como segunda opção,
+ * procura o maior espaço real entre centros de itens — nunca usa apenas metade
+ * da página e nunca decide pela posição do primeiro fragmento de uma linha.
+ */
+export function detectPdfColumnBounds(
+  itens: PdfTextItem[],
+  pageWidth: number,
+): PdfColumnBounds | null {
   if (!pageWidth || itens.length < 12) return null;
-  const centro = pageWidth / 2;
-  let melhor: { x: number; cruza: number } | null = null;
-  for (let x = pageWidth * 0.4; x <= pageWidth * 0.6; x += 1) {
-    const cruza = itens.filter((i) => i.x < x && i.x + i.width > x).length;
-    if (!melhor || cruza < melhor.cruza || (cruza === melhor.cruza && Math.abs(x - centro) < Math.abs(melhor.x - centro))) {
-      melhor = { x, cruza };
-    }
+
+  const datas = itens
+    .filter((item) => /^DATA\b/.test(textoPlano(item.text)))
+    .sort((a, b) => a.x - b.x);
+  for (let i = 0; i < datas.length - 1; i++) {
+    const esquerda = datas[i];
+    const direita = datas[i + 1];
+    if (!esquerda || !direita) continue;
+    const distancia = direita.x - esquerda.x;
+    if (distancia < pageWidth * 0.3) continue;
+    const mesmaAltura = Math.abs(esquerda.y - direita.y) <= 8;
+    if (!mesmaAltura) continue;
+
+    const leftHeader = itens.filter(
+      (item) => Math.abs(item.y - esquerda.y) <= 8 && centroX(item) < centroX(direita),
+    );
+    const rightHeader = itens.filter(
+      (item) => Math.abs(item.y - direita.y) <= 8 && centroX(item) >= centroX(direita),
+    );
+    const leftMaxX = Math.max(...leftHeader.map((item) => item.x + item.width), esquerda.x);
+    const rightMinX = Math.min(...rightHeader.map((item) => item.x), direita.x);
+    const midpoint = (centroX(esquerda) + centroX(direita)) / 2;
+    const gutterMin = leftMaxX < rightMinX ? leftMaxX : midpoint - 2;
+    const gutterMax = leftMaxX < rightMinX ? rightMinX : midpoint + 2;
+    return {
+      left: { minX: 0, maxX: gutterMin },
+      right: { minX: gutterMax, maxX: pageWidth },
+      gutter: { minX: gutterMin, maxX: gutterMax },
+      source: "HEADERS",
+    };
   }
-  if (!melhor || melhor.cruza > 2) return null;
-  const esquerda = itens.filter((i) => i.x + i.width <= melhor!.x).length;
-  const direita = itens.filter((i) => i.x >= melhor!.x).length;
-  if (esquerda < 5 || direita < 5) return null;
-  return melhor.x;
+
+  const body = itens
+    .filter((item) => item.width < pageWidth * 0.46)
+    .map(centroX)
+    .filter((x) => x > pageWidth * 0.08 && x < pageWidth * 0.92)
+    .sort((a, b) => a - b);
+  let melhor: { minX: number; maxX: number; gap: number } | null = null;
+  for (let i = 0; i < body.length - 1; i++) {
+    const minX = body[i];
+    const maxX = body[i + 1];
+    if (minX == null || maxX == null) continue;
+    const gap = maxX - minX;
+    const meio = (minX + maxX) / 2;
+    const esquerda = body.filter((x) => x <= minX).length;
+    const direita = body.filter((x) => x >= maxX).length;
+    if (meio < pageWidth * 0.35 || meio > pageWidth * 0.65 || esquerda < 5 || direita < 5) continue;
+    if (!melhor || gap > melhor.gap) melhor = { minX, maxX, gap };
+  }
+  if (!melhor || melhor.gap < pageWidth * 0.025) return null;
+  return {
+    left: { minX: 0, maxX: melhor.minX },
+    right: { minX: melhor.maxX, maxX: pageWidth },
+    gutter: { minX: melhor.minX, maxX: melhor.maxX },
+    source: "SPATIAL_GAP",
+  };
 }
 
 /**
@@ -117,12 +205,21 @@ function acharCorteDeColuna(itens: PdfTextItem[], pageWidth: number): number | n
 export function layoutPageLines(itens: PdfTextItem[], pageWidth: number, page = 1): PdfLine[] {
   const limpos = itens.filter((i) => i.text.trim());
   if (!limpos.length) return [];
-  const corte = acharCorteDeColuna(limpos, pageWidth);
-  if (corte === null) return agruparEmLinhas(limpos, page, "UNICA");
+  const bounds = detectPdfColumnBounds(limpos, pageWidth);
+  if (!bounds) return agruparEmLinhas(limpos, page, "UNICA");
 
-  const esquerda = limpos.filter((i) => i.x + i.width <= corte);
-  const direita = limpos.filter((i) => i.x >= corte);
-  const largura = limpos.filter((i) => i.x < corte && i.x + i.width > corte);
+  const esquerda: PdfTextItem[] = [];
+  const direita: PdfTextItem[] = [];
+  const largura: PdfTextItem[] = [];
+  for (const item of limpos) {
+    const center = centroX(item);
+    const ocupaQuaseTudo = item.width >= pageWidth * 0.7;
+    if (ocupaQuaseTudo) largura.push(item);
+    else if (center <= bounds.gutter.minX) esquerda.push(item);
+    else if (center >= bounds.gutter.maxX) direita.push(item);
+    else if (center < (bounds.gutter.minX + bounds.gutter.maxX) / 2) esquerda.push(item);
+    else direita.push(item);
+  }
 
   const topoColunas = Math.max(...[...esquerda, ...direita].map((i) => i.y));
   const cabecalho = largura.filter((i) => i.y > topoColunas);
@@ -136,36 +233,64 @@ export function layoutPageLines(itens: PdfTextItem[], pageWidth: number, page = 
   ];
 }
 
-/** Extrai as linhas do PDF preservando colunas e posição (x, y) de cada trecho. */
-export async function extractPdfLines(file: Blob): Promise<PdfLine[]> {
+export function debugPdfPageLayout(layout: PdfPageLayout): PdfPageLayoutDebug {
+  const items = layout.items.filter((item) => item.text.trim());
+  const bounds = detectPdfColumnBounds(items, layout.width);
+  let leftItems = 0;
+  let rightItems = 0;
+  let unassignedItems = 0;
+  const samples = items
+    .filter((item) => /BENONI|GASTROPUB|20\/05|12\/07|410,85|25,00/i.test(item.text))
+    .map((item) => {
+      const center = centroX(item);
+      let column: PdfLine["column"] = "UNICA";
+      if (bounds && item.width < layout.width * 0.7) {
+        column = center < (bounds.gutter.minX + bounds.gutter.maxX) / 2 ? "ESQUERDA" : "DIREITA";
+      }
+      return { text: item.text, x: item.x, y: item.y, width: item.width, centerX: center, column };
+    });
+  for (const item of items) {
+    if (!bounds || item.width >= layout.width * 0.7) unassignedItems++;
+    else if (centroX(item) < (bounds.gutter.minX + bounds.gutter.maxX) / 2) leftItems++;
+    else rightItems++;
+  }
+  return { page: layout.page, pageWidth: layout.width, textItems: items.length, bounds, leftItems, rightItems, unassignedItems, samples };
+}
+
+export async function extractPdfPageLayouts(file: Blob): Promise<PdfPageLayout[]> {
   const pdfjs = await import("pdfjs-dist");
   const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-
   const buffer = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
-  const linhas: PdfLine[] = [];
-
+  const layouts: PdfPageLayout[] = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    const pageWidth = page.getViewport({ scale: 1 }).width;
-
-    const itens: PdfTextItem[] = [];
-    for (const item of content.items as { str: string; transform: number[]; width?: number }[]) {
+    const viewport = page.getViewport({ scale: 1 });
+    const items: PdfTextItem[] = [];
+    for (const item of content.items as { str: string; transform: number[]; width?: number; height?: number }[]) {
       if (!item.str || !item.str.trim()) continue;
-      itens.push({
+      items.push({
         text: item.str.replace(/\s+/g, " ").trim(),
         x: item.transform[4] ?? 0,
-        y: Math.round(item.transform[5] ?? 0),
+        y: item.transform[5] ?? 0,
         width: item.width ?? 0,
       });
     }
-
-    linhas.push(...layoutPageLines(itens, pageWidth, p));
+    layouts.push({ page: p, width: viewport.width, height: viewport.height, items });
   }
-
   await doc.cleanup();
+  return layouts;
+}
+
+/** Extrai as linhas do PDF preservando colunas e posição (x, y) de cada trecho. */
+export async function extractPdfLines(file: Blob): Promise<PdfLine[]> {
+  const linhas: PdfLine[] = [];
+  const layouts = await extractPdfPageLayouts(file);
+  for (const layout of layouts) {
+    linhas.push(...layoutPageLines(layout.items, layout.width, layout.page));
+  }
   return linhas;
 }
 

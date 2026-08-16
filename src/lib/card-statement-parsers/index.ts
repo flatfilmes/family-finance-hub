@@ -2,7 +2,7 @@
  * Biblioteca de parsers de fatura de cartão.
  * O formato é escolhido por detecção; sem instituição reconhecida, usa o genérico.
  */
-import { extractPdfLines } from "@/lib/pdf-extract";
+import { extractPdfPageLayouts, layoutPageLines } from "@/lib/pdf-extract";
 import { genericParser } from "./generic";
 import { nubankParser } from "./nubank";
 import { itauParser } from "./itau";
@@ -31,8 +31,13 @@ export function pickStatementParser(linhas: string[]) {
 
 /** Lê um PDF de fatura e devolve cabeçalho + lançamentos. */
 export async function readCardStatementPdf(file: Blob): Promise<ParsedStatement> {
-  const linhas = await extractPdfLines(file);
+  const pages = await extractPdfPageLayouts(file);
+  const linhas = pages.flatMap((page) => layoutPageLines(page.items, page.width, page.page));
   const { parser } = pickStatementParser(linhas.map((l) => l.text));
+  if (parser.id === "ITAU_PDF") {
+    if (!parser.parseLayout) throw new Error("REVIEW_REQUIRED: parser posicional do Itaú indisponível.");
+    return parser.parseLayout(pages);
+  }
   return parser.parse(linhas);
 }
 
