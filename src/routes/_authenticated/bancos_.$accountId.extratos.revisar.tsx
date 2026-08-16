@@ -12,7 +12,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowRight, Check, ChevronDown, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, TriangleAlert } from "lucide-react";
 import { Card, PrimaryButton } from "@/components/page-header";
 import { Badge, DetailHeader } from "@/components/detail-page";
 import { NoFamily } from "@/components/no-family";
@@ -52,7 +52,8 @@ export const Route = createFileRoute("/_authenticated/bancos_/$accountId/extrato
       { property: "og:title", content: "Revisar extrato bancário — Família Finance AI" },
       {
         property: "og:description",
-        content: "Revisão completa do extrato: entradas, saídas, associações e lançamentos futuros.",
+        content:
+          "Revisão completa do extrato: entradas, saídas, associações e lançamentos futuros.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -208,7 +209,9 @@ function RevisarExtrato() {
   const entradas = rows.filter((l) => l.valor > 0).reduce((a, l) => a + l.valor, 0);
   const saidas = rows.filter((l) => l.valor < 0).reduce((a, l) => a + Math.abs(l.valor), 0);
   const calculado =
-    resumo.saldoInicial === null ? null : Number((resumo.saldoInicial + entradas - saidas).toFixed(2));
+    resumo.saldoInicial === null
+      ? null
+      : Number((resumo.saldoInicial + entradas - saidas).toFixed(2));
   const diferenca =
     calculado === null || resumo.saldoFinal === null
       ? null
@@ -226,9 +229,6 @@ function RevisarExtrato() {
     ignoradas: por("IGNORE"),
     futuras: futuros.length,
   };
-  const criadas = rows.filter(
-    (l) => !ACOES_SEM_EFEITO.includes(l.acao) && l.acao !== "IGNORE",
-  ).length;
 
   const setAcao = (i: number, acao: ReviewAction) =>
     setLinhas(
@@ -276,11 +276,14 @@ function RevisarExtrato() {
     `${contagem.total} movimentaç${contagem.total === 1 ? "ão" : "ões"}`,
     contagem.entradas > 0 ? `${contagem.entradas} entradas` : null,
     contagem.saidas > 0 ? `${contagem.saidas} saídas` : null,
-    contagem.associadas > 0 ? `${contagem.associadas} associadas` : null,
-    contagem.novas > 0 ? `${contagem.novas} novas` : null,
-    contagem.possiveis > 0 ? `${contagem.possiveis} a conferir` : null,
     contagem.futuras > 0 ? `${contagem.futuras} futura${contagem.futuras > 1 ? "s" : ""}` : null,
   ].filter(Boolean) as string[];
+
+  // Agrupamento por dia (apresentação): saldo corrido derivado do próprio
+  // extrato, comparado com o "Saldo do dia" impresso pelo banco.
+  const dias = agruparPorDia(indexadas, resumo.saldoInicial, resumo.checkpoints ?? []).filter((d) =>
+    d.itens.some(({ i }) => visiveis.some((v) => v.i === i)),
+  );
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 pb-36 pt-6">
@@ -301,57 +304,50 @@ function RevisarExtrato() {
         </p>
       )}
 
-      {/* Resumo financeiro + conferência */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card>
-          <h2 className="text-base font-bold">Resumo do extrato</h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:items-center lg:gap-2">
-            <Passo label="Saldo anterior" valor={formatCurrency(resumo.saldoInicial ?? 0)} />
-            <Seta sinal="+" />
-            <Passo
-              label="Entradas"
-              valor={`+ ${formatCurrency(entradas)}`}
-              tone="ok"
-            />
-            <Seta sinal="−" />
-            <Passo label="Saídas" valor={`- ${formatCurrency(saidas)}`} tone="danger" />
-            <Seta sinal="=" />
-            <Passo label="Saldo final" valor={formatCurrency(resumo.saldoFinal ?? 0)} destaque />
-          </div>
-        </Card>
+      {/* Resumo do extrato: equação única + conferência no mesmo bloco */}
+      <Card>
+        <h2 className="text-base font-bold">Resumo do extrato</h2>
 
-        <Card>
-          <h2 className="text-base font-bold">Conferência de saldo</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">Saldo calculado</dt>
-              <dd className="font-bold">{calculado === null ? "—" : formatCurrency(calculado)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
+        <div className="mt-4 flex flex-col gap-1 lg:flex-row lg:flex-wrap lg:items-end lg:gap-4">
+          <Termo label="Saldo anterior" valor={formatCurrency(resumo.saldoInicial ?? 0)} />
+          <Operador sinal="+" />
+          <Termo label="Entradas" valor={formatCurrency(entradas)} tone="ok" />
+          <Operador sinal="−" />
+          <Termo label="Saídas" valor={formatCurrency(saidas)} tone="danger" />
+          <Operador sinal="=" />
+          <Termo label="Saldo final" valor={formatCurrency(resumo.saldoFinal ?? 0)} destaque />
+        </div>
+
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Conferência com o banco
+          </p>
+          <dl className="mt-2 space-y-1.5 text-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">Saldo informado pelo banco</dt>
-              <dd className="font-bold">
+              <dd className="font-bold tabular-nums">
                 {resumo.saldoFinal === null ? "—" : formatCurrency(resumo.saldoFinal)}
               </dd>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">Diferença</dt>
-              <dd className={`font-bold ${saldoOk ? "" : "text-destructive"}`}>
+              <dd className={`font-bold tabular-nums ${saldoOk ? "" : "text-destructive"}`}>
                 {diferenca === null ? "—" : formatCurrency(Math.abs(diferenca))}
               </dd>
             </div>
           </dl>
           <p
-            className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
+            className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
               saldoOk
                 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                 : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
             }`}
           >
             {saldoOk ? <Check className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
-            {saldoOk ? "Saldo confere" : "Saldo a conferir"}
+            {saldoOk ? "Saldo confere" : "Saldo não confere"}
           </p>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Resumo dos lançamentos + filtros */}
       <p className="mt-6 text-sm font-semibold text-muted-foreground">{resumoLinha.join(" · ")}</p>
@@ -373,123 +369,94 @@ function RevisarExtrato() {
         ))}
       </div>
 
-      {/* Tabela (desktop) */}
-      <Card className="mt-4 hidden overflow-hidden p-0 md:block">
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[1040px] table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[104px]" />
-              <col />
-              <col className="w-[150px]" />
-              <col className="w-[170px]" />
-              <col className="w-[190px]" />
-              <col className="w-[130px]" />
-              <col className="w-[210px]" />
-            </colgroup>
-            <thead className="bg-muted/60">
-              <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3">Data</th>
-                <th className="px-4 py-3">Descrição</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Situação</th>
-                <th className="px-4 py-3">Associação</th>
-                <th className="px-4 py-3 text-right">Valor</th>
-                <th className="px-4 py-3 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map(({ l, i }) => {
-                const { principal, detalhes } = descreverLinha(l);
-                const atencao = l.sugestao.matchStatus === "POSSIBLE_MATCH";
-                return (
-                  <tr
-                    key={`${l.descricaoOriginal}-${i}`}
-                    className={`border-t border-border align-top ${atencao ? "bg-amber-500/5" : ""}`}
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                      {l.data ? formatDate(l.data) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold">{principal}</p>
-                      {detalhes.length > 0 && (
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {detalhes.join(" · ")}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{tipoLegivel(l)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {MATCH_LABELS[l.sugestao.matchStatus]}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {l.sugestao.debug.candidateTransaction ??
-                        l.sugestao.debug.candidatePurchase ??
-                        l.sugestao.debug.candidateIncome ??
-                        l.sugestao.debug.candidateInvoice ??
-                        (atencao ? "Possível correspondência" : "—")}
-                    </td>
-                    <td
-                      className={`whitespace-nowrap px-4 py-3 text-right font-bold ${
-                        l.valor >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-                      }`}
-                    >
-                      {l.valor >= 0 ? "+" : "-"}
-                      {formatCurrency(Math.abs(l.valor))}
-                    </td>
-                    <td className="px-4 py-3">
-                      <MenuAcao linha={l} onChange={(a) => setAcao(i, a)} />
-                    </td>
-                  </tr>
-                );
-              })}
-              {visiveis.length === 0 && (
-                <tr className="border-t border-border">
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    {filtro === "FUTUROS"
-                      ? "Veja os lançamentos previstos na seção abaixo."
-                      : "Nenhum lançamento neste filtro."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {/* Extrato por dia */}
+      <div className="mt-4 space-y-4">
+        {dias.map((dia) => (
+          <Card key={dia.data ?? "sem-data"} className="p-0">
+            <div className="flex items-baseline justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+              <h3 className="text-sm font-extrabold uppercase tracking-wide">
+                {dia.data ? formatDiaCurto(dia.data) : "Sem data"}
+              </h3>
+              <span className="text-[11px] text-muted-foreground">
+                {dia.itens.length} lançamento{dia.itens.length === 1 ? "" : "s"}
+              </span>
+            </div>
 
-      {/* Cards (mobile) */}
-      <div className="mt-4 space-y-3 md:hidden">
-        {visiveis.map(({ l, i }) => {
-          const { principal, detalhes } = descreverLinha(l);
-          return (
-            <Card key={`m-${l.descricaoOriginal}-${i}`} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{principal}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {(l.data ? formatDate(l.data) : "—") +
-                      (detalhes.length ? ` · ${detalhes.join(" · ")}` : "")}
-                  </p>
-                </div>
-                <p
-                  className={`shrink-0 font-bold ${
-                    l.valor >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-                  }`}
-                >
-                  {l.valor >= 0 ? "+" : "-"}
-                  {formatCurrency(Math.abs(l.valor))}
-                </p>
+            <ul className="divide-y divide-border">
+              {dia.itens
+                .filter(({ i }) => visiveis.some((v) => v.i === i))
+                .map(({ l, i }) => {
+                  const { principal, detalhes } = descreverLinha(l);
+                  const atencao = l.sugestao.matchStatus === "POSSIBLE_MATCH";
+                  return (
+                    <li
+                      key={`${l.descricaoOriginal}-${i}`}
+                      className={`px-4 py-3 sm:px-5 ${atencao ? "bg-amber-500/5" : ""}`}
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <div className="min-w-0 sm:flex-1">
+                          <p className="font-semibold">{principal}</p>
+                          {detalhes.length > 0 && (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {detalhes.join(" · ")}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge>{tipoLegivel(l)}</Badge>
+                            <Badge tone={SITUACAO_TONE[l.sugestao.matchStatus]}>
+                              {SITUACAO_CURTA[l.sugestao.matchStatus]}
+                            </Badge>
+                            {associacaoLegivel(l) && (
+                              <span className="text-[11px] text-muted-foreground">
+                                Associado a: {associacaoLegivel(l)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 sm:justify-end">
+                          <p
+                            className={`whitespace-nowrap text-base font-extrabold tabular-nums ${
+                              l.valor >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-destructive"
+                            }`}
+                          >
+                            {l.valor >= 0 ? "+ " : "- "}
+                            {formatCurrency(Math.abs(l.valor))}
+                          </p>
+                          <div className="shrink-0">
+                            <MenuAcao linha={l} onChange={(a) => setAcao(i, a)} />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+
+            {dia.saldo !== null && (
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-muted/40 px-4 py-2.5 text-xs sm:px-5">
+                <span className="text-muted-foreground">Saldo do dia</span>
+                <span className="flex items-center gap-2">
+                  <strong className="tabular-nums">{formatCurrency(dia.saldo)}</strong>
+                  {dia.banco !== null &&
+                    (dia.confere ? (
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                        <Check className="size-3" /> Confere
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
+                        <TriangleAlert className="size-3" /> Banco {formatCurrency(dia.banco)}
+                      </span>
+                    ))}
+                </span>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                <Badge>{tipoLegivel(l)}</Badge>
-                <span>{MATCH_LABELS[l.sugestao.matchStatus]}</span>
-              </div>
-              <div className="mt-3">
-                <MenuAcao linha={l} onChange={(a) => setAcao(i, a)} />
-              </div>
-            </Card>
-          );
-        })}
-        {visiveis.length === 0 && (
+            )}
+          </Card>
+        ))}
+
+        {dias.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {filtro === "FUTUROS"
               ? "Veja os lançamentos previstos na seção abaixo."
@@ -534,10 +501,10 @@ function RevisarExtrato() {
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3">
           <p className="text-xs text-muted-foreground">
             <strong className="text-foreground">{contagem.total}</strong> movimentações ·{" "}
-            {contagem.associadas} serão associadas · {criadas} serão criadas · {contagem.ignoradas}{" "}
-            serão ignoradas
+            {contagem.total - contagem.ignoradas} serão processadas · {contagem.ignoradas} ignoradas
             {contagem.futuras > 0 ? ` · ${contagem.futuras} futura(s) sem efeito` : ""}
           </p>
+
           <div className="ml-auto flex gap-2">
             <button
               type="button"
@@ -565,7 +532,103 @@ function RevisarExtrato() {
   );
 }
 
-function Passo({
+/** Situação em uma palavra — nada de texto técnico longo. */
+const SITUACAO_CURTA: Record<keyof typeof MATCH_LABELS, string> = {
+  MATCHED: "Associado",
+  POSSIBLE_MATCH: "Possível",
+  DIVERGENT: "Divergente",
+  NEW: "Novo",
+  IGNORED: "Ignorado",
+};
+
+const SITUACAO_TONE: Record<keyof typeof MATCH_LABELS, "muted" | "ok" | "warn" | "danger"> = {
+  MATCHED: "ok",
+  POSSIBLE_MATCH: "warn",
+  DIVERGENT: "danger",
+  NEW: "muted",
+  IGNORED: "muted",
+};
+
+/** Nunca mostrar UUID cru: só a entidade correspondente (UUID em DEV). */
+function associacaoLegivel(l: StatementDraftRow) {
+  const d = l.sugestao.debug;
+  const par: [string | undefined, string][] = [
+    [d.candidateTransaction, "Movimentação bancária"],
+    [d.candidatePurchase, "Compra existente"],
+    [d.candidateIncome, "Receita cadastrada"],
+    [d.candidateInvoice, "Fatura de cartão"],
+  ];
+  const achou = par.find(([id]) => !!id);
+  if (!achou) return null;
+  return import.meta.env.DEV ? `${achou[1]} (${achou[0]?.slice(0, 8)}…)` : achou[1];
+}
+
+/** "03 AGO" — cabeçalho de dia no estilo extrato bancário. */
+function formatDiaCurto(iso: string) {
+  const [, mes, dia] = iso.split("-");
+  const meses = [
+    "JAN",
+    "FEV",
+    "MAR",
+    "ABR",
+    "MAI",
+    "JUN",
+    "JUL",
+    "AGO",
+    "SET",
+    "OUT",
+    "NOV",
+    "DEZ",
+  ];
+  return `${dia} ${meses[Number(mes) - 1] ?? ""}`.trim();
+}
+
+type DiaExtrato = {
+  data: string | null;
+  itens: { l: StatementDraftRow; i: number }[];
+  /** Saldo corrido do dia (apresentação), derivado do saldo anterior. */
+  saldo: number | null;
+  /** Saldo do dia impresso pelo banco, quando existir. */
+  banco: number | null;
+  confere: boolean;
+};
+
+/** Agrupa a revisão por dia e deriva o saldo de fechamento de cada dia. */
+function agruparPorDia(
+  indexadas: { l: StatementDraftRow; i: number }[],
+  saldoInicial: number | null,
+  checkpoints: { data: string; saldo: number }[],
+): DiaExtrato[] {
+  const mapa = new Map<string, { l: StatementDraftRow; i: number }[]>();
+  for (const item of indexadas) {
+    const chave = item.l.data ?? "";
+    const atual = mapa.get(chave);
+    if (atual) atual.push(item);
+    else mapa.set(chave, [item]);
+  }
+  const chaves = [...mapa.keys()].sort((a, b) =>
+    a === "" ? 1 : b === "" ? -1 : a.localeCompare(b),
+  );
+
+  let corrente = saldoInicial;
+  return chaves.map((chave) => {
+    const itens = mapa.get(chave) ?? [];
+    if (corrente !== null) {
+      corrente = Number((corrente + itens.reduce((a, x) => a + x.l.valor, 0)).toFixed(2));
+    }
+    const banco = checkpoints.find((c) => c.data === chave)?.saldo ?? null;
+    return {
+      data: chave || null,
+      itens,
+      saldo: chave ? corrente : null,
+      banco,
+      confere: banco !== null && corrente !== null && Math.abs(banco - corrente) <= 0.02,
+    };
+  });
+}
+
+/** Um termo da equação do resumo. O valor nunca é truncado. */
+function Termo({
   label,
   valor,
   tone,
@@ -578,20 +641,22 @@ function Passo({
 }) {
   return (
     <div
-      className={`min-w-0 flex-1 rounded-2xl px-4 py-3 ${
-        destaque ? "bg-primary/10" : "bg-muted/50"
+      className={`flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 lg:block lg:flex-none lg:px-0 lg:py-0 ${
+        destaque ? "bg-primary/10 lg:bg-transparent" : ""
       }`}
     >
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <p
-        className={`mt-1 truncate text-lg font-extrabold ${
+        className={`whitespace-nowrap text-right text-lg font-extrabold tabular-nums lg:mt-1 lg:text-left lg:text-2xl ${
           tone === "ok"
             ? "text-emerald-600 dark:text-emerald-400"
             : tone === "danger"
               ? "text-destructive"
-              : ""
+              : destaque
+                ? "text-primary"
+                : ""
         }`}
       >
         {valor}
@@ -600,13 +665,14 @@ function Passo({
   );
 }
 
-function Seta({ sinal }: { sinal: string }) {
+/** Operador da equação: visível também no mobile, alinhado à esquerda. */
+function Operador({ sinal }: { sinal: string }) {
   return (
     <span
       aria-hidden
-      className="hidden shrink-0 items-center justify-center text-sm font-bold text-muted-foreground lg:flex"
+      className="px-3 text-sm font-extrabold text-muted-foreground lg:px-0 lg:pb-1 lg:text-xl"
     >
-      {sinal === "=" ? <ArrowRight className="size-4" /> : sinal}
+      {sinal}
     </span>
   );
 }
