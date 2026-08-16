@@ -303,9 +303,15 @@ function montar(
     }
   }
 
-  const tipo = classificar(descricao, valor, secao);
+  // proteção contra registro mesclado de duas colunas
+  const ambiguo =
+    /\b\d{2}\/\d{2}\b/.test(descricao) ||
+    /\d{1,3}(?:\.\d{3})*,\d{2}/.test(descricao);
+
+  const tipo = ambiguo ? "OUTRO" : classificar(descricao, valor, secao);
   const limpo = limparEstabelecimento(descricao);
   return {
+    ambiguo: ambiguo || undefined,
     data_lancamento: data,
     descricao_original: descricaoBruta.replace(/\s+/g, " ").trim(),
     descricao_normalizada: normalizeDescricao(limpo),
@@ -383,7 +389,16 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     descricaoPendente = "";
   };
 
-  for (const linha of textos) {
+  let contexto = "";
+  for (const pdfLinha of pdfLinhas) {
+    const linha = pdfLinha.text.replace(/\s+/g, " ").trim();
+    if (!linha) continue;
+    const chaveContexto = `${pdfLinha.page ?? 1}:${pdfLinha.column ?? "UNICA"}`;
+    if (chaveContexto !== contexto) {
+      // troca de coluna/página: nunca continuar um bloco de outro lado
+      contexto = chaveContexto;
+      limpaPendente();
+    }
     const p = plano(linha);
 
     // troca de seção
