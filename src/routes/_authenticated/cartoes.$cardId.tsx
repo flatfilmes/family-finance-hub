@@ -273,11 +273,38 @@ function CartaoDetalhePage() {
         </div>
       </Card>
 
-      <Card className="mt-4">
+      <Card className="mt-4" id="compras-do-ciclo">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <SectionTitle title="Fatura" hint="Escolha a competência para ver total e lançamentos." />
+          <SectionTitle
+            title="Compras deste ciclo"
+            hint="Cada lançamento pertence ao ciclo pela fatura/parcela — não apenas pela data da compra."
+          />
           {estadoSelecionado && (
             <Badge tone={toneEstado(estadoSelecionado)}>{ESTADO_CICLO_LABELS[estadoSelecionado]}</Badge>
+          )}
+        </div>
+
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(
+            [
+              ["fechada", "Fatura fechada", cicloFechado],
+              ["proxima", "Próxima fatura", cicloProximo],
+            ] as const
+          ).map(([valor, rotulo, ciclo]) =>
+            ciclo ? (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setAba(valor)}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                  aba === valor
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {rotulo} · {monthKeyLabel(ciclo.competencia)}
+              </button>
+            ) : null,
           )}
         </div>
 
@@ -290,37 +317,25 @@ function CartaoDetalhePage() {
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Competência">
+          <Field label="Outra competência (histórico)">
             <select
               className={inputClass}
-              value={fatura?.id ?? ""}
-              onChange={(e) => setFaturaId(e.target.value)}
-              aria-label="Fatura"
+              value={aba === "historico" ? faturaId : ""}
+              onChange={(e) => {
+                setFaturaId(e.target.value);
+                setAba(e.target.value ? "historico" : "fechada");
+              }}
+              aria-label="Fatura do histórico"
             >
-              {selecionaveis.length === 0 && <option value="">Nenhuma fatura</option>}
-              {ciclos.atual && (
-                <optgroup label="Fatura atual">
-                  <option value={ciclos.atual.invoice.id}>{optionLabel(ciclos.atual)}</option>
-                </optgroup>
-              )}
-              {ciclos.emFormacao && (
-                <optgroup label="Próxima fatura">
-                  <option value={ciclos.emFormacao.invoice.id}>
-                    {optionLabel(ciclos.emFormacao)}
-                  </option>
-                </optgroup>
-              )}
-              {ciclos.historico.length > 0 && (
-                <optgroup label="Histórico">
-                  {ciclos.historico.map((c) => (
-                    <option key={c.invoice.id} value={c.invoice.id}>
-                      {optionLabel(c)}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+              <option value="">Ciclo atual selecionado</option>
+              {ciclos.historico.map((c) => (
+                <option key={c.invoice.id} value={c.invoice.id}>
+                  {optionLabel(c)}
+                </option>
+              ))}
             </select>
           </Field>
+
           <Field label="Tipo de lançamento">
             <select
               className={inputClass}
