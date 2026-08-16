@@ -104,3 +104,76 @@ describe("ITAU_PDF espacial — geometria real", () => {
     expect(parseCategoriaCidade("SAÚDE .")).toEqual({ category: "SAÚDE", city: null });
   });
 });
+
+/**
+ * PÁGINA 4 — seções verticais na esquerda (internacional, serviços, próximas
+ * faturas) enquanto a direita traz blocos comerciais (limites, simulação, CET).
+ */
+const page4: PdfPageLayout = {
+  page: 4,
+  width: 595.276,
+  height: 841.89,
+  items: [
+    it_("Lançamentos internacionais", 151.2, 700.0, 140),
+    it_("01/08", 151.2, 680.0, 26),
+    it_("GOOGLE*WORKSPACE FLATF", 178.2, 680.0, 120),
+    it_("141,77", 319.3, 680.0, 30),
+    it_("MOUNTAIN VIEW", 178.2, 671.0, 80),
+    it_("26,40", 260.0, 671.0, 28),
+    it_("USD", 290.0, 671.0, 20),
+    it_("Dólar de Conversão R$ 5,37", 178.2, 662.0, 110),
+    it_("Repasse de IOF em R$", 178.2, 653.0, 100),
+    it_("4,94", 319.4, 653.0, 24),
+    it_("Total transações inter.", 178.2, 644.0, 100),
+    it_("146,71", 319.4, 644.0, 30),
+    it_("Lançamentos: produtos e serviços", 151.2, 630.0, 150),
+    it_("ANUIDADE DIFERENCI01/12", 178.2, 615.0, 120),
+    it_("46,00", 319.4, 615.0, 28),
+    it_("Compras parceladas - próximas faturas", 151.2, 600.0, 170),
+    it_("02/06", 151.2, 585.0, 26),
+    it_("D1 ATACADO 02/06", 178.2, 585.0, 90),
+    it_("159,65", 319.4, 585.0, 30),
+    // coluna direita: bloco comercial que NÃO pode contaminar a esquerda
+    it_("Limites de crédito", 367.2, 700.0, 100),
+    it_("Limite total de crédito", 394.2, 685.0, 110),
+    it_("56.066,00", 535.4, 685.0, 40),
+    it_("Simulação de parcelamento", 367.2, 660.0, 130),
+    it_("Valor total financiado", 394.2, 645.0, 110),
+    it_("6.577,67", 535.4, 645.0, 40),
+    it_("CET 3,49% a.m.", 394.2, 630.0, 80),
+  ],
+};
+
+describe("ITAU_PDF espacial — seções verticais e blocos comerciais", () => {
+  const p4 = parseItauSpatial([page4]);
+  const desc = p4.entries.map((e) => e.descricao_original);
+
+  it("internacional: só a compra principal e o IOF viram lançamento", () => {
+    expect(desc.some((d) => d.includes("GOOGLE"))).toBe(true);
+    expect(p4.entries.find((e) => e.descricao_original.includes("GOOGLE"))!.valor).toBeCloseTo(141.77, 2);
+    const iof = p4.entries.find((e) => /IOF/i.test(e.descricao_original));
+    expect(iof?.valor).toBeCloseTo(4.94, 2);
+    expect(iof?.tipo_sugerido).toBe("TAXA");
+  });
+
+  it("detalhes de câmbio e totais nunca viram lançamento", () => {
+    expect(desc.some((d) => /USD|MOUNTAIN VIEW|Conversão|Total transa/i.test(d))).toBe(false);
+  });
+
+  it("anuidade entra como TAXA com parcela 1/12", () => {
+    const anuidade = p4.entries.find((e) => /ANUIDADE/i.test(e.descricao_original))!;
+    expect(anuidade.valor).toBeCloseTo(46, 2);
+    expect(anuidade.tipo_sugerido).toBe("TAXA");
+    expect([anuidade.parcela_atual, anuidade.total_parcelas]).toEqual([1, 12]);
+  });
+
+  it("próximas faturas ficam fora da fatura atual", () => {
+    expect(desc.some((d) => d.includes("D1 ATACADO"))).toBe(false);
+    expect(p4.futuras.some((f) => f.descricao_original.includes("D1 ATACADO"))).toBe(true);
+  });
+
+  it("limites, CET e simulação da direita não viram lançamento", () => {
+    expect(desc.some((d) => /Limite|CET|financiado/i.test(d))).toBe(false);
+    expect(p4.entries.some((e) => e.valor === 56066 || e.valor === 6577.67)).toBe(false);
+  });
+});
