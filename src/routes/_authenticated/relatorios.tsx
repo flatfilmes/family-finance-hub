@@ -121,31 +121,18 @@ function RelatoriosPage() {
       <Card className="mt-4">
         <h2 className="text-base font-bold">Por pessoa</h2>
         <ul className="mt-3 divide-y divide-border">
-          {(members ?? []).map((m) => {
-            const r = (incomes ?? [])
-              .filter((i) => i.member_id === m.id && i.ativo)
-              .reduce((acc, i) => acc + monthlyIncomeValue(i), 0);
-            const g = (expenses ?? [])
-              .filter((e) => e.member_id === m.id)
-              .reduce((acc, e) => acc + (Number(e.valor) || 0), 0);
-            return (
-              <li key={m.id} className="flex items-center justify-between gap-4 py-3">
-                <div className="min-w-0">
-                  <Link
-                    to="/membro/$memberId"
-                    params={{ memberId: m.id }}
-                    className="truncate text-sm font-semibold text-primary hover:underline"
-                  >
-                    {m.nome}
-                  </Link>
-                  <p className="text-xs text-muted-foreground">
-                    Receitas {formatCurrency(r)} · Gastos {formatCurrency(g)}
-                  </p>
-                </div>
-                <span className="shrink-0 text-sm font-semibold">{formatCurrency(r - g)}</span>
-              </li>
-            );
-          })}
+          {(members ?? []).map((m) => (
+            <MembroLinha
+              key={m.id}
+              familyId={family.id}
+              memberId={m.id}
+              nome={m.nome}
+              month={month}
+              receitas={(incomes ?? [])
+                .filter((i) => i.member_id === m.id && i.ativo)
+                .reduce((acc, i) => acc + monthlyIncomeValue(i), 0)}
+            />
+          ))}
           {(members ?? []).length === 0 && (
             <li className="py-3 text-sm text-muted-foreground">
               Cadastre as pessoas da família em Minha Família para ver os relatórios individuais.
