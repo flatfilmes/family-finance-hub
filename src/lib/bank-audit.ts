@@ -1042,9 +1042,13 @@ export function auditToCsv(audit: BankAudit) {
       linhas.push([
         "Dia",
         d.date,
-        `Entradas ${d.inflows} · Saídas ${d.outflows} · Calculado ${d.calculated}`,
+        `Inicial ${d.openingBalance} · Entradas do dia ${d.inflows} · Saídas do dia ${d.outflows} · Acum. entradas ${d.inflowsAcumuladas} · Acum. saídas ${d.outflowsAcumuladas} · Calculado ${d.calculated} · Banco ${d.reported ?? "—"}`,
         String(d.difference ?? ""),
-        d.confere === null ? "Sem checkpoint" : d.confere ? "Confere" : "Divergência",
+        d.confere === null
+          ? 'Sem "Saldo do dia" no PDF'
+          : d.confere
+            ? "Confere"
+            : "Divergência",
       ]);
     }
   }
