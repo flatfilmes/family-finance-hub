@@ -22,12 +22,16 @@ import {
   MATCH_LABELS,
   MATCH_TONES,
   IMPORT_STATUS_LABELS,
+  REVIEW_CLASS_LABELS,
+  REVIEW_CLASS_TONES,
+  classifyReviewItem,
   formatOptional,
   type MatchStatus,
   type StatementItem,
 } from "@/lib/card-statements";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
+import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 
 export const Route = createFileRoute("/_authenticated/cartoes/faturas/$importId")({
   head: () => ({
@@ -69,6 +73,7 @@ function RevisarFaturaPage() {
   const { data: purchases } = usePurchases(family?.id);
   const { data: categorias } = useExpenseCategories();
   const perms = usePermissions();
+  const recorrencias = useRecurringExpenses(family?.id);
   const acoes = useStatementItemActions(importId);
   const confirmar = useConfirmStatementImport(family?.id);
 
@@ -145,6 +150,8 @@ function RevisarFaturaPage() {
   const comprasDoCartao = (purchases ?? []).filter(
     (p) => p.credit_card_id === importacao.credit_card_id,
   );
+  const recorrenteNome = (id: string | null) =>
+    (recorrencias.data ?? []).find((r) => r.id === id)?.nome ?? "recorrência cadastrada";
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "Sem categoria";
 
@@ -410,6 +417,9 @@ function RevisarFaturaPage() {
                           />
                         )}
                         <p className="truncate text-sm font-bold">{item.descricao_original}</p>
+                        <StatusBadge tone={REVIEW_CLASS_TONES[classifyReviewItem(item)]}>
+                          {REVIEW_CLASS_LABELS[classifyReviewItem(item)]}
+                        </StatusBadge>
                         <StatusBadge tone={MATCH_TONES[item.match_status]}>
                           {MATCH_LABELS[item.match_status]}
                         </StatusBadge>
@@ -443,6 +453,22 @@ function RevisarFaturaPage() {
                           {formatDate(compraVinculada.data_compra)}
                         </p>
                       )}
+                      {item.recurring_expense_id_matched && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Recorrência já cadastrada:{" "}
+                          {recorrenteNome(item.recurring_expense_id_matched)} — será apenas
+                          associada, sem criar compra nova.
+                        </p>
+                      )}
+                      {item.installment_id_matched && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Continuação de parcelamento reconhecida
+                          {item.parcela_atual && item.total_parcelas
+                            ? ` (${item.parcela_atual}/${item.total_parcelas})`
+                            : ""}
+                          : o parcelamento existente será mantido.
+                        </p>
+                      )}
                       {item.match_status === "DIVERGENT" && (
                         <p className="mt-1 text-xs font-semibold text-destructive">
                           Valor cadastrado:{" "}
@@ -460,9 +486,10 @@ function RevisarFaturaPage() {
                       )}
                       {item.match_status === "POSSIBLE_MATCH" && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Encontramos uma possível compra correspondente.
+                          Encontramos uma possível correspondência.
                         </p>
                       )}
+
                       {item.user_action === "ERRO" && (
                         <p className="mt-1 text-xs font-semibold text-destructive">
                           {item.erro_mensagem}

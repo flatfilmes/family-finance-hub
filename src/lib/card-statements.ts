@@ -142,6 +142,8 @@ type Candidatos = {
   purchases: Database["public"]["Tables"]["purchases"]["Row"][];
   installments: Database["public"]["Tables"]["expense_installments"]["Row"][];
   recurring: Database["public"]["Tables"]["recurring_expenses"]["Row"][];
+  /** Compra de origem de cada parcelamento, para comparar o nome do estabelecimento. */
+  installmentPurchases: Record<string, { id: string; estabelecimento: string }>;
 };
 
 export type MatchResult = {
@@ -183,12 +185,34 @@ export async function fetchMatchCandidates(input: {
       .eq("credit_card_id", input.cardId),
   ]);
 
+  // As parcelas de meses anteriores podem apontar para compras fora da janela
+  // de datas acima; buscamos essas compras pelo id para comparar o nome.
+  const idsCompras = Array.from(
+    new Set((installments ?? []).map((p) => p.purchase_id).filter(Boolean) as string[]),
+  );
+  const installmentPurchases: Record<string, { id: string; estabelecimento: string }> = {};
+  for (const p of purchases ?? []) {
+    installmentPurchases[p.id] = { id: p.id, estabelecimento: p.estabelecimento };
+  }
+  const faltando = idsCompras.filter((id) => !installmentPurchases[id]);
+  if (faltando.length > 0) {
+    const { data: extras } = await supabase
+      .from("purchases")
+      .select("id, estabelecimento")
+      .in("id", faltando);
+    for (const p of extras ?? []) {
+      installmentPurchases[p.id] = { id: p.id, estabelecimento: p.estabelecimento };
+    }
+  }
+
   return {
     purchases: purchases ?? [],
     installments: installments ?? [],
     recurring: recurring ?? [],
+    installmentPurchases,
   };
 }
+
 
 /**
  * Classifica um lançamento da fatura contra o que já existe no sistema.
@@ -215,40 +239,116 @@ export function matchEntry(
 
   const valor = centavos(entry.valor);
 
-  // 1) Parcelamento já existente: a fatura traz "03/12".
+  // 1) Parcelamento já existente: a fatura traz "03/12" e o sistema já
+  // conhece a série (7/10 → 8/10 → 9/10). Comparamos número da parcela,
+  // total de parcelas, valor (com pequena tolerância) e nome da compra origem.
   if (entry.parcela_atual && entry.total_parcelas) {
-    const parcelas = candidatos.installments.filter(
-      (p) =>
-        p.numero_parcela === entry.parcela_atual &&
-        p.total_parcelas === entry.total_parcelas &&
-        !usados.has(`inst:${p.id}`),
-    );
-    const exata = parcelas.find((p) => centavos(Number(p.valor_parcela)) === valor);
-    if (exata) {
-      usados.add(`inst:${exata.id}`);
+    const nomeCompra = (purchaseId: string | null) =>
+      purchaseId ? (candidatos.installmentPurchases[purchaseId]?.estabelecimento ?? "") : "";
+
+    const serie = candidatos.installments
+      .filter(
+        (p) =>
+          p.total_parcelas === entry.total_parcelas &&
+          p.numero_parcela === entry.parcela_atual &&
+          !usados.has(`inst:${p.id}`),
+      )
+      .map((p) => ({
+        p,
+        sim: similaridade(entry.descricao_original, nomeCompra(p.purchase_id)),
+        delta: Math.abs(centavos(Number(p.valor_parcela)) - valor),
+      }))
+      .sort((a, b) => b.sim - a.sim || a.delta - b.delta);
+
+    // Valor idêntico ou variação de até 1% (mín. R$ 0,50) conta como a mesma parcela.
+    const tolerancia = Math.max(50, Math.round(valor * 0.01));
+    const mesmaParcela = serie.find((c) => c.delta <= tolerancia && (c.sim >= 0.4 || serie.length === 1));
+    if (mesmaParcela) {
+      usados.add(`inst:${mesmaParcela.p.id}`);
       return {
         ...vazio,
         match_status: "MATCHED",
-        confidence_score: 0.95,
-        installment_id_matched: exata.id,
-        purchase_id_matched: exata.purchase_id,
+        confidence_score: mesmaParcela.sim >= 0.6 ? 0.95 : 0.85,
+        installment_id_matched: mesmaParcela.p.id,
+        purchase_id_matched: mesmaParcela.p.purchase_id,
+        diferenca: mesmaParcela.delta === 0 ? null : Math.abs(entry.valor) - Number(mesmaParcela.p.valor_parcela),
       };
     }
-    if (parcelas.length === 1) {
-      const p = parcelas[0]!;
-      usados.add(`inst:${p.id}`);
+
+    // Nome bate mas o valor não: parcela reconhecida com divergência de valor.
+    const divergenteParcela = serie.find((c) => c.sim >= 0.6);
+    if (divergenteParcela) {
+      usados.add(`inst:${divergenteParcela.p.id}`);
       return {
         ...vazio,
         match_status: "DIVERGENT",
         confidence_score: 0.7,
-        installment_id_matched: p.id,
-        purchase_id_matched: p.purchase_id,
-        diferenca: Math.abs(entry.valor) - Number(p.valor_parcela),
+        installment_id_matched: divergenteParcela.p.id,
+        purchase_id_matched: divergenteParcela.p.purchase_id,
+        diferenca: Math.abs(entry.valor) - Number(divergenteParcela.p.valor_parcela),
+      };
+    }
+
+    // A parcela deste mês ainda não existe, mas o parcelamento existe
+    // (encontramos parcelas anteriores da mesma série com o mesmo nome/valor):
+    // é a continuação natural do parcelamento, nunca uma compra nova do zero.
+    const anteriores = candidatos.installments
+      .filter(
+        (p) =>
+          p.total_parcelas === entry.total_parcelas &&
+          p.numero_parcela < (entry.parcela_atual ?? 0) &&
+          Math.abs(centavos(Number(p.valor_parcela)) - valor) <= tolerancia,
+      )
+      .map((p) => ({ p, sim: similaridade(entry.descricao_original, nomeCompra(p.purchase_id)) }))
+      .filter((c) => c.sim >= 0.5)
+      .sort((a, b) => b.sim - a.sim || b.p.numero_parcela - a.p.numero_parcela);
+
+    const continuidade = anteriores[0];
+    if (continuidade) {
+      return {
+        ...vazio,
+        match_status: "MATCHED",
+        confidence_score: 0.8,
+        installment_id_matched: continuidade.p.id,
+        purchase_id_matched: continuidade.p.purchase_id,
       };
     }
   }
 
-  // 2) Compra avulsa já registrada no cartão.
+  // 2) Recorrência já cadastrada no mesmo cartão (Google Workspace, Netflix...).
+  // Aceitamos pequena variação de valor porque assinaturas reajustam.
+  const tolRecorrencia = Math.max(100, Math.round(valor * 0.05));
+  const recorrentes = candidatos.recurring
+    .map((r) => ({
+      r,
+      sim: similaridade(entry.descricao_original, r.nome),
+      delta: Math.abs(centavos(Number(r.valor)) - valor),
+    }))
+    .filter((c) => c.sim >= 0.4 && c.delta <= tolRecorrencia)
+    .sort((a, b) => b.sim - a.sim || a.delta - b.delta);
+
+  const ativa = recorrentes.filter((c) => c.r.ativo);
+  const forteRecorrencia = ativa.find((c) => c.sim >= 0.6);
+  if (forteRecorrencia && !usados.has(`rec:${forteRecorrencia.r.id}`)) {
+    usados.add(`rec:${forteRecorrencia.r.id}`);
+    return {
+      ...vazio,
+      match_status: "MATCHED",
+      confidence_score: forteRecorrencia.delta === 0 ? 0.92 : 0.85,
+      recurring_expense_id_matched: forteRecorrencia.r.id,
+      diferenca: forteRecorrencia.delta === 0 ? null : Math.abs(entry.valor) - Number(forteRecorrencia.r.valor),
+    };
+  }
+  if (recorrentes.length === 1) {
+    return {
+      ...vazio,
+      match_status: "POSSIBLE_MATCH",
+      confidence_score: 0.65,
+      recurring_expense_id_matched: recorrentes[0]!.r.id,
+    };
+  }
+
+  // 3) Compra avulsa já registrada no cartão.
   const comparaveis = candidatos.purchases
     .filter((p) => !usados.has(`pur:${p.id}`))
     .map((p) => ({
@@ -295,28 +395,62 @@ export function matchEntry(
     };
   }
 
-  // 3) Recorrência ativa no mesmo cartão (Netflix, Google One...).
-  const recorrentes = candidatos.recurring
-    .filter((r) => centavos(Number(r.valor)) === valor)
-    .map((r) => ({ r, sim: similaridade(entry.descricao_original, r.nome) }))
-    .filter((c) => c.sim >= 0.4)
-    .sort((a, b) => b.sim - a.sim);
-
-  if (recorrentes.length === 1) {
-    return {
-      ...vazio,
-      match_status: "POSSIBLE_MATCH",
-      confidence_score: 0.65,
-      recurring_expense_id_matched: recorrentes[0]!.r.id,
-    };
-  }
   if (recorrentes.length > 1) {
-    // Mais de uma recorrência com o mesmo valor: nunca escolher sozinho.
+    // Mais de uma recorrência parecida: nunca escolher sozinho.
     return { ...vazio, match_status: "POSSIBLE_MATCH", confidence_score: 0.4 };
   }
 
   return vazio;
 }
+
+// --------------------------------------------------- classificação para a revisão
+
+/** Situação apresentada na tela de revisão, derivada do resultado da conciliação. */
+export type ReviewClass =
+  | "NOVO"
+  | "RECORRENTE_IDENTIFICADO"
+  | "PARCELA_IDENTIFICADA"
+  | "POSSIVEL_MATCH"
+  | "IGNORADO"
+  | "TAXA";
+
+export const REVIEW_CLASS_LABELS: Record<ReviewClass, string> = {
+  NOVO: "Compra nova",
+  RECORRENTE_IDENTIFICADO: "Recorrência identificada",
+  PARCELA_IDENTIFICADA: "Parcela identificada",
+  POSSIVEL_MATCH: "Possível correspondência",
+  IGNORADO: "Item ignorável",
+  TAXA: "Taxa/IOF válida",
+};
+
+export const REVIEW_CLASS_TONES: Record<ReviewClass, Tone> = {
+  NOVO: "info",
+  RECORRENTE_IDENTIFICADO: "ok",
+  PARCELA_IDENTIFICADA: "ok",
+  POSSIVEL_MATCH: "warn",
+  IGNORADO: "muted",
+  TAXA: "muted",
+};
+
+export function classifyReviewItem(item: {
+  match_status: MatchStatus;
+  tipo_sugerido: ItemKind;
+  installment_id_matched: string | null;
+  recurring_expense_id_matched: string | null;
+}): ReviewClass {
+  if (item.tipo_sugerido === "TAXA" || item.tipo_sugerido === "JUROS") return "TAXA";
+  if (item.match_status === "IGNORED") return "IGNORADO";
+  if (item.match_status === "MATCHED") {
+    if (item.recurring_expense_id_matched) return "RECORRENTE_IDENTIFICADO";
+    if (item.installment_id_matched) return "PARCELA_IDENTIFICADA";
+    return "POSSIVEL_MATCH";
+  }
+  if (item.match_status === "POSSIBLE_MATCH" || item.match_status === "DIVERGENT") {
+    return "POSSIVEL_MATCH";
+  }
+  return "NOVO";
+}
+
 
 // ------------------------------------------------------------------ persistência
 
@@ -376,6 +510,69 @@ export async function cancelStatementImport(id: string) {
     .eq("id", id);
   if (error) throw error;
 }
+
+/** Faturas confirmadas geraram efeito real: não podem ser apagadas direto. */
+export function podeExcluirImportacao(status: ImportStatus) {
+  return status !== "CONFIRMED";
+}
+
+/**
+ * Exclusão manual de uma fatura importada.
+ * Remove apenas dados temporários da importação (lançamentos lidos do PDF,
+ * conciliações registradas e a própria importação). Nunca toca em compras,
+ * parcelas, recorrências ou faturas reais do sistema.
+ */
+export async function deleteStatementImport(id: string) {
+  const { data: importacao, error: readError } = await supabase
+    .from("card_statement_imports")
+    .select("id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!importacao) throw new Error("Fatura importada não encontrada.");
+  if (!podeExcluirImportacao(importacao.status)) {
+    throw new Error(
+      "Esta fatura já foi confirmada e teve efeito no sistema. Desfaça/cancele a revisão antes de excluir.",
+    );
+  }
+
+  const { data: itens, error: itensError } = await supabase
+    .from("card_statement_items")
+    .select("id, purchase_id_criada")
+    .eq("import_id", id);
+  if (itensError) throw itensError;
+
+  const criadas = (itens ?? []).filter((i) => i.purchase_id_criada);
+  if (criadas.length > 0) {
+    throw new Error(
+      "Esta importação já criou compras no sistema. Exclua ou ajuste essas compras antes de remover a fatura.",
+    );
+  }
+
+  const ids = (itens ?? []).map((i) => i.id);
+  if (ids.length > 0) {
+    // Conciliações apontam para o lançamento temporário: saem junto com ele.
+    const { error: recError } = await supabase
+      .from("reconciliations")
+      .delete()
+      .eq("source_type", "card_statement_item")
+      .in("source_id", ids);
+    if (recError) throw recError;
+
+    const { error: delItens } = await supabase
+      .from("card_statement_items")
+      .delete()
+      .eq("import_id", id);
+    if (delItens) throw delItens;
+  }
+
+  const { error: delImport } = await supabase
+    .from("card_statement_imports")
+    .delete()
+    .eq("id", id);
+  if (delImport) throw delImport;
+}
+
 
 /**
  * Lê o PDF, cria a importação temporária e grava os lançamentos já comparados
