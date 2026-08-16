@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, FileUp, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileUp, MoreHorizontal, Receipt } from "lucide-react";
 
 import { StatementImportDialog } from "@/components/statement-import-dialog";
 import { CardStatementImports } from "@/components/card-statement-imports";
@@ -16,13 +16,11 @@ import { useCardsData } from "@/hooks/useCardsData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { usePayCardInvoice } from "@/hooks/useTransactions";
 import { useExpenseCategories } from "@/hooks/useExpenses";
-import { useRecurringExpenseActions } from "@/hooks/useRecurringExpenses";
 import { useMemberName } from "@/components/member-select";
 import { filterByMember } from "@/components/member-filter";
 import { useViewMode } from "@/components/view-mode";
 import { monthKeyLabel } from "@/lib/card-invoices";
-import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
-import { recurringForecast } from "@/lib/card-recurrences";
+import { monthlyValue } from "@/lib/recurring-expenses";
 import {
   ESTADO_CICLO_LABELS,
   KIND_OFICIAL_LABELS,
@@ -67,31 +65,6 @@ const toneEstado = (estado: EstadoCiclo) =>
         ? ("muted" as const)
         : ("warn" as const);
 
-/** Painel secundário recolhido: mantém a página curta sem esconder informação. */
-function Secundario({
-  titulo,
-  resumo,
-  children,
-}: {
-  titulo: string;
-  resumo: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Card className="mt-4">
-      <details>
-        <summary className="cursor-pointer list-none">
-          <span className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-sm font-bold">{titulo}</span>
-            <span className="text-xs text-muted-foreground">{resumo}</span>
-          </span>
-        </summary>
-        <div className="mt-3">{children}</div>
-      </details>
-    </Card>
-  );
-}
-
 function CartaoDetalhePage() {
   const { cardId } = Route.useParams();
   const { data: family } = useFamily();
@@ -100,7 +73,6 @@ function CartaoDetalhePage() {
   const { data: categorias } = useExpenseCategories();
   const memberName = useMemberName(family?.id);
   const pagar = usePayCardInvoice(family?.id);
-  const recorrenciaActions = useRecurringExpenseActions(family?.id);
   const view = useViewMode();
 
   const [cicloId, setCicloId] = useState("");
@@ -149,14 +121,17 @@ function CartaoDetalhePage() {
   const rolar = (dir: -1 | 1) =>
     reguaRef.current?.scrollBy({ left: dir * 480, behavior: "smooth" });
 
-
   if (!family) return <NoFamily />;
 
   const cartao = cartaoSelecionado;
   if (!cartao) {
     return (
       <div>
-        <DetailHeader backTo="/cartoes" backLabel="Voltar para Cartões" title="Cartão não encontrado" />
+        <DetailHeader
+          backTo="/cartoes"
+          backLabel="Voltar para Cartões"
+          title="Cartão não encontrado"
+        />
         <Card>
           <p className="text-sm text-muted-foreground">
             Este cartão não existe ou não está disponível para o seu perfil.
@@ -210,9 +185,10 @@ function CartaoDetalhePage() {
   }
   const dias = [...porDia.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
 
-  const proximas = dados.proximasDe(cartao.id);
   const parcelamentos = dados.parcelamentosDe(cartao.id);
-  const recorrencias = dados.recorrenciasDoCartao(cartao.id);
+  const recorrenciasCartao = dados.recorrenciasDoCartao(cartao.id).filter((r) => r.ativo);
+  const recorrenciasAtivas = recorrenciasCartao.length;
+  const recorrenciasMensais = recorrenciasCartao.reduce((acc, r) => acc + monthlyValue(r), 0);
   // Restante comprometido = soma das parcelas ainda não quitadas (nunca o total original).
   const restanteParcelas = parcelamentos.reduce((acc, p) => acc + p.restante, 0);
 
@@ -243,7 +219,6 @@ function CartaoDetalhePage() {
   // Composição de um ciclo projetado: parcelas já conhecidas + recorrências previstas.
   const parcelasDoCiclo = composicaoCiclo.installments;
   const recorrenciasProjetadas = composicaoCiclo.recurringOccurrences;
-
 
   async function confirmarPagamento() {
     setErro("");
@@ -284,15 +259,51 @@ function CartaoDetalhePage() {
             >
               <FileUp className="size-3.5" /> Importar fatura
             </button>
-            {cartao.member_id ? (
-              <Link
-                to="/membro/$memberId"
-                params={{ memberId: cartao.member_id }}
-                className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
-              >
-                Ver perfil do titular
-              </Link>
-            ) : null}
+            <details className="relative">
+              <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted">
+                <MoreHorizontal className="size-3.5" /> Mais
+              </summary>
+              <div className="absolute right-0 z-20 mt-2 w-60 rounded-2xl border border-border bg-card p-2 shadow-soft">
+                <Link
+                  to="/cartoes/$cardId/projecao"
+                  params={{ cardId: cartao.id }}
+                  className="block rounded-xl px-3 py-2 text-xs font-semibold hover:bg-muted"
+                >
+                  Ver projeção completa
+                </Link>
+                <Link
+                  to="/cartoes/$cardId/projecao"
+                  params={{ cardId: cartao.id }}
+                  hash="parcelamentos"
+                  className="block rounded-xl px-3 py-2 text-xs font-semibold hover:bg-muted"
+                >
+                  Ver parcelamentos
+                </Link>
+                <Link
+                  to="/cartoes/$cardId/projecao"
+                  params={{ cardId: cartao.id }}
+                  hash="recorrencias"
+                  className="block rounded-xl px-3 py-2 text-xs font-semibold hover:bg-muted"
+                >
+                  Gerenciar recorrências
+                </Link>
+                <a
+                  href="#importacoes"
+                  className="block rounded-xl px-3 py-2 text-xs font-semibold hover:bg-muted"
+                >
+                  Importações
+                </a>
+                {cartao.member_id ? (
+                  <Link
+                    to="/membro/$memberId"
+                    params={{ memberId: cartao.member_id }}
+                    className="block rounded-xl px-3 py-2 text-xs font-semibold hover:bg-muted"
+                  >
+                    Ver perfil do titular
+                  </Link>
+                ) : null}
+              </div>
+            </details>
           </>
         }
       />
@@ -410,7 +421,6 @@ function CartaoDetalhePage() {
             </span>
           </div>
 
-
           {/* Bloco principal: tudo do ciclo selecionado em um único resumo. */}
           <Card className="mt-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -433,7 +443,6 @@ function CartaoDetalhePage() {
                           : " · valor calculado pelo sistema"}
                   </p>
                 )}
-
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {estadoSelecionado && (
@@ -578,6 +587,11 @@ function CartaoDetalhePage() {
             value={formatCurrency(restanteParcelas)}
             hint="Soma das parcelas ainda não quitadas"
           />
+          <Metric
+            label="Recorrências previstas"
+            value={`${formatCurrency(recorrenciasMensais)}/mês`}
+            hint={`${recorrenciasAtivas} cobrança(s) ativa(s) neste cartão`}
+          />
           <Metric label="Saldo nas contas do titular" value={formatCurrency(saldoContas)} />
           <Metric
             label="Sobra após pagar esta fatura"
@@ -592,8 +606,15 @@ function CartaoDetalhePage() {
             style={{ width: `${uso}%` }}
           />
         </div>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <Badge tone={statusTone}>{statusPagamento}</Badge>
+          <Link
+            to="/cartoes/$cardId/projecao"
+            params={{ cardId: cartao.id }}
+            className="text-xs font-semibold text-primary hover:underline"
+          >
+            Ver projeção completa
+          </Link>
         </div>
       </Card>
 
@@ -673,7 +694,9 @@ function CartaoDetalhePage() {
                     <li key={l.id} className="flex items-start justify-between gap-3 py-2.5">
                       <span className="min-w-0">
                         <span className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-sm font-semibold">{l.estabelecimento}</span>
+                          <span className="truncate text-sm font-semibold">
+                            {l.estabelecimento}
+                          </span>
                           {l.kind === "recorrentes" && (
                             <StatusBadge tone="ok">Recorrente</StatusBadge>
                           )}
@@ -685,6 +708,7 @@ function CartaoDetalhePage() {
                           {(l.kind === "taxas" || l.kind === "creditos") && (
                             <StatusBadge tone="muted">{KIND_OFICIAL_LABELS[l.kind]}</StatusBadge>
                           )}
+                          {projetado && <StatusBadge tone="warn">Projetado</StatusBadge>}
                         </span>
                         <span className="mt-0.5 block text-xs text-muted-foreground">
                           {categoriaNome(l.categoriaId)}
@@ -702,125 +726,22 @@ function CartaoDetalhePage() {
         )}
       </Card>
 
-      {/* Áreas secundárias: continuam acessíveis, sem alongar a página. */}
-      <Secundario
-        titulo="Parcelamentos ativos"
-        resumo={`${parcelamentos.length} em andamento · ${formatCurrency(restanteParcelas)} comprometido`}
-      >
-        {parcelamentos.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {parcelamentos.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{p.descricao}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
-                    {p.proximaCobranca && p.proximaParcela
-                      ? ` · próxima parcela ${p.proximaParcela}/${p.total} na fatura de ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
-                      : " · última parcela já faturada"}
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
-                  </span>
-                </span>
-                <span className="text-right">
-                  <span className="block text-sm font-bold">{formatCurrency(p.restante)}</span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    restante comprometido
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Secundario>
-
-      <Secundario
-        titulo="Compromissos futuros"
-        resumo="Projeção de parcelas e recorrências — não são faturas fechadas"
-      >
-        {proximas.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhum compromisso futuro registrado.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {proximas.map((m) => (
-              <li key={m.key} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{monthKeyLabel(m.key)}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {cicloProximo && m.key === cicloProximo.competencia
-                      ? "Em formação"
-                      : "Projetado"}{" "}
-                    · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
-                    {formatCurrency(m.recorrencias)}
-                  </span>
-                </span>
-                <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Secundario>
-
-      <Secundario
-        titulo="Cobranças recorrentes"
-        resumo={`${recorrencias.filter((r) => r.ativo).length} ativa(s) neste cartão`}
-      >
-        {recorrencias.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhuma cobrança recorrente neste cartão.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {recorrencias.map((r) => (
-              <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{r.nome}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {RECURRENCE_LABELS[r.periodicidade]} ·{" "}
-                    {r.ativo
-                      ? (() => {
-                          const previsao = recurringForecast(r, cartao);
-                          return previsao.data
-                            ? `próxima ${formatDate(previsao.data)} · fatura prevista ${monthKeyLabel(previsao.competencia!)}`
-                            : "sem próxima cobrança";
-                        })()
-                      : `cancelada em ${r.data_cancelamento ? formatDate(r.data_cancelamento) : "—"}`}
-                  </span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <Badge tone={r.ativo ? "ok" : "muted"}>{r.ativo ? "Ativo" : "Cancelado"}</Badge>
-                  <span className="text-sm font-bold">{formatCurrency(Number(r.valor) || 0)}</span>
-                  {podePagar &&
-                    (r.ativo ? (
-                      <button
-                        type="button"
-                        onClick={() => void recorrenciaActions.cancel.mutateAsync(r.id)}
-                        className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                      >
-                        Cancelar
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => void recorrenciaActions.reactivate.mutateAsync(r.id)}
-                        className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                      >
-                        Reativar
-                      </button>
-                    ))}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Secundario>
-
-      <CardStatementImports
-        familyId={family.id}
-        cardId={cartao.id}
-        onImportar={() => setImportando(true)}
-      />
+      {/* Área secundária: importações ficam fechadas por padrão. */}
+      <details id="importacoes" className="mt-4">
+        <summary className="cursor-pointer list-none rounded-2xl border border-border bg-card px-5 py-4 text-sm font-bold shadow-soft">
+          Faturas importadas e ferramentas
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            abrir importações deste cartão
+          </span>
+        </summary>
+        <div className="mt-2">
+          <CardStatementImports
+            familyId={family.id}
+            cardId={cartao.id}
+            onImportar={() => setImportando(true)}
+          />
+        </div>
+      </details>
     </div>
   );
 }
