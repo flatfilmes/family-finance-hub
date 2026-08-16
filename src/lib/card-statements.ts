@@ -1517,7 +1517,7 @@ export async function confirmStatementImport(input: {
       };
 
       const criarEConciliar = async (
-        natureza: "COMPRA" | "TAXA" | "CREDITO",
+        natureza: "COMPRA" | "TAXA" | "CREDITO" | "RECORRENTE",
         valorItem: number,
       ) => {
         const compra = await criarCompra({ valorItem, natureza });
@@ -1541,10 +1541,16 @@ export async function confirmStatementImport(input: {
       } else if (acao === "REGISTER_FEE") {
         await criarEConciliar("TAXA", valor);
         resultado.taxas += 1;
+      } else if (acao === "CREATE_RECURRING") {
+        // Assinatura nova: uma compra recorrente que passa a ser reconhecida
+        // nas próximas faturas — nunca uma nova recorrência a cada mês.
+        await criarEConciliar("RECORRENTE", valor);
+        resultado.recorrentes += 1;
       } else if (acao === "REGISTER_CREDIT") {
         // Crédito/estorno preserva o sinal negativo: reduz a fatura.
         await criarEConciliar("CREDITO", -valor);
         resultado.creditos += 1;
+
       } else if (acao === "ASSOCIATE_EXISTING") {
         await associar();
       } else if (acao === "POSSIBLE_MATCH") {
