@@ -414,12 +414,22 @@ export async function processStatementPdf(input: {
   if (error) throw error;
 
   try {
+    // A janela de busca considera o período da fatura E as datas dos lançamentos
+    // (compras podem ter data fora do ciclo informado no cabeçalho), com folga de 10 dias.
+    const datas = parsed.entries.map((e) => e.data_lancamento).filter(Boolean) as string[];
+    const desloca = (data: string, dias: number) => {
+      const d = new Date(`${data}T12:00:00`);
+      d.setDate(d.getDate() + dias);
+      return d.toISOString().slice(0, 10);
+    };
+    const limites = [parsed.periodo_inicio, parsed.periodo_fim, ...datas].filter(Boolean) as string[];
     const candidatos = await fetchMatchCandidates({
       familyId: input.familyId,
       cardId: input.card.id,
-      inicio: parsed.periodo_inicio,
-      fim: parsed.periodo_fim,
+      inicio: limites.length ? desloca(limites.slice().sort()[0], -10) : null,
+      fim: limites.length ? desloca(limites.slice().sort().at(-1)!, 10) : null,
     });
+
     const usados = new Set<string>();
 
     const rows = parsed.entries.map((entry, index) => {
