@@ -217,38 +217,57 @@ function ContaDetalhePage() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <AcaoConta
-                  variant="ghost"
-                  icon={<FileUp className="size-3.5" />}
-                  onClick={() => setAcao("PDF")}
-                >
-                  Importar extrato
-                </AcaoConta>
-                <AcaoConta
-                  variant="ghost"
-                  icon={<ImagePlus className="size-3.5" />}
-                  onClick={() => setAcao("IMAGEM")}
-                >
-                  Enviar print
-                </AcaoConta>
-                <AcaoConta
-                  variant="ghost"
-                  icon={<Wallet className="size-3.5" />}
-                  onClick={() => setAcao("SALDO")}
-                >
-                  {temPosicao ? "Ajustar saldo" : "Informar saldo"}
-                </AcaoConta>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted">
+                    <FileUp className="size-3.5" />
+                    Importar / Conferir
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onSelect={() => setAcao("PDF")}>
+                      Importar extrato
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setAcao("IMAGEM")}>
+                      Enviar print
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
-            {conta.member_id ? (
-            <Link
-              to="/membro/$memberId"
-              params={{ memberId: conta.member_id }}
-              className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
-            >
-              Ver perfil do titular
-            </Link>
-          ) : null}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Mais ações da conta"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <MoreHorizontal className="size-3.5" />
+                Mais
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {podeOperar && (
+                  <DropdownMenuItem onSelect={() => setAcao("SALDO")}>
+                    {temPosicao ? "Ajustar saldo" : "Informar saldo"}
+                  </DropdownMenuItem>
+                )}
+                {podeOperar && (
+                  <DropdownMenuItem onSelect={() => setEditando(true)}>
+                    Editar conta
+                  </DropdownMenuItem>
+                )}
+                {podeOperar && (
+                  <DropdownMenuItem onSelect={() => setArquivando(true)}>
+                    {conta.ativo ? "Arquivar conta" : "Reativar conta"}
+                  </DropdownMenuItem>
+                )}
+                {conta.member_id && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/membro/$memberId" params={{ memberId: conta.member_id }}>
+                      Ver perfil do titular
+                    </Link>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         }
       />
@@ -259,30 +278,67 @@ function ContaDetalhePage() {
             title="Como você quer começar?"
             hint="Esta conta ainda não tem movimentações. Escolha o ponto de partida."
           />
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2">
             <ZeroOption
-              titulo="Informar meu saldo atual"
+              titulo="Informar saldo atual"
               descricao="Registra a posição da conta. Não vira receita."
               onClick={() => setAcao("SALDO")}
             />
             <ZeroOption
-              titulo="Importar extrato do banco"
+              titulo="Importar extrato"
               descricao="PDF hoje. Passa por revisão antes de lançar."
               onClick={() => setAcao("PDF")}
             />
-            <ZeroOption
-              titulo="Enviar um print"
-              descricao="Foto da tela do app com saldo ou movimentações."
-              onClick={() => setAcao("IMAGEM")}
-            />
-            <ZeroOption
-              titulo="Registrar um depósito"
-              descricao="Entrada de dinheiro na conta. Não vira receita."
-              onClick={() => setAcao("DEPOSITO")}
-            />
           </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Ou{" "}
+            <button
+              type="button"
+              onClick={() => setAcao("DEPOSITO")}
+              className="font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              registre uma movimentação manual
+            </button>
+            .
+          </p>
         </Card>
       )}
+
+      <FormDialog
+        open={editando}
+        onOpenChange={(open) => {
+          if (!open) setEditando(false);
+        }}
+        title="Editar conta bancária"
+        description="Somente dados cadastrais. Saldo e movimentações continuam aqui em Bancos."
+      >
+        <BankAccountForm
+          familyId={family.id}
+          memberId={conta.member_id ?? ""}
+          account={conta}
+          onSaved={() => setEditando(false)}
+          onCancel={() => setEditando(false)}
+        />
+      </FormDialog>
+
+      <ConfirmDialog
+        open={arquivando}
+        onOpenChange={setArquivando}
+        title={conta.ativo ? "Arquivar conta" : "Reativar conta"}
+        description={
+          conta.ativo
+            ? "A conta some das seleções de pagamento, mas o extrato continua disponível."
+            : "A conta volta a ficar disponível para novos lançamentos."
+        }
+        confirmLabel={conta.ativo ? "Arquivar" : "Reativar"}
+        onConfirm={async () => {
+          await archiveBankAccount(conta.id, !conta.ativo);
+          await queryClient.invalidateQueries({ queryKey: ["bank-accounts", family.id] });
+          setArquivando(false);
+          toast.success(conta.ativo ? "Conta arquivada." : "Conta reativada.");
+        }}
+      />
+
 
       <MovementDialog
         account={acao === "DEPOSITO" || acao === "RETIRADA" ? conta : null}
