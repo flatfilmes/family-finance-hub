@@ -182,9 +182,16 @@ export async function countFamilyData(familyId: string) {
     }),
   );
 
-  const { count: itens } = await supabase
-    .from("purchase_items")
-    .select("id", { count: "exact", head: true });
+  const { data: compras } = await supabase.from("purchases").select("id").eq("family_id", familyId);
+  const purchaseIds = ids(compras ?? []);
+  let itens = 0;
+  if (purchaseIds.length > 0) {
+    const { count } = await supabase
+      .from("purchase_items")
+      .select("id", { count: "exact", head: true })
+      .in("purchase_id", purchaseIds);
+    itens = count ?? 0;
+  }
 
-  return [...linhas, { label: "Itens de compra", total: itens ?? 0 }];
+  return [...linhas, { label: "Itens de compra", total: itens }];
 }
