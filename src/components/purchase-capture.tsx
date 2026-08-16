@@ -895,10 +895,20 @@ function RevisarDocumento({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="text-sm text-muted-foreground">
-          Valor total:{" "}
-          <span className="text-lg font-extrabold text-foreground">{formatCurrency(total)}</span>
-        </p>
+        <div className="text-sm text-muted-foreground">
+          <p>
+            Valor total:{" "}
+            <span className="text-lg font-extrabold text-foreground">{formatCurrency(total)}</span>
+          </p>
+          {confere && <p className="mt-1 text-xs font-semibold text-primary">Valores conferidos.</p>}
+          {divergente && (
+            <p className="mt-1 text-xs font-semibold text-destructive">
+              Soma dos produtos ({formatCurrency(somaProdutos)}) diferente do valor da nota (
+              {formatCurrency(valorLido)}). Confira os itens.
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
