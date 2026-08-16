@@ -784,6 +784,7 @@ function Compras() {
           <ul className="mt-4 divide-y divide-border">
             {lista.map((p) => {
               const parcela = parcelaDaCompra(p.id);
+              const progresso = progressoDaCompra(p.id);
               return (
               <li key={p.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-3">
@@ -794,12 +795,23 @@ function Compras() {
                   >
                     <ChevronRight className="size-4 text-muted-foreground" />
                     <span>
-                      <span className="flex items-center gap-2 text-sm font-semibold">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                         {p.estabelecimento}
-                        {parcela && (
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                            {parcela.numero_parcela}/{parcela.total_parcelas}
-                          </span>
+                        {progresso && (
+                          <>
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                              Parcelada {progresso.atual}/{progresso.total}
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                                progresso.estado === "QUITADA"
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {progresso.estado === "QUITADA" ? "Quitada" : "Ativa"}
+                            </span>
+                          </>
                         )}
                       </span>
                       <span className="block text-xs text-muted-foreground">
@@ -812,6 +824,13 @@ function Compras() {
                             : " · sem data prevista")}
                         {isAtrasada(p) && " · atrasada"}
                       </span>
+                      {progresso && (
+                        <span className="block text-xs text-muted-foreground">
+                          {progresso.pagas}/{progresso.total} pagas · parcela de{" "}
+                          {formatCurrency(progresso.valorParcela)} · restam{" "}
+                          {progresso.restantesQtd} ({formatCurrency(progresso.restanteValor)})
+                        </span>
+                      )}
                     </span>
                   </button>
                   <StatusBadge
@@ -830,6 +849,7 @@ function Compras() {
                       </span>
                     )}
                   </span>
+
 
                   {view.podeLancar && isPendentePagamento(p) && (
                     <button
