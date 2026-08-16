@@ -163,6 +163,35 @@ function ehRuido(texto: string) {
   return RUIDO_LINHA.some((r) => p.startsWith(r));
 }
 
+/**
+ * Linhas que NUNCA podem virar lançamento, apareçam onde aparecerem:
+ * limites, simulações de parcelamento, CET, juros/IOF de simulação, saque.
+ */
+const TERMOS_PROIBIDOS = [
+  "limite",
+  "limites",
+  "saque cash",
+  "limite para saque",
+  "simulacao",
+  "simule",
+  "parcelamento da fatura",
+  "parcele sua fatura",
+  "pagamento minimo",
+  "valor total financiado",
+  "cet",
+  "taxa de juros",
+  "juros ao mes",
+  "credito pessoal",
+  "emprestimo",
+  "proposta",
+];
+
+function ehProibido(texto: string) {
+  const p = plano(texto);
+  return TERMOS_PROIBIDOS.some((t) => p.includes(t));
+}
+
+
 // ------------------------------------------------------------------ categorias do banco
 
 const CATEGORIAS_ITAU: Record<string, string | null> = {
@@ -244,8 +273,9 @@ function montar(
   mesVencimento: number | null,
 ): StatementEntry | null {
   let descricao = descricaoBruta.replace(/\s+/g, " ").trim();
-  if (!descricao || ehRuido(descricao)) return null;
+  if (!descricao || ehRuido(descricao) || ehProibido(descricao)) return null;
   if (!/[A-Za-zÀ-ÿ]{3}/.test(descricao)) return null;
+
 
   let parcelaAtual: number | null = null;
   let totalParcelas: number | null = null;
@@ -363,6 +393,14 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       limpaPendente();
       continue;
     }
+
+    // blindagem: limites, simulações e ofertas nunca viram lançamento nem trocam de cartão
+    if (ehProibido(linha)) {
+      limpaPendente();
+      continue;
+    }
+
+
 
     // final do cartão corrente / subtotais impressos
     const subtotal = linha.match(/lan[çc]amentos no cart[ãa]o\s*\(?\s*final\s*(\d{4})\)?/i);
