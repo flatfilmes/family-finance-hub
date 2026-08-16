@@ -97,16 +97,25 @@ function BancosPage() {
           title="Bancos da família"
           subtitle="Visão geral das contas. Clique em uma conta para abrir a página completa com extrato e filtros."
         />
-        <button
-          type="button"
-          onClick={() => setTransferOpen(true)}
-          disabled={(accounts ?? []).filter((a) => a.ativo).length < 2}
-          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
-        >
-          <ArrowLeftRight className="size-4" />
-          Transferir entre contas
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            to="/bancos/diagnostico-importacao"
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Diagnóstico de importação
+          </Link>
+          <button
+            type="button"
+            onClick={() => setTransferOpen(true)}
+            disabled={(accounts ?? []).filter((a) => a.ativo).length < 2}
+            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+          >
+            <ArrowLeftRight className="size-4" />
+            Transferir entre contas
+          </button>
+        </div>
       </div>
+
 
       <TransferDialog
         open={transferOpen}

@@ -25,6 +25,7 @@ import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
 import { Route as AuthenticatedBancosIndexRouteImport } from './routes/_authenticated/bancos.index'
 import { Route as AuthenticatedBancosAccountIdRouteImport } from './routes/_authenticated/bancos.$accountId'
+import { Route as AuthenticatedBancosDiagnosticoImportacaoRouteImport } from './routes/_authenticated/bancos_.diagnostico-importacao'
 import { Route as AuthenticatedCartoesIndexRouteImport } from './routes/_authenticated/cartoes.index'
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes.$cardId'
 import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authenticated/historico.index'
@@ -123,6 +124,12 @@ const AuthenticatedBancosAccountIdRoute =
     path: '/bancos/$accountId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBancosDiagnosticoImportacaoRoute =
+  AuthenticatedBancosDiagnosticoImportacaoRouteImport.update({
+    id: '/bancos_/diagnostico-importacao',
+    path: '/bancos/diagnostico-importacao',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCartoesIndexRoute =
   AuthenticatedCartoesIndexRouteImport.update({
     id: '/cartoes/',
@@ -205,6 +212,7 @@ export interface FileRoutesByFullPath {
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/bancos/diagnostico-importacao': typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos/': typeof AuthenticatedBancosIndexRoute
@@ -233,6 +241,7 @@ export interface FileRoutesByTo {
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
   '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/bancos/diagnostico-importacao': typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos': typeof AuthenticatedBancosIndexRoute
@@ -263,6 +272,7 @@ export interface FileRoutesById {
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
   '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/_authenticated/bancos_/diagnostico-importacao': typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   '/_authenticated/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
@@ -293,6 +303,7 @@ export interface FileRouteTypes {
     | '/receitas'
     | '/relatorios'
     | '/bancos/$accountId'
+    | '/bancos/diagnostico-importacao'
     | '/cartoes/$cardId'
     | '/membro/$memberId'
     | '/bancos/'
@@ -321,6 +332,7 @@ export interface FileRouteTypes {
     | '/receitas'
     | '/relatorios'
     | '/bancos/$accountId'
+    | '/bancos/diagnostico-importacao'
     | '/cartoes/$cardId'
     | '/membro/$memberId'
     | '/bancos'
@@ -350,6 +362,7 @@ export interface FileRouteTypes {
     | '/_authenticated/receitas'
     | '/_authenticated/relatorios'
     | '/_authenticated/bancos/$accountId'
+    | '/_authenticated/bancos_/diagnostico-importacao'
     | '/_authenticated/cartoes/$cardId'
     | '/_authenticated/membro/$memberId'
     | '/_authenticated/bancos/'
@@ -485,6 +498,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBancosAccountIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos_/diagnostico-importacao': {
+      id: '/_authenticated/bancos_/diagnostico-importacao'
+      path: '/bancos/diagnostico-importacao'
+      fullPath: '/bancos/diagnostico-importacao'
+      preLoaderRoute: typeof AuthenticatedBancosDiagnosticoImportacaoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/cartoes/': {
       id: '/_authenticated/cartoes/'
       path: '/cartoes'
@@ -577,6 +597,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
   AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRoute
+  AuthenticatedBancosDiagnosticoImportacaoRoute: typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
   AuthenticatedMembroMemberIdRoute: typeof AuthenticatedMembroMemberIdRoute
   AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
@@ -603,6 +624,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
   AuthenticatedBancosAccountIdRoute: AuthenticatedBancosAccountIdRoute,
+  AuthenticatedBancosDiagnosticoImportacaoRoute:
+    AuthenticatedBancosDiagnosticoImportacaoRoute,
   AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
   AuthenticatedMembroMemberIdRoute: AuthenticatedMembroMemberIdRoute,
   AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,
