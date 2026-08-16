@@ -460,7 +460,9 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
     });
   };
 
-  const trechoTabela = textos.slice(inicio + 1, fim).join(" ");
+  // Inclui a própria linha do cabeçalho porque alguns PDFs entregam cabeçalho
+  // e todos os produtos no mesmo bloco textual.
+  const trechoTabela = textos.slice(inicio, fim).join(" ");
   const inicioProduto = /(?:^|\s)([A-Z0-9]{2,}(?:-[A-Z0-9]+){2,})\s+/g;
   const marcadores = [...trechoTabela.matchAll(inicioProduto)];
 
