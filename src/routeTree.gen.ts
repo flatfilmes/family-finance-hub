@@ -31,7 +31,7 @@ import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 import { Route as AuthenticatedCartoesFaturasImportIdRouteImport } from './routes/_authenticated/cartoes.faturas.$importId'
 import { Route as AuthenticatedHistoricoAnoMesRouteImport } from './routes/_authenticated/historico.$ano.$mes'
-import { Route as AuthenticatedBancosAccountIdExtratosRevisarRouteImport } from './routes/_authenticated/bancos.$accountId.extratos.revisar'
+import { Route as AuthenticatedBancosAccountIdExtratosRevisarRouteImport } from './routes/_authenticated/bancos_.$accountId.extratos.revisar'
 import { Route as AuthenticatedHistoricoFecharAnoMesRouteImport } from './routes/_authenticated/historico.fechar.$ano.$mes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -158,9 +158,9 @@ const AuthenticatedHistoricoAnoMesRoute =
   } as any)
 const AuthenticatedBancosAccountIdExtratosRevisarRoute =
   AuthenticatedBancosAccountIdExtratosRevisarRouteImport.update({
-    id: '/extratos/revisar',
-    path: '/extratos/revisar',
-    getParentRoute: () => AuthenticatedBancosAccountIdRoute,
+    id: '/bancos_/$accountId/extratos/revisar',
+    path: '/bancos/$accountId/extratos/revisar',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedHistoricoFecharAnoMesRoute =
   AuthenticatedHistoricoFecharAnoMesRouteImport.update({
@@ -183,7 +183,7 @@ export interface FileRoutesByFullPath {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
-  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRouteWithChildren
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos/': typeof AuthenticatedBancosIndexRoute
@@ -208,7 +208,7 @@ export interface FileRoutesByTo {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
-  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRouteWithChildren
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos': typeof AuthenticatedBancosIndexRoute
@@ -235,7 +235,7 @@ export interface FileRoutesById {
   '/_authenticated/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
-  '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRouteWithChildren
+  '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/_authenticated/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
@@ -243,7 +243,7 @@ export interface FileRoutesById {
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/_authenticated/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/_authenticated/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
-  '/_authenticated/bancos/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
+  '/_authenticated/bancos_/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/_authenticated/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRouteTypes {
@@ -321,7 +321,7 @@ export interface FileRouteTypes {
     | '/_authenticated/historico/'
     | '/_authenticated/cartoes/faturas/$importId'
     | '/_authenticated/historico/$ano/$mes'
-    | '/_authenticated/bancos/$accountId/extratos/revisar'
+    | '/_authenticated/bancos_/$accountId/extratos/revisar'
     | '/_authenticated/historico/fechar/$ano/$mes'
   fileRoutesById: FileRoutesById
 }
@@ -488,12 +488,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoricoAnoMesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/bancos/$accountId/extratos/revisar': {
-      id: '/_authenticated/bancos/$accountId/extratos/revisar'
-      path: '/extratos/revisar'
+    '/_authenticated/bancos_/$accountId/extratos/revisar': {
+      id: '/_authenticated/bancos_/$accountId/extratos/revisar'
+      path: '/bancos/$accountId/extratos/revisar'
       fullPath: '/bancos/$accountId/extratos/revisar'
       preLoaderRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRouteImport
-      parentRoute: typeof AuthenticatedBancosAccountIdRoute
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/historico/fechar/$ano/$mes': {
       id: '/_authenticated/historico/fechar/$ano/$mes'
@@ -504,21 +504,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface AuthenticatedBancosAccountIdRouteChildren {
-  AuthenticatedBancosAccountIdExtratosRevisarRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
-}
-
-const AuthenticatedBancosAccountIdRouteChildren: AuthenticatedBancosAccountIdRouteChildren =
-  {
-    AuthenticatedBancosAccountIdExtratosRevisarRoute:
-      AuthenticatedBancosAccountIdExtratosRevisarRoute,
-  }
-
-const AuthenticatedBancosAccountIdRouteWithChildren =
-  AuthenticatedBancosAccountIdRoute._addFileChildren(
-    AuthenticatedBancosAccountIdRouteChildren,
-  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
@@ -531,7 +516,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlanejamentoRoute: typeof AuthenticatedPlanejamentoRoute
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
-  AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRouteWithChildren
+  AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRoute
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
   AuthenticatedMembroMemberIdRoute: typeof AuthenticatedMembroMemberIdRoute
   AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
@@ -539,6 +524,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHistoricoIndexRoute: typeof AuthenticatedHistoricoIndexRoute
   AuthenticatedCartoesFaturasImportIdRoute: typeof AuthenticatedCartoesFaturasImportIdRoute
   AuthenticatedHistoricoAnoMesRoute: typeof AuthenticatedHistoricoAnoMesRoute
+  AuthenticatedBancosAccountIdExtratosRevisarRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   AuthenticatedHistoricoFecharAnoMesRoute: typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 
@@ -553,8 +539,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlanejamentoRoute: AuthenticatedPlanejamentoRoute,
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
-  AuthenticatedBancosAccountIdRoute:
-    AuthenticatedBancosAccountIdRouteWithChildren,
+  AuthenticatedBancosAccountIdRoute: AuthenticatedBancosAccountIdRoute,
   AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
   AuthenticatedMembroMemberIdRoute: AuthenticatedMembroMemberIdRoute,
   AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,
@@ -563,6 +548,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCartoesFaturasImportIdRoute:
     AuthenticatedCartoesFaturasImportIdRoute,
   AuthenticatedHistoricoAnoMesRoute: AuthenticatedHistoricoAnoMesRoute,
+  AuthenticatedBancosAccountIdExtratosRevisarRoute:
+    AuthenticatedBancosAccountIdExtratosRevisarRoute,
   AuthenticatedHistoricoFecharAnoMesRoute:
     AuthenticatedHistoricoFecharAnoMesRoute,
 }
