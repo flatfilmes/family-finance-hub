@@ -1350,6 +1350,7 @@ async function enriquecerCompraComCobranca(input: {
 export type ConfirmResult = {
   conciliados: number;
   criados: number;
+  recorrentes: number;
   taxas: number;
   creditos: number;
   ignorados: number;
@@ -1389,6 +1390,7 @@ export async function confirmStatementImport(input: {
   const resultado: ConfirmResult = {
     conciliados: 0,
     criados: 0,
+    recorrentes: 0,
     taxas: 0,
     creditos: 0,
     ignorados: 0,
