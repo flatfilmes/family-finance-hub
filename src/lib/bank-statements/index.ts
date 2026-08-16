@@ -5,3 +5,4 @@ export * from "./reconcile";
 export * from "./data";
 export * from "./reprocess";
 export * from "./repair";
+export * from "./dedupe";

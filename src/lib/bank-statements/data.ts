@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ParsedBankMovement, ParsedBankStatement, ReviewAction } from "./types";
 import { ACOES_SEM_EFEITO } from "./types";
 import type { ReconcileSuggestion } from "./reconcile";
+import { checkpointsInéditos } from "./dedupe";
 
 export type StatementDraftRow = ParsedBankMovement & {
   incluir: boolean;
@@ -100,7 +101,9 @@ export async function createBankStatementImport(input: {
   }
 
   // Checkpoints de saldo: conferência do extrato, nunca movimentação.
-  const checkpoints = input.resumo.checkpoints ?? [];
+  // Extratos sobrepostos: mesma conta + mesma data + mesmo saldo é reutilizado.
+  const existentes = await fetchBankBalanceCheckpoints(input.bankAccountId);
+  const checkpoints = checkpointsInéditos(input.resumo.checkpoints ?? [], existentes);
   if (checkpoints.length) {
     const { error: checkError } = await supabase.from("bank_balance_checkpoints").insert(
       checkpoints.map((c) => ({

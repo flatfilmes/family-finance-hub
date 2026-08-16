@@ -16,6 +16,10 @@ import {
   isBancoDoBrasil,
   parseBancoDoBrasilLines,
 } from "@/lib/bank-statement-parsers/banco-do-brasil";
+import {
+  isItauBankStatement,
+  parseItauBankStatementLines,
+} from "@/lib/bank-statement-parsers/itau";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "./types";
 
 const MOEDA = /-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}|-?\s?\d+,\d{2}/g;
@@ -173,6 +177,8 @@ export function parseBankStatementLines(linhas: PdfLine[]): ParsedBankStatement 
 export async function readBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
   const linhas = await extractPdfLines(file);
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
+  // Itaú: colunas "valor (R$)" e "saldo (R$)" com "SALDO DO DIA" — parser próprio.
+  if (isItauBankStatement(textos)) return parseItauBankStatementLines(linhas);
   // Layout do Banco do Brasil tem sinal impresso "(+)"/"(-)": parser dedicado.
   if (isBancoDoBrasil(textos)) return parseBancoDoBrasilLines(linhas);
   return parseBankStatementLines(linhas);
