@@ -394,6 +394,8 @@ export function parseItauSpatial(
       rejeitar(valorItem ? "missing_date" : "missing_value");
     }
   }
+  }
+
 
   const blocos = auditarBlocos(entries, subtotais);
 
