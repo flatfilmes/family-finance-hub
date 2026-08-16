@@ -1,8 +1,15 @@
 import { useState } from "react";
-import { CreditCard, FileUp } from "lucide-react";
+import { CreditCard, FileUp, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { FormDialog } from "@/components/form-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
 import { StatementImportDialog } from "@/components/statement-import-dialog";
-import { useStatementImports } from "@/hooks/useCardStatements";
-import { IMPORT_STATUS_LABELS } from "@/lib/card-statements";
+import { useDeleteStatementImport, useStatementImports } from "@/hooks/useCardStatements";
+import {
+  IMPORT_STATUS_LABELS,
+  podeExcluirImportacao,
+  type StatementImport,
+} from "@/lib/card-statements";
 import { StatusBadge } from "@/components/status-badge";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
@@ -55,6 +62,9 @@ function CartoesPage() {
   const [busca, setBusca] = useStickyState("cartoes:busca", "");
   const [importando, setImportando] = useState(false);
   const importacoes = useStatementImports(family?.id);
+  const perms = usePermissions();
+  const excluir = useDeleteStatementImport(family?.id);
+  const [paraExcluir, setParaExcluir] = useState<StatementImport | null>(null);
 
   if (!family) return <NoFamily />;
 
