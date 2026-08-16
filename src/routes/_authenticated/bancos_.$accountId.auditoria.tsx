@@ -15,6 +15,7 @@ import { useBankStatementImports, useBankStatementItems } from "@/hooks/useBankS
 import { useBankBalanceCheckpoints } from "@/hooks/useBankLedger";
 import { ReprocessCheckpointsDialog } from "@/components/bank/reprocess-checkpoints-dialog";
 import { RepairHistoryDialog } from "@/components/bank/repair-history-dialog";
+import { RepairPostingDatesDialog } from "@/components/bank/repair-posting-dates-dialog";
 import { CheckpointsOnlyButton } from "@/components/bank/checkpoints-only-button";
 import {
   auditToCsv,
