@@ -401,10 +401,58 @@ export async function createPurchase(input: {
   return purchase;
 }
 
-export async function deletePurchase(id: string) {
-  const { error } = await supabase.from("purchases").delete().eq("id", id);
-  if (error) throw error;
+/** Relatório de impacto antes de excluir uma compra. */
+export type PurchaseDeletionReport = {
+  purchase_id: string;
+  estabelecimento: string;
+  valor_total: number;
+  itens: number;
+  parcelas: number;
+  parcelas_pagas: number;
+  transactions: number;
+  conciliacoes: number;
+  faturas: number;
+  itens_fatura_importada: number;
+  itens_extrato_importado: number;
+  documentos: number;
+  recorrencias: number;
+  pode_excluir: boolean;
+  bloqueios: string[];
+  duplicada_de: {
+    id: string;
+    estabelecimento: string;
+    valor_total: number;
+    data_compra: string;
+    tipo_compra: string;
+  } | null;
+};
+
+export async function inspectPurchaseDeletion(purchaseId: string) {
+  const { data, error } = await supabase.rpc("inspect_purchase_deletion", {
+    p_purchase_id: purchaseId,
+  });
+  if (error) throw new Error(friendlyDeleteError(error.message));
+  return data as unknown as PurchaseDeletionReport;
 }
+
+/**
+ * Exclusão segura: remove a compra e apenas as dependências exclusivas dela
+ * (itens, parcelas não pagas, despesa e recorrência vinculadas), em uma única
+ * transação. Compras com histórico financeiro real são bloqueadas no banco.
+ */
+export async function deletePurchase(id: string) {
+  const { error } = await supabase.rpc("delete_purchase_safely", { p_purchase_id: id });
+  if (error) throw new Error(friendlyDeleteError(error.message));
+}
+
+/** Traduz erros técnicos do banco para uma mensagem compreensível. */
+export function friendlyDeleteError(message: string) {
+  if (/foreign key|violates|fkey/i.test(message)) {
+    return "Esta compra possui parcelas ou histórico financeiro vinculado e não pode ser excluída diretamente.";
+  }
+  return message;
+}
+
 
 /**
  * Altera apenas a categoria de um item de compra já confirmada.
