@@ -40,6 +40,7 @@ import {
   type StatementDraftRow,
 } from "@/lib/bank-statements";
 import { saveStatementDraft } from "@/lib/bank-statements/draft";
+import { setDiagnosticFile } from "@/lib/pdf-diagnostic/file-handoff";
 import {
   parseStatementFilesIndependently,
   sortBatchFiles,
@@ -205,6 +206,9 @@ export function BankStatementDialog({
     onSuccess: ({ parsed, saldo, texto, fp, jaImportado }) => {
       // PDF: a revisão financeira acontece em página completa, não em modal.
       if (modo === "PDF" && parsed.movimentos.length) {
+        // Guarda o PDF em memória para que "Ver diagnóstico" possa rodar o
+        // parser real sobre o mesmo arquivo (nada é persistido).
+        if (arquivo) setDiagnosticFile(arquivo, "BANK_STATEMENT");
         saveStatementDraft({
           accountId: account!.id,
           nomeArquivo: arquivo?.name ?? "extrato.pdf",
@@ -410,7 +414,7 @@ export function BankStatementDialog({
               <PdfDiagnosticButton
                 source="BANK_STATEMENT"
                 file={arquivo}
-                parserDryRun={bankStatementDryRun}
+                {...(account?.id ? { accountId: account.id } : {})}
               />
               <button
                 type="button"
