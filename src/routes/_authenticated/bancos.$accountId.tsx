@@ -116,7 +116,11 @@ function ContaDetalhePage() {
   const perms = usePermissions();
   const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM" | "DEPOSITO" | "RETIRADA" | "TRANSFERENCIA">(null);
   const estornar = useReverseBankTransaction(family?.id);
+  const queryClient = useQueryClient();
+  const [editando, setEditando] = useState(false);
+  const [arquivando, setArquivando] = useState(false);
   const [saldoSugerido, setSaldoSugerido] = useState<number | null>(null);
+
   const [periodo, setPeriodo] = useState(currentMonth());
   const [filtroOrigem, setFiltroOrigem] = useState("");
   const [busca, setBusca] = useState("");
