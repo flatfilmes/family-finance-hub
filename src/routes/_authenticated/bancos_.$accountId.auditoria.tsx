@@ -206,9 +206,11 @@ function AuditoriaContaPage() {
         <Metric label="Extratos importados" value={String(r.extratos)} />
         <Metric
           label="Meses validados"
-          value={`${r.mesesValidados} / ${r.totalMeses}`}
-          hint="Documento, ledger e saldos batem"
-          {...(r.mesesValidados === r.totalMeses && r.totalMeses ? { tone: "ok" as const } : {})}
+          value={`${r.mesesValidadosCompletos} / ${r.totalMeses}`}
+          hint={`Conferidos dia a dia · ${r.mesesValidados - r.mesesValidadosCompletos} fecham só no mês`}
+          {...(r.mesesValidadosCompletos === r.totalMeses && r.totalMeses
+            ? { tone: "ok" as const }
+            : {})}
         />
         <Metric
           label="Meses com continuidade"
@@ -468,12 +470,22 @@ function AuditoriaContaPage() {
                 Pagamento de cartão sem fatura associada
               </p>
               <ul className="space-y-1.5">
-                {audit.pagamentosCartaoSemFatura.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate">
-                      {formatDate(t.data_movimento)} · {t.descricao}
-                    </span>
-                    <span className="font-semibold">{formatCurrency(Number(t.valor))}</span>
+                {audit.pagamentosCartaoSemFatura.map((p) => (
+                  <li key={p.transaction.id} className="text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate">
+                        {formatDate(p.transaction.data_movimento)} · {p.transaction.descricao}
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(Number(p.transaction.valor))}
+                      </span>
+                    </div>
+                    {p.dataDivergente && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Data contábil {formatDate(p.transaction.data_movimento)} · histórico cita{" "}
+                        {formatDate(p.dataNoHistorico!)}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -573,12 +585,20 @@ function MesCard({
             </div>
           )}
 
-          {mes.checkpoints === 0 && mes.imports.length > 0 && (
+          {mes.imports.length > 0 && mes.checkpoints === 0 && (
             <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
               Este mês não tem "Saldo do dia" registrado. Use "Reprocessar checkpoints" para reler o
               PDF — nenhuma movimentação será alterada.
             </p>
           )}
+
+          {mes.imports.length > 0 && mes.checkpoints > 0 && (
+            <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Saldos diários: {mes.checkpointsConferem} de {mes.checkpoints} conferidos
+              {mes.checkpointsPdf ? ` · ${mes.checkpointsPdf} encontrados no PDF` : ""}.
+            </p>
+          )}
+
 
           {mes.faltantes.length > 0 && (
             <div className="mt-3">
@@ -647,10 +667,12 @@ function MesCard({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-semibold">{formatDate(d.date)}</span>
-                    {d.confere !== null && (
+                    {d.confere !== null ? (
                       <StatusBadge tone={d.confere ? "ok" : "danger"}>
                         {d.confere ? "Confere" : "Diferença"}
                       </StatusBadge>
+                    ) : (
+                      <StatusBadge tone="muted">Sem "Saldo do dia" no PDF</StatusBadge>
                     )}
                   </div>
                   <div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-5">

@@ -27,8 +27,13 @@ export type ReprocessOutcome =
       periodoFim: string | null;
       saldoInicial: number | null;
       saldoFinal: number | null;
+      /** "Saldo do dia" / "S A L D O" encontrados no PDF. */
+      checkpointsPdf: number;
+      /** Checkpoints efetivamente gravados (um por dia, o último impresso). */
       checkpoints: number;
       movimentos: number;
+      /** Lançamentos que tiveram a data contábil corrigida pela coluna "Dia". */
+      datasCorrigidas: number;
       /** Como a importação existente foi reconhecida. */
       vinculo: "FINGERPRINT" | "PERIODO";
     }
@@ -46,6 +51,62 @@ type ImportRow = {
 function sobrepoe(a: ParsedBankStatement, imp: ImportRow) {
   if (!a.periodoInicio || !a.periodoFim || !imp.periodo_inicio || !imp.periodo_fim) return false;
   return a.periodoInicio <= imp.periodo_fim && a.periodoFim >= imp.periodo_inicio;
+}
+
+function chaveDoLancamento(descricao: string, valor: number) {
+  const texto = descricao
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 24);
+  return `${Number(valor).toFixed(2)}|${texto}`;
+}
+
+/**
+ * CRONOLOGIA — corrige a data contábil dos lançamentos já importados usando a
+ * coluna "Dia" relida do PDF. Só a DATA muda: nenhum lançamento é criado,
+ * apagado ou tem valor alterado, então os totais do mês continuam idênticos.
+ */
+async function corrigirCronologia(importId: string, parsed: ParsedBankStatement) {
+  const { data: itensData, error } = await supabase
+    .from("bank_statement_items")
+    .select("id, data_movimento, descricao_original, valor, ordem")
+    .eq("import_id", importId)
+    .order("ordem", { ascending: true });
+  if (error) throw error;
+
+  const itens = (itensData ?? []) as {
+    id: string;
+    data_movimento: string | null;
+    descricao_original: string;
+    valor: number | string;
+  }[];
+  if (!itens.length) return 0;
+
+  const porChave = new Map<string, string[]>();
+  for (const m of parsed.movimentos) {
+    if (!m.data) continue;
+    const chave = chaveDoLancamento(m.descricaoOriginal, m.valor);
+    porChave.set(chave, [...(porChave.get(chave) ?? []), m.data]);
+  }
+
+  const correcoes: { item_id: string; data: string }[] = [];
+  for (const item of itens) {
+    const chave = chaveDoLancamento(item.descricao_original, Number(item.valor));
+    const fila = porChave.get(chave);
+    if (!fila?.length) continue;
+    const nova = fila.shift()!;
+    if (nova !== item.data_movimento) correcoes.push({ item_id: item.id, data: nova });
+  }
+
+  if (!correcoes.length) return 0;
+  const { data, error: rpcError } = await supabase.rpc("apply_statement_posting_dates", {
+    _import_id: importId,
+    _correcoes: correcoes,
+  });
+  if (rpcError) throw rpcError;
+  return Number((data as { itens_corrigidos?: number } | null)?.itens_corrigidos ?? 0);
 }
 
 /** Relê um arquivo e regrava apenas os saldos de conferência da importação. */
@@ -166,6 +227,9 @@ export async function reprocessStatementCheckpoints(input: {
       .eq("id", alvo.id);
     if (upError) throw upError;
 
+    // Cronologia: só depois dos saldos, e só a data contábil dos lançamentos.
+    const datasCorrigidas = await corrigirCronologia(alvo.id, parsed);
+
     return {
       status: "OK",
       arquivo,
@@ -174,8 +238,10 @@ export async function reprocessStatementCheckpoints(input: {
       periodoFim: parsed.periodoFim,
       saldoInicial: parsed.saldoInicial,
       saldoFinal: parsed.saldoFinal,
+      checkpointsPdf: (parsed.checkpoints ?? []).length,
       checkpoints: unicos.length,
       movimentos: parsed.movimentos.length,
+      datasCorrigidas,
       vinculo: porFingerprint ? "FINGERPRINT" : "PERIODO",
     };
   } catch (e) {

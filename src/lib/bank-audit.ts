@@ -40,7 +40,9 @@ export const SEVERITY_TONES: Record<Severity, "danger" | "warn" | "info" | "mute
 
 /** Situação de um mês auditado — específica, nunca genérica. */
 export type MonthStatus =
-  | "VALIDADO"
+  | "VALIDADO_COMPLETO"
+  | "VALIDADO_MENSAL"
+  | "CHECKPOINTS_INCOMPLETOS"
   | "CHECKPOINTS_AUSENTES"
   | "MOVIMENTOS_INCOMPLETOS"
   | "DIVERGENCIA_DIARIA"
@@ -51,7 +53,9 @@ export type MonthStatus =
   | "SEM_EXTRATO";
 
 export const MONTH_STATUS_LABELS: Record<MonthStatus, string> = {
-  VALIDADO: "Validado",
+  VALIDADO_COMPLETO: "Validado (dia a dia)",
+  VALIDADO_MENSAL: "Validado só no mês",
+  CHECKPOINTS_INCOMPLETOS: "Checkpoints incompletos",
   CHECKPOINTS_AUSENTES: "Checkpoints ausentes",
   MOVIMENTOS_INCOMPLETOS: "Movimentos incompletos",
   DIVERGENCIA_DIARIA: "Divergência diária",
@@ -64,7 +68,9 @@ export const MONTH_STATUS_LABELS: Record<MonthStatus, string> = {
 
 export const MONTH_STATUS_TONES: Record<MonthStatus, "ok" | "danger" | "warn" | "info" | "muted"> =
   {
-    VALIDADO: "ok",
+    VALIDADO_COMPLETO: "ok",
+    VALIDADO_MENSAL: "warn",
+    CHECKPOINTS_INCOMPLETOS: "warn",
     CHECKPOINTS_AUSENTES: "info",
     MOVIMENTOS_INCOMPLETOS: "danger",
     DIVERGENCIA_DIARIA: "danger",
@@ -101,6 +107,8 @@ export type StatementPeriod = {
   saldoInicial: number | null;
   saldoFinal: number | null;
   quantidade: number;
+  /** "Saldo do dia" encontrados no PDF (0 quando o documento não foi relido). */
+  checkpointsPdf: number;
   status: string;
 };
 
@@ -143,12 +151,19 @@ export type DateMismatch = {
 export type AuditDay = {
   date: string;
   openingBalance: number;
+  /** Entradas DO DIA (não acumuladas). */
   inflows: number;
+  /** Saídas DO DIA (não acumuladas). */
   outflows: number;
+  /** Acumulado do mês até este dia — útil para conferir a cronologia. */
+  inflowsAcumuladas: number;
+  outflowsAcumuladas: number;
   calculated: number;
   reported: number | null;
   difference: number | null;
   confere: boolean | null;
+  /** Sem "Saldo do dia" no documento: o saldo existe, mas não foi conferido. */
+  origem: "CHECKPOINT" | "CALCULATED_ONLY";
   transactions: Transaction[];
 };
 
@@ -177,7 +192,12 @@ export type AuditMonth = {
   datasInconsistentes: DateMismatch[];
   /** Subconjunto acima da tolerância — precisa ser desfeito no reprocessamento. */
   associacoesInvalidas: DateMismatch[];
+  /** Checkpoints persistidos neste mês. */
   checkpoints: number;
+  /** "Saldo do dia" encontrados no PDF deste mês (evidência do documento). */
+  checkpointsPdf: number;
+  /** Checkpoints persistidos que batem com o saldo calculado. */
+  checkpointsConferem: number;
   /** Primeiro dia com checkpoint em que calculado ≠ informado. */
   primeiraDivergencia: {
     date: string;
@@ -223,6 +243,14 @@ export type StatementItemInput = {
   purchase_id_criada?: string | null;
   purchase_id_matched?: string | null;
 };
+export type CardPaymentPending = {
+  transaction: Transaction;
+  /** Data lida no próprio histórico do extrato, quando existir. */
+  dataNoHistorico: string | null;
+  /** Data contábil (coluna "Dia") diverge da data citada no histórico. */
+  dataDivergente: boolean;
+};
+
 
 export type BankAudit = {
   periodoInicio: string | null;
@@ -233,7 +261,7 @@ export type BankAudit = {
   duplicidades: DuplicateGroup[];
   semAssociacao: PendingItem[];
   semCategoria: PendingItem[];
-  pagamentosCartaoSemFatura: Transaction[];
+  pagamentosCartaoSemFatura: CardPaymentPending[];
   transferenciasProvaveis: TransferHint[];
   /** Todas as inconsistências de data encontradas na conta. */
   datasInconsistentes: DateMismatch[];
@@ -250,6 +278,8 @@ export type BankAudit = {
     mesesComContinuidade: number;
     totalTransicoes: number;
     mesesValidados: number;
+    /** Subconjunto validado dia a dia, com todos os checkpoints conferindo. */
+    mesesValidadosCompletos: number;
     totalMeses: number;
     mesesComDivergencia: number;
     mesesSemCheckpoint: number;
@@ -328,6 +358,8 @@ export function buildBankAudit(input: {
     saldo_final: number | string | null;
     quantidade_lancamentos: number | null;
     status: string;
+    /** Evidência do documento relido: saldos do dia encontrados no PDF. */
+    dados_brutos_json?: unknown;
   }[];
   checkpoints: { data: string; saldo: number }[];
   /** Lançamentos lidos dos PDFs — evidência do documento. */
@@ -351,6 +383,11 @@ export function buildBankAudit(input: {
       saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
       saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
       quantidade: i.quantidade_lancamentos ?? 0,
+      checkpointsPdf: Array.isArray(
+        (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
+      )
+        ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
+        : 0,
       status: i.status,
     }))
     .sort((a, b) => String(a.inicio ?? "").localeCompare(String(b.inicio ?? "")));
@@ -504,6 +541,8 @@ export function buildBankAudit(input: {
     let saldo = abertura ?? 0;
     let inflows = 0;
     let outflows = 0;
+    // Cronologia estrita: cada dia soma APENAS os seus próprios lançamentos e
+    // encadeia o saldo do dia anterior — nada de movimento posterior entra aqui.
     const days: AuditDay[] = [...porDia.keys()].sort().map((date) => {
       const lista = porDia.get(date)!;
       const entradas = arredonda(lista.reduce((acc, t) => acc + Math.max(movementEffect(t), 0), 0));
@@ -518,12 +557,15 @@ export function buildBankAudit(input: {
       return {
         date,
         openingBalance,
-        inflows,
-        outflows,
+        inflows: entradas,
+        outflows: saidas,
+        inflowsAcumuladas: inflows,
+        outflowsAcumuladas: outflows,
         calculated,
         reported: informado,
         difference,
         confere: difference === null ? null : Math.abs(difference) <= CONFERE,
+        origem: informado === null ? ("CALCULATED_ONLY" as const) : ("CHECKPOINT" as const),
         transactions: lista,
       };
     });
@@ -556,11 +598,20 @@ export function buildBankAudit(input: {
     }
 
     const checkpointsDoMes = input.checkpoints.filter((c) => c.data.slice(0, 7) === key).length;
+    const checkpointsConferem = days.filter((d) => d.confere === true).length;
+    // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
+    const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
     const movimentosPdf = (itensPorMes.get(key) ?? []).length;
     const faltantes = faltantesPorMes.get(key) ?? [];
     const mismatches = mismatchPorMes.get(key) ?? [];
 
     const invalidas = mismatches.filter((m) => m.invalido);
+
+    // Fechar o mês NÃO valida o mês: só há validação completa quando todos os
+    // "Saldo do dia" do documento foram processados e todos conferem.
+    const checkpointsCompletos =
+      checkpointsDoMes > 0 && (checkpointsPdf === 0 || checkpointsDoMes >= checkpointsPdf);
+    const todosConferem = checkpointsDoMes > 0 && checkpointsConferem >= checkpointsDoMes;
 
     // Ordem de diagnóstico: primeiro o que quebra o saldo, depois o que só
     // atrapalha a leitura. Categoria e associação nunca invalidam o mês.
@@ -578,7 +629,11 @@ export function buildBankAudit(input: {
                 ? "CHECKPOINTS_AUSENTES"
                 : mismatches.length
                   ? "DATAS_INCONSISTENTES"
-                  : "VALIDADO";
+                  : !checkpointsCompletos
+                    ? "CHECKPOINTS_INCOMPLETOS"
+                    : todosConferem
+                      ? "VALIDADO_COMPLETO"
+                      : "VALIDADO_MENSAL";
 
     return {
       key,
@@ -602,6 +657,8 @@ export function buildBankAudit(input: {
       datasInconsistentes: mismatches,
       associacoesInvalidas: invalidas,
       checkpoints: checkpointsDoMes,
+      checkpointsPdf,
+      checkpointsConferem,
       primeiraDivergencia,
     };
   });
@@ -637,7 +694,7 @@ export function buildBankAudit(input: {
   );
   const semAssociacao: PendingItem[] = [];
   const semCategoria: PendingItem[] = [];
-  const pagamentosCartaoSemFatura: Transaction[] = [];
+  const pagamentosCartaoSemFatura: CardPaymentPending[] = [];
   const invoiceIds = new Set(input.cardInvoiceIds ?? []);
 
   for (const t of daConta) {
@@ -666,7 +723,13 @@ export function buildBankAudit(input: {
     }
     const pareceCartao = t.tipo === "PAGAMENTO_CARTAO" || /CARTAO|CARTÃO/i.test(t.descricao ?? "");
     if (pareceCartao && (!t.card_invoice_id || !invoiceIds.has(t.card_invoice_id))) {
-      pagamentosCartaoSemFatura.push(t);
+      // A data que vale é a contábil (coluna "Dia"); a do histórico é só pista.
+      const doHistorico = dataNoHistorico(t.descricao ?? "", t.data_movimento.slice(0, 4));
+      pagamentosCartaoSemFatura.push({
+        transaction: t,
+        dataNoHistorico: doHistorico,
+        dataDivergente: !!doHistorico && doHistorico !== t.data_movimento,
+      });
     }
   }
 
@@ -723,7 +786,18 @@ export function buildBankAudit(input: {
   // ---------- problemas encontrados ----------
   const problemas: AuditIssue[] = [];
   for (const m of meses) {
-    if (m.status === "VALIDADO" || m.status === "SEM_EXTRATO") continue;
+    if (m.status === "VALIDADO_COMPLETO" || m.status === "SEM_EXTRATO") continue;
+    if (m.status === "VALIDADO_MENSAL" || m.status === "CHECKPOINTS_INCOMPLETOS") {
+      problemas.push({
+        id: `parcial-${m.key}`,
+        severity: "PENDENCIA",
+        categoria: "DADOS",
+        titulo: `${m.key} — fecha no mês, mas não foi conferido dia a dia`,
+        detalhe: `O saldo final confere, porém ${m.checkpointsConferem} de ${m.checkpoints} saldo(s) diário(s) foram conferidos${m.checkpointsPdf ? ` e o PDF traz ${m.checkpointsPdf}` : ""}. Reenvie o PDF em "Reprocessar checkpoints" para conferir a cronologia completa.`,
+        referencia: m.key,
+      });
+      continue;
+    }
     if (m.status === "INVALID_MATCHES") {
       const ex = m.associacoesInvalidas[0]!;
       problemas.push({
@@ -849,18 +923,22 @@ export function buildBankAudit(input: {
       detalhe: `${d.descricao} — ${d.ids.length} lançamentos idênticos.`,
     });
   }
-  for (const t of pagamentosCartaoSemFatura) {
+  for (const p of pagamentosCartaoSemFatura) {
+    const t = p.transaction;
     const mismatch = datasInconsistentes.find((m) => m.transactionId === t.id);
     problemas.push({
       id: `cartao-${t.id}`,
-      severity: mismatch ? "ATENCAO" : "PENDENCIA",
+      severity: mismatch || p.dataDivergente ? "ATENCAO" : "PENDENCIA",
       categoria: "DADOS",
-      titulo: mismatch
-        ? "Pagamento de cartão com data divergente do extrato"
-        : "Pagamento de cartão sem fatura associada",
+      titulo:
+        mismatch || p.dataDivergente
+          ? "Pagamento de cartão com data divergente do extrato"
+          : "Pagamento de cartão sem fatura associada",
       detalhe: mismatch
         ? `Extrato informa ${mismatch.dataExtrato}, ledger gravou ${mismatch.dataLedger}. Valor ${mismatch.valor}.`
-        : `${t.data_movimento} · ${t.descricao}`,
+        : p.dataDivergente
+          ? `Data contábil ${t.data_movimento} (coluna "Dia"), mas o histórico cita ${p.dataNoHistorico}. A data contábil é a que vale — o histórico é apenas referência do pagamento.`
+          : `${t.data_movimento} · ${t.descricao}`,
     });
   }
   if (semAssociacao.length) {
@@ -902,7 +980,10 @@ export function buildBankAudit(input: {
       extratos: extratos.length,
       mesesComContinuidade: continuidade.filter((c) => c.confere).length,
       totalTransicoes: continuidade.length,
-      mesesValidados: meses.filter((m) => m.status === "VALIDADO").length,
+      mesesValidados: meses.filter(
+        (m) => m.status === "VALIDADO_COMPLETO" || m.status === "VALIDADO_MENSAL",
+      ).length,
+      mesesValidadosCompletos: meses.filter((m) => m.status === "VALIDADO_COMPLETO").length,
       totalMeses: meses.length,
       mesesComDivergencia: meses.filter(
         (m) => m.status === "DIVERGENCIA_DIARIA" || m.status === "DIVERGENCIA_FINAL",
@@ -944,7 +1025,7 @@ export function auditToCsv(audit: BankAudit) {
     linhas.push([
       "Mês",
       m.key,
-      `Inicial ${m.openingBalance ?? ""} · Entradas ${m.inflows} · Saídas ${m.outflows} · PDF ${m.movimentosPdf} · Ledger ${m.movimentosLedger} · Checkpoints ${m.checkpoints}`,
+      `Inicial ${m.openingBalance ?? ""} · Entradas ${m.inflows} · Saídas ${m.outflows} · PDF ${m.movimentosPdf} · Ledger ${m.movimentosLedger} · Checkpoints PDF ${m.checkpointsPdf} · Persistidos ${m.checkpoints} · Conferem ${m.checkpointsConferem}`,
       String(m.difference ?? ""),
       MONTH_STATUS_LABELS[m.status],
     ]);
@@ -979,9 +1060,13 @@ export function auditToCsv(audit: BankAudit) {
       linhas.push([
         "Dia",
         d.date,
-        `Entradas ${d.inflows} · Saídas ${d.outflows} · Calculado ${d.calculated}`,
+        `Inicial ${d.openingBalance} · Entradas do dia ${d.inflows} · Saídas do dia ${d.outflows} · Acum. entradas ${d.inflowsAcumuladas} · Acum. saídas ${d.outflowsAcumuladas} · Calculado ${d.calculated} · Banco ${d.reported ?? "—"}`,
         String(d.difference ?? ""),
-        d.confere === null ? "Sem checkpoint" : d.confere ? "Confere" : "Divergência",
+        d.confere === null
+          ? 'Sem "Saldo do dia" no PDF'
+          : d.confere
+            ? "Confere"
+            : "Divergência",
       ]);
     }
   }

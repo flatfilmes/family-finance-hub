@@ -134,7 +134,7 @@ export function ReprocessCheckpointsDialog({
                 </div>
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {r.status === "OK"
-                    ? `${r.periodoInicio ?? "?"} → ${r.periodoFim ?? "?"} · ${r.checkpoints} checkpoint(s) · ${r.movimentos} movimento(s) lidos`
+                    ? `${r.periodoInicio ?? "?"} → ${r.periodoFim ?? "?"} · ${r.checkpointsPdf} saldo(s) do dia no PDF → ${r.checkpoints} persistido(s) · ${r.movimentos} movimento(s) lidos${r.datasCorrigidas ? ` · ${r.datasCorrigidas} data(s) contábil(is) corrigida(s)` : ""}`
                     : r.motivo}
                 </p>
               </li>
