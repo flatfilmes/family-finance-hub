@@ -665,7 +665,180 @@ function CapacidadeCartoes({
  * Gasto real da competência: compras parceladas entram pela parcela do mês,
  * pagamento de fatura não é recontado e cada recorrência aparece uma única vez.
  */
+type Caixa = ReturnType<typeof useFreeCash>;
+
+/**
+ * Comprometido = obrigações ainda pendentes da competência.
+ * Não é "tudo que foi comprado": Pix/débito já saíram do saldo, fatura paga
+ * não é mais compromisso e parcelamento entra pela parcela do período.
+ */
+function ComprometidoCard({ caixa }: { caixa: Caixa }) {
+  const c = caixa.comprometido;
+  const linhas = [
+    { label: "Contas recorrentes", valor: c.contasRecorrentes },
+    { label: "Faturas de cartão", valor: c.faturasCartao },
+    { label: "Parcelas do período", valor: c.parcelas },
+    { label: "Recorrências", valor: c.recorrencias },
+    { label: "Outros compromissos", valor: c.outros },
+  ];
+  return (
+    <Card className="p-5">
+      <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+        <Receipt className="size-5" />
+      </span>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Comprometido
+      </p>
+      <p className="mt-1 text-2xl font-extrabold tracking-tight">
+        {caixa.isLoading ? "—" : formatCurrency(c.total)}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Obrigações em aberto até o fim de {monthLabel(caixa.month)}
+      </p>
+      <Dialog>
+        <DialogTrigger className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+          Ver composição
+          <ArrowRight className="size-3.5" />
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Composição do comprometido</DialogTitle>
+            <DialogDescription>
+              Somente obrigações pendentes. Compras no Pix, débito ou dinheiro já reduziram o saldo
+              e faturas pagas saem daqui.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 text-sm">
+            {linhas.map((l) => (
+              <li key={l.label} className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground">{l.label}</span>
+                <strong>{formatCurrency(l.valor)}</strong>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-4 border-t border-border pt-2">
+              <span className="font-semibold">Total comprometido</span>
+              <strong>{formatCurrency(c.total)}</strong>
+            </li>
+          </ul>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+/** Dinheiro livre hoje = saldo bancário - obrigações até o próximo recebimento - reserva. */
+function DinheiroLivreCard({ caixa }: { caixa: Caixa }) {
+  const tone = FREE_CASH_CLASSES[caixa.status];
+  const j = caixa.ateProximoRecebimento;
+  return (
+    <Card className="p-5">
+      <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+        <Wallet className="size-5" />
+      </span>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Dinheiro livre hoje
+      </p>
+      <p className="mt-1 text-2xl font-extrabold tracking-tight">
+        {caixa.isLoading ? "—" : formatCurrency(caixa.livreHoje)}
+      </p>
+      <span
+        className={`mt-2 inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}
+      >
+        <span className={`size-2 rounded-full ${tone.dot}`} />
+        {FREE_CASH_MESSAGES[caixa.status]}
+      </span>
+      <Dialog>
+        <DialogTrigger className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+          Como calculamos?
+          <ArrowRight className="size-3.5" />
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Como calculamos o dinheiro livre</DialogTitle>
+            <DialogDescription>
+              Partimos do saldo real das contas bancárias e retiramos as obrigações conhecidas até{" "}
+              {caixa.proximoRecebimento
+                ? `o próximo recebimento (${formatDate(caixa.proximoRecebimento)})`
+                : "o fim do mês"}
+              , além da sua reserva.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 text-sm">
+            <li className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Saldo das contas</span>
+              <strong>{formatCurrency(caixa.saldoBancario)}</strong>
+            </li>
+            <li className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Faturas pendentes</span>
+              <strong>- {formatCurrency(j.faturasCartao + j.parcelas)}</strong>
+            </li>
+            <li className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Contas até o próximo recebimento</span>
+              <strong>- {formatCurrency(j.contasRecorrentes + j.outros)}</strong>
+            </li>
+            <li className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Recorrências</span>
+              <strong>- {formatCurrency(j.recorrencias)}</strong>
+            </li>
+            <li className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">
+                Reserva ({caixa.percentualReserva.toFixed(0)}% da renda fixa)
+              </span>
+              <strong>- {formatCurrency(caixa.reserva)}</strong>
+            </li>
+            <li className="flex items-center justify-between gap-4 border-t border-border pt-2">
+              <span className="font-semibold">= Dinheiro livre hoje</span>
+              <strong>{formatCurrency(caixa.livreHoje)}</strong>
+            </li>
+          </ul>
+          <p className="mt-2 rounded-2xl bg-muted/50 p-3 text-xs text-muted-foreground">
+            Renda variável esperada de {formatCurrency(caixa.rendaVariavelEsperada)} não entra neste
+            cálculo: só consideramos dinheiro já disponível na conta.
+          </p>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+/** Deixa explícito que saldo bancário não é dinheiro livre. */
+function ResumoCaixa({ caixa }: { caixa: Caixa }) {
+  const tone = FREE_CASH_CLASSES[caixa.status];
+  return (
+    <Card className="mt-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold">Do saldo ao dinheiro livre</h3>
+          <p className="text-xs text-muted-foreground">
+            Saldo bancário não é dinheiro livre: parte dele já tem destino.
+          </p>
+        </div>
+        <span
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${tone.badge}`}
+        >
+          <span className={`size-2 rounded-full ${tone.dot}`} />
+          {caixa.contas} conta(s) considerada(s)
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-4">
+        <Bloco label="Saldo bancário" value={formatCurrency(caixa.saldoBancario)} />
+        <Bloco
+          label="Dinheiro comprometido"
+          value={formatCurrency(caixa.ateProximoRecebimento.total)}
+        />
+        <Bloco label="Reserva" value={formatCurrency(caixa.reserva)} />
+        <Bloco label="Dinheiro livre hoje" value={formatCurrency(caixa.livreHoje)} />
+      </div>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Renda variável esperada: {formatCurrency(caixa.rendaVariavelEsperada)} — não é saldo
+        garantido.
+      </p>
+    </Card>
+  );
+}
+
 function GastosDoMesCard({ gasto }: { gasto: ReturnType<typeof useMonthlySpending> }) {
+
   const linhas = [
     { label: "Pix / Débito / Dinheiro", valor: gasto.caixa },
     { label: "Cartão à vista", valor: gasto.cartaoAVista },
