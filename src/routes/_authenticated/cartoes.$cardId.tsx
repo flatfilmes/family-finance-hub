@@ -191,14 +191,22 @@ function CartaoDetalhePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
-          label="Fatura atual"
-          value={formatCurrency(Number(info?.faturaAtual?.valor_total ?? 0))}
+          label={faturaCiclo.label}
+          value={formatCurrency(faturaCiclo.valor)}
           hint={
-            info?.proximoVencimento ? `Vence em ${formatDate(info.proximoVencimento)}` : undefined
+            faturaCiclo.vencimento
+              ? `Vence em ${formatDate(faturaCiclo.vencimento)}${faturaCiclo.oficial ? " · fatura oficial importada" : " · estimativa interna"}`
+              : undefined
           }
           big
         />
-        <Metric label="Limite utilizado" value={formatCurrency(utilizado)} big />
+        <Metric
+          label="Limite utilizado"
+          value={formatCurrency(utilizado)}
+          hint={`Fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
+          big
+        />
+
         <Metric
           label="Limite disponível"
           value={formatCurrency(disponivel)}
