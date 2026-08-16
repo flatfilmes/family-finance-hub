@@ -71,6 +71,229 @@ export type Database = {
           },
         ]
       }
+      bank_statement_imports: {
+        Row: {
+          bank_account_id: string
+          confirmado_em: string | null
+          created_at: string
+          created_by: string | null
+          dados_brutos_json: Json | null
+          erro_mensagem: string | null
+          family_id: string
+          formato: Database["public"]["Enums"]["bank_statement_format"]
+          id: string
+          member_id: string | null
+          nome_arquivo: string
+          parser: string
+          periodo_fim: string | null
+          periodo_inicio: string | null
+          quantidade_lancamentos: number
+          saldo_final: number | null
+          saldo_inicial: number | null
+          status: Database["public"]["Enums"]["bank_statement_status"]
+          total_entradas: number
+          total_saidas: number
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id: string
+          confirmado_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          dados_brutos_json?: Json | null
+          erro_mensagem?: string | null
+          family_id: string
+          formato?: Database["public"]["Enums"]["bank_statement_format"]
+          id?: string
+          member_id?: string | null
+          nome_arquivo: string
+          parser?: string
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+          quantidade_lancamentos?: number
+          saldo_final?: number | null
+          saldo_inicial?: number | null
+          status?: Database["public"]["Enums"]["bank_statement_status"]
+          total_entradas?: number
+          total_saidas?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string
+          confirmado_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          dados_brutos_json?: Json | null
+          erro_mensagem?: string | null
+          family_id?: string
+          formato?: Database["public"]["Enums"]["bank_statement_format"]
+          id?: string
+          member_id?: string | null
+          nome_arquivo?: string
+          parser?: string
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+          quantidade_lancamentos?: number
+          saldo_final?: number | null
+          saldo_inicial?: number | null
+          status?: Database["public"]["Enums"]["bank_statement_status"]
+          total_entradas?: number
+          total_saidas?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_imports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_imports_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_imports_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_statement_items: {
+        Row: {
+          bank_account_id: string
+          card_invoice_id_matched: string | null
+          confidence_score: number | null
+          created_at: string
+          data_movimento: string | null
+          descricao_normalizada: string
+          descricao_original: string
+          erro_mensagem: string | null
+          family_id: string
+          id: string
+          import_id: string
+          incluir: boolean
+          match_status: Database["public"]["Enums"]["bank_statement_match"]
+          ordem: number
+          purchase_id_matched: string | null
+          tipo_sugerido: Database["public"]["Enums"]["bank_movement_kind"]
+          transaction_id_criada: string | null
+          transaction_id_matched: string | null
+          transfer_account_id: string | null
+          updated_at: string
+          valor: number
+        }
+        Insert: {
+          bank_account_id: string
+          card_invoice_id_matched?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          data_movimento?: string | null
+          descricao_normalizada: string
+          descricao_original: string
+          erro_mensagem?: string | null
+          family_id: string
+          id?: string
+          import_id: string
+          incluir?: boolean
+          match_status?: Database["public"]["Enums"]["bank_statement_match"]
+          ordem?: number
+          purchase_id_matched?: string | null
+          tipo_sugerido?: Database["public"]["Enums"]["bank_movement_kind"]
+          transaction_id_criada?: string | null
+          transaction_id_matched?: string | null
+          transfer_account_id?: string | null
+          updated_at?: string
+          valor: number
+        }
+        Update: {
+          bank_account_id?: string
+          card_invoice_id_matched?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          data_movimento?: string | null
+          descricao_normalizada?: string
+          descricao_original?: string
+          erro_mensagem?: string | null
+          family_id?: string
+          id?: string
+          import_id?: string
+          incluir?: boolean
+          match_status?: Database["public"]["Enums"]["bank_statement_match"]
+          ordem?: number
+          purchase_id_matched?: string | null
+          tipo_sugerido?: Database["public"]["Enums"]["bank_movement_kind"]
+          transaction_id_criada?: string | null
+          transaction_id_matched?: string | null
+          transfer_account_id?: string | null
+          updated_at?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_statement_items_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_card_invoice_id_matched_fkey"
+            columns: ["card_invoice_id_matched"]
+            isOneToOne: false
+            referencedRelation: "card_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_purchase_id_matched_fkey"
+            columns: ["purchase_id_matched"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_transaction_id_criada_fkey"
+            columns: ["transaction_id_criada"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_transaction_id_matched_fkey"
+            columns: ["transaction_id_matched"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_transfer_account_id_fkey"
+            columns: ["transfer_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budgets: {
         Row: {
           ano_referencia: number
@@ -2341,6 +2564,24 @@ export type Database = {
     }
     Enums: {
       bank_account_type: "CORRENTE" | "POUPANCA" | "PAGAMENTO" | "INVESTIMENTO"
+      bank_movement_kind:
+        | "ENTRADA"
+        | "SAIDA"
+        | "TRANSFERENCIA"
+        | "TARIFA"
+        | "JUROS"
+        | "ESTORNO"
+        | "AJUSTE"
+        | "OUTRO"
+      bank_statement_format: "PDF" | "CSV" | "OFX" | "IMAGEM"
+      bank_statement_match: "MATCHED" | "POSSIBLE_MATCH" | "NEW" | "IGNORED"
+      bank_statement_status:
+        | "UPLOADED"
+        | "PROCESSING"
+        | "READY_FOR_REVIEW"
+        | "CONFIRMED"
+        | "CANCELLED"
+        | "ERROR"
       budget_period: "MENSAL"
       card_statement_status:
         | "UPLOADED"
@@ -2462,6 +2703,7 @@ export type Database = {
         | "TRANSFERENCIA"
         | "PAGAMENTO_CARTAO"
         | "AJUSTE_SALDO"
+        | "ABERTURA_SALDO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2590,6 +2832,26 @@ export const Constants = {
   public: {
     Enums: {
       bank_account_type: ["CORRENTE", "POUPANCA", "PAGAMENTO", "INVESTIMENTO"],
+      bank_movement_kind: [
+        "ENTRADA",
+        "SAIDA",
+        "TRANSFERENCIA",
+        "TARIFA",
+        "JUROS",
+        "ESTORNO",
+        "AJUSTE",
+        "OUTRO",
+      ],
+      bank_statement_format: ["PDF", "CSV", "OFX", "IMAGEM"],
+      bank_statement_match: ["MATCHED", "POSSIBLE_MATCH", "NEW", "IGNORED"],
+      bank_statement_status: [
+        "UPLOADED",
+        "PROCESSING",
+        "READY_FOR_REVIEW",
+        "CONFIRMED",
+        "CANCELLED",
+        "ERROR",
+      ],
       budget_period: ["MENSAL"],
       card_statement_status: [
         "UPLOADED",
@@ -2720,6 +2982,7 @@ export const Constants = {
         "TRANSFERENCIA",
         "PAGAMENTO_CARTAO",
         "AJUSTE_SALDO",
+        "ABERTURA_SALDO",
       ],
     },
   },
