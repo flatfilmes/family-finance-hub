@@ -226,12 +226,25 @@ function CartaoDetalhePage() {
 
   const contasParaPagar = (accounts ?? []).filter((a) => a.ativo);
   const podePagar = !view.isViewer;
+  const projetado = estadoSelecionado === "PROJETADA";
   const podePagarEsteCiclo =
     podePagar &&
     !!fatura &&
     fatura.status !== "PAGA" &&
     estadoSelecionado !== "EM_FORMACAO" &&
+    !projetado &&
     Number(fatura.valor_total) > 0;
+
+  // Composição de um ciclo projetado: parcelas já conhecidas + recorrências previstas.
+  const parcelasDoCiclo = dados
+    .parcelasDoCartao(cartao.id)
+    .filter((p) => p.card_invoice_id === fatura?.id && p.status === "PENDENTE")
+    .reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0);
+  const recorrenciasProjetadas = cicloSelecionado
+    ? (dados.proximasDe(cartao.id).find((m) => m.key === cicloSelecionado.competencia)
+        ?.recorrencias ?? 0)
+    : 0;
+
 
   async function confirmarPagamento() {
     setErro("");
