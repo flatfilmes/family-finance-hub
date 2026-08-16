@@ -6,6 +6,8 @@ import { useExpenses } from "@/hooks/useExpenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { useStatementImports } from "@/hooks/useCardStatements";
 import {
+  agruparCiclos,
+  classificarCiclosDoCartao,
   composicaoUtilizado,
   faturaDoCiclo,
   linhasDaFatura,
@@ -88,6 +90,14 @@ export function useCardsData(familyId?: string) {
     cards: cards.data ?? [],
     info,
     faturasDoCartao,
+    /** Ciclos classificados: reais, em formação e projeções (nunca "aberta" para tudo). */
+    ciclosDe: (cardId: string) =>
+      agruparCiclos(
+        classificarCiclosDoCartao({
+          invoices: faturasDoCartao(cardId),
+          imports: importacoes.data ?? [],
+        }),
+      ),
     recorrenciasDoCartao,
     parcelasDoCartao,
     /**
