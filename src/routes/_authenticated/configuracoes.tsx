@@ -122,8 +122,8 @@ function Configuracoes() {
             <h2 className="text-base font-bold">Perfis e permissões</h2>
             <p className="mt-1 text-sm text-muted-foreground">
               O perfil financeiro (Administrador familiar, Membro, Dependente, Visualizador) e a
-              permissão de acesso de cada pessoa são definidos dentro de “Gerenciar perfil” →
-              Dados pessoais.
+              permissão de acesso de cada pessoa são definidos dentro de “Gerenciar perfil” → Dados
+              pessoais.
             </p>
           </Card>
         </>
@@ -254,7 +254,11 @@ function Configuracoes() {
                 />
               </Field>
               <Field label="E-mail">
-                <input value={profile?.email ?? user?.email ?? ""} disabled className={inputClass} />
+                <input
+                  value={profile?.email ?? user?.email ?? ""}
+                  disabled
+                  className={inputClass}
+                />
               </Field>
               <PrimaryButton type="submit" disabled={save.isPending}>
                 {save.isPending ? "Salvando..." : "Salvar alterações"}
@@ -283,7 +287,6 @@ function Configuracoes() {
     </div>
   );
 }
-
 
 function DemoModeCard() {
   const { ativo, activeFamily, demoFamilies, isLoading } = useDemoMode();

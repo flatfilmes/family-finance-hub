@@ -129,8 +129,8 @@ export function FamilyAdmin() {
       <Card>
         <h2 className="text-base font-bold">{family.nome_da_familia}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Cadastro das pessoas da família. Receitas, contas e cartões de cada pessoa ficam dentro
-          de “Gerenciar perfil”. Análises financeiras ficam no Dashboard.
+          Cadastro das pessoas da família. Receitas, contas e cartões de cada pessoa ficam dentro de
+          “Gerenciar perfil”. Análises financeiras ficam no Dashboard.
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">

@@ -1,10 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  budgetStatus,
-  fetchBudgets,
-  monthToRef,
-  type BudgetStatus,
-} from "@/lib/budgets";
+import { budgetStatus, fetchBudgets, monthToRef, type BudgetStatus } from "@/lib/budgets";
 import { currentMonth } from "@/lib/expenses";
 import { useExpenseCategories, useExpenses } from "@/hooks/useExpenses";
 
@@ -48,8 +43,7 @@ export function useBudgetProgress(familyId?: string, monthArg?: string, memberId
     return {
       id: b.id,
       categoriaId: b.category_id,
-      categoria:
-        categories.data?.find((c) => c.id === b.category_id)?.nome ?? "Sem categoria",
+      categoria: categories.data?.find((c) => c.id === b.category_id)?.nome ?? "Sem categoria",
       planejado,
       gasto,
       percentual,

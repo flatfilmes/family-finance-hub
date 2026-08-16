@@ -58,8 +58,7 @@ export function useExpenseSummary(familyId?: string, memberId = "") {
     }
   }
 
-  const variacao =
-    totalAnterior > 0 ? ((totalMes - totalAnterior) / totalAnterior) * 100 : null;
+  const variacao = totalAnterior > 0 ? ((totalMes - totalAnterior) / totalAnterior) * 100 : null;
 
   return {
     isLoading: atual.isLoading || anterior.isLoading,
