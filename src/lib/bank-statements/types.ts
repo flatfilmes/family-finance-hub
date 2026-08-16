@@ -74,7 +74,10 @@ export type StatementSemanticKind =
 
 /** Lançamento lido de um extrato, ainda sem nenhuma persistência. */
 export type ParsedBankMovement = {
+  /** Data contábil oficial da coluna "Dia". */
   data: string | null;
+  /** Data citada no histórico; metadata que nunca substitui `data`. */
+  eventDate?: string | null;
   descricaoOriginal: string;
   descricaoNormalizada: string;
   /** Sinal preservado: positivo entra na conta, negativo sai. */

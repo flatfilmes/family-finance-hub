@@ -267,6 +267,44 @@ function AuditoriaContaPage() {
       {/* ---------- linha do tempo ---------- */}
       <Card className="mb-5">
         <SectionTitle
+          title="Diagnóstico de identidade dos extratos"
+          hint="Período contábil e checkpoints são exibidos separadamente. Esta análise não altera movimentações nem valores."
+        />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[920px] text-left text-xs">
+            <thead className="border-b border-border text-muted-foreground">
+              <tr>
+                <th className="px-2 py-2 font-semibold">Importação</th>
+                <th className="px-2 py-2 font-semibold">Início</th>
+                <th className="px-2 py-2 font-semibold">Fim</th>
+                <th className="px-2 py-2 font-semibold">Abertura</th>
+                <th className="px-2 py-2 font-semibold">Saldo inicial</th>
+                <th className="px-2 py-2 font-semibold">Fechamento</th>
+                <th className="px-2 py-2 font-semibold">Saldo final</th>
+                <th className="px-2 py-2 font-semibold">Mês</th>
+              </tr>
+            </thead>
+            <tbody>
+              {audit.diagnosticoStatements.map((statement) => (
+                <tr key={statement.importId} className="border-b border-border last:border-0">
+                  <td className="max-w-40 truncate px-2 py-2 font-mono">{statement.importId}</td>
+                  <td className="px-2 py-2">{statement.periodStart ?? "—"}</td>
+                  <td className="px-2 py-2">{statement.periodEnd ?? "—"}</td>
+                  <td className="px-2 py-2">{statement.openingBalanceDate ?? "—"}</td>
+                  <td className="px-2 py-2">{formatCurrency(statement.openingBalance ?? 0)}</td>
+                  <td className="px-2 py-2">{statement.closingBalanceDate ?? "—"}</td>
+                  <td className="px-2 py-2">{formatCurrency(statement.closingBalance ?? 0)}</td>
+                  <td className="px-2 py-2 font-semibold">{statement.monthKey ?? "Indefinido"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* ---------- linha do tempo ---------- */}
+      <Card className="mb-5">
+        <SectionTitle
           title="Linha do tempo"
           hint="Situação específica de cada mês — nunca um alerta genérico."
         />

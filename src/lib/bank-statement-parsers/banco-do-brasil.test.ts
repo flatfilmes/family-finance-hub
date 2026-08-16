@@ -88,6 +88,11 @@ describe("parser Banco do Brasil", () => {
     expect(r.identificacao?.conta).toContain("12211-4");
     expect(r.identificacao?.titular).toContain("RODRIGO");
   });
+
+  it("usa o período oficial, não a primeira ou última movimentação", () => {
+    expect(r.periodoInicio).toBe("2026-08-01");
+    expect(r.periodoFim).toBe("2026-08-16");
+  });
 });
 
 /**

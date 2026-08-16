@@ -17,6 +17,7 @@
 import { extractPdfLines, parseValorBr, type PdfLine } from "@/lib/pdf-extract";
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "@/lib/bank-statements/types";
+import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
 
 export const BB_PARSER_ID = "EXTRATO_BANCO_DO_BRASIL_PDF";
 
@@ -266,7 +267,18 @@ function recuperarDatas(
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
 export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const anoBase = new Date().getFullYear();
+  const periodoTexto = textos
+    .join(" ")
+    .match(/per[ií]odo\s*:?\s*(\d{2}\/\d{2}\/\d{4})\s*(?:a|até|-)\s*(\d{2}\/\d{2}\/\d{4})/i);
+  const periodoOficial = periodoTexto
+    ? {
+        inicio: lerData(periodoTexto[1]!, new Date().getFullYear()).data,
+        fim: lerData(periodoTexto[2]!, new Date().getFullYear()).data,
+      }
+    : null;
+  const anoBase = periodoOficial?.inicio
+    ? Number(periodoOficial.inicio.slice(0, 4))
+    : new Date().getFullYear();
   /**
    * Pré-passo: quais linhas são financeiras (data/valor com sinal) e qual
    * texto de histórico veio junto. `null` = linha não financeira,
@@ -395,6 +407,13 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
     const movimento: ParsedBankMovement = {
       data: data ?? ultimaData,
+      eventDate:
+        periodoOficial?.inicio && periodoOficial.fim
+          ? eventDateFromHistory(descricao, {
+              inicio: periodoOficial.inicio,
+              fim: periodoOficial.fim,
+            })
+          : null,
       descricaoOriginal: descricao,
       descricaoNormalizada: normalizeDescricao(descricao),
       valor,
@@ -432,8 +451,8 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
   return {
     parser: BB_PARSER_ID,
-    periodoInicio: datas[0] ?? null,
-    periodoFim: datas[datas.length - 1] ?? null,
+    periodoInicio: periodoOficial?.inicio ?? datas[0] ?? null,
+    periodoFim: periodoOficial?.fim ?? datas[datas.length - 1] ?? null,
     saldoInicial,
     saldoFinal: saldoFinal ?? saldoRotulado,
     movimentos,
