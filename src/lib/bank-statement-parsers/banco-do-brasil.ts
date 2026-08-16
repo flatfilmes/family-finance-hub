@@ -366,8 +366,6 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const { data: dataNaLinha, resto } = comData
       ? lerData(raw, anoBase)
       : { data: null, resto: raw };
-    const data = dataNaLinha ?? datasRecuperadas.get(i) ?? null;
-    if (data) ultimaData = data;
 
 
     const descricaoNaLinha = resto
@@ -381,17 +379,34 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     // vem das linhas vizinhas da coluna "Histórico".
     const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
 
+    const ehSaldo = ehSaldoMetadata(descricao);
+    // Linha de saldo NUNCA pega data por geometria: "Saldo do dia" pertence ao
+    // último dia lançado antes dele (o PDF não repete a data nessa linha).
+    const data = ehSaldo
+      ? dataNaLinha ?? ultimaData
+      : dataNaLinha ?? datasRecuperadas.get(i) ?? null;
+    if (data && !ehSaldo) ultimaData = data;
 
-
-
-    if (ehSaldoMetadata(descricao)) {
+    if (ehSaldo) {
       const t = plano(descricao);
-      if (t.startsWith("saldo anterior")) saldoInicial = valor;
-      else saldoFinal = valor;
+      const abertura = t.startsWith("saldo anterior");
+      const fechamento = /^s a l d o$|^saldo$|^saldo final|^saldo atual/.test(t);
+      if (abertura) {
+        saldoInicial = valor;
+        saldoInicialData = data ?? saldoInicialData;
+      } else {
+        saldoFinal = valor;
+        if (fechamento) saldoFinalData = data ?? saldoFinalData;
+      }
       // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
-      const dataCheck = data ?? ultimaData;
-      if (dataCheck && !t.startsWith("saldo anterior")) {
-        checkpoints.push({ data: dataCheck, saldo: valor, rotulo: descricao });
+      // O sinal impresso é preservado (saldo devedor fica negativo).
+      if (data && !abertura) {
+        checkpoints.push({
+          data,
+          saldo: valor,
+          rotulo: descricao,
+          tipo: fechamento ? "CLOSING" : "DAILY",
+        });
       }
       rejeitados.push({
         raw,
