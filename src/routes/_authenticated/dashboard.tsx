@@ -105,6 +105,10 @@ function Dashboard() {
 
       <FechamentoMensal familyId={family?.id} isAdmin={view.isAdmin} />
 
+      <AttentionCenter familyId={family?.id} memberId={escopo} podeAgir={!view.isViewer} />
+
+
+
 
 
       <section className="mb-6">
