@@ -2254,6 +2254,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      adjust_bank_account_balance: {
+        Args: { _account_id: string; _motivo?: string; _novo_saldo: number }
+        Returns: string
+      }
+      archive_bank_account: {
+        Args: { _account_id: string; _ativo: boolean }
+        Returns: undefined
+      }
+      archive_credit_card: {
+        Args: { _ativo: boolean; _card_id: string }
+        Returns: undefined
+      }
       can_manage_member_record: {
         Args: { _family_id: string; _member_id: string; _user_id: string }
         Returns: boolean
@@ -2265,6 +2277,14 @@ export type Database = {
       create_family_with_owner: {
         Args: { p_family_name: string; p_first_member_name?: string }
         Returns: Json
+      }
+      delete_bank_account_if_unused: {
+        Args: { _account_id: string }
+        Returns: undefined
+      }
+      delete_credit_card_if_unused: {
+        Args: { _card_id: string }
+        Returns: undefined
       }
       delete_demo_data: { Args: never; Returns: number }
       ensure_invoice_for_due: {
@@ -2441,6 +2461,7 @@ export type Database = {
         | "SAIDA"
         | "TRANSFERENCIA"
         | "PAGAMENTO_CARTAO"
+        | "AJUSTE_SALDO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2698,6 +2719,7 @@ export const Constants = {
         "SAIDA",
         "TRANSFERENCIA",
         "PAGAMENTO_CARTAO",
+        "AJUSTE_SALDO",
       ],
     },
   },
