@@ -141,6 +141,7 @@ function AuditoriaContaPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <RepairHistoryDialog accountId={accountId} imports={imports ?? []} />
+            <RepairPostingDatesDialog accountId={accountId} />
             <CheckpointsOnlyButton accountId={accountId} />
             <ReprocessCheckpointsDialog accountId={accountId} familyId={family.id} />
             <button
