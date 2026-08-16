@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Receipt } from "lucide-react";
+import { FileUp, ImagePlus, Receipt, Wallet } from "lucide-react";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -20,6 +20,9 @@ import {
 } from "@/lib/transactions";
 import type { Purchase } from "@/lib/purchases";
 import { NoFamily } from "@/components/no-family";
+import { BalanceDialog } from "@/components/bank/balance-dialog";
+import { BankStatementDialog } from "@/components/bank/statement-import-dialog";
+import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_authenticated/bancos/$accountId")({
   head: () => ({
@@ -48,6 +51,7 @@ function origemDoMovimento(t: Transaction, compra?: Purchase) {
   if (t.tipo === "ENTRADA") return "Entrada";
   if (t.tipo === "TRANSFERENCIA") return "Transferência";
   if (t.tipo === "AJUSTE_SALDO") return "Ajuste de saldo";
+  if (t.tipo === "ABERTURA_SALDO") return "Abertura de saldo";
   switch (compra?.forma_pagamento) {
     case "PIX":
       return "PIX";
@@ -72,6 +76,7 @@ const ORIGENS = [
   "Transferência",
   "Pagamento de cartão",
   "Ajuste de saldo",
+  "Abertura de saldo",
   "Dinheiro",
   "Outros",
 ];
@@ -84,6 +89,9 @@ function ContaDetalhePage() {
   const { data: purchases } = usePurchases(family?.id);
   const memberName = useMemberName(family?.id);
 
+  const perms = usePermissions();
+  const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM">(null);
+  const [saldoSugerido, setSaldoSugerido] = useState<number | null>(null);
   const [periodo, setPeriodo] = useState(currentMonth());
   const [filtroOrigem, setFiltroOrigem] = useState("");
   const [busca, setBusca] = useState("");
@@ -110,6 +118,13 @@ function ContaDetalhePage() {
     );
   }
 
+  const movimentosDaConta = (movimentos ?? []).filter((t) => t.bank_account_id === conta.id);
+  const temPosicao =
+    Number(conta.saldo_atual) !== 0 ||
+    movimentosDaConta.some((t) => t.tipo === "ABERTURA_SALDO");
+  const semMovimento = movimentosDaConta.length === 0;
+  const podeOperar = perms.isAdmin || perms.canManageMember(conta.member_id);
+
   // O saldo atual já é atualizado pelas movimentações; aqui apenas as apresentamos.
   const doPeriodo = (movimentos ?? []).filter(
     (t) =>
@@ -121,6 +136,7 @@ function ContaDetalhePage() {
   const soma = (tipo: Transaction["tipo"], rows = doPeriodo) =>
     rows.filter((t) => t.tipo === tipo).reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
 
+  // Abertura de saldo é posição patrimonial: nunca entra como receita do período.
   const entradas = soma("ENTRADA");
   const saidas = soma("SAIDA");
   const pagamentos = soma("PAGAMENTO_CARTAO");
@@ -161,7 +177,21 @@ function ContaDetalhePage() {
           </>
         }
         actions={
-          conta.member_id ? (
+          <div className="flex flex-wrap items-center gap-2">
+            {podeOperar && (
+              <>
+                <AcaoConta icon={<Wallet className="size-3.5" />} onClick={() => setAcao("SALDO")}>
+                  {temPosicao ? "Ajustar saldo" : "Informar saldo"}
+                </AcaoConta>
+                <AcaoConta icon={<FileUp className="size-3.5" />} onClick={() => setAcao("PDF")}>
+                  Importar extrato
+                </AcaoConta>
+                <AcaoConta icon={<ImagePlus className="size-3.5" />} onClick={() => setAcao("IMAGEM")}>
+                  Enviar print
+                </AcaoConta>
+              </>
+            )}
+            {conta.member_id ? (
             <Link
               to="/membro/$memberId"
               params={{ memberId: conta.member_id }}
@@ -169,8 +199,61 @@ function ContaDetalhePage() {
             >
               Ver perfil do titular
             </Link>
-          ) : null
+          ) : null}
+          </div>
         }
+      />
+
+      {podeOperar && semMovimento && (
+        <Card className="mb-4 border-primary/30 bg-primary/5">
+          <SectionTitle
+            title="Como você quer começar?"
+            hint="Esta conta ainda não tem movimentações. Escolha o ponto de partida."
+          />
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ZeroOption
+              titulo="Informar meu saldo atual"
+              descricao="Registra a posição da conta. Não vira receita."
+              onClick={() => setAcao("SALDO")}
+            />
+            <ZeroOption
+              titulo="Importar extrato do banco"
+              descricao="PDF hoje. Passa por revisão antes de lançar."
+              onClick={() => setAcao("PDF")}
+            />
+            <ZeroOption
+              titulo="Enviar um print"
+              descricao="Foto da tela do app com saldo ou movimentações."
+              onClick={() => setAcao("IMAGEM")}
+            />
+            <ZeroOption
+              titulo="Começar do zero"
+              descricao="Seguir lançando pelas compras do dia a dia."
+              onClick={() => undefined}
+            />
+          </div>
+        </Card>
+      )}
+
+      <BalanceDialog
+        account={acao === "SALDO" ? conta : null}
+        familyId={family.id}
+        primeiraVez={!temPosicao}
+        saldoSugerido={saldoSugerido}
+        onClose={() => {
+          setAcao(null);
+          setSaldoSugerido(null);
+        }}
+      />
+      <BankStatementDialog
+        account={acao === "PDF" || acao === "IMAGEM" ? conta : null}
+        familyId={family.id}
+        modo={acao === "IMAGEM" ? "IMAGEM" : "PDF"}
+        onClose={() => setAcao(null)}
+        onUsarSaldo={(valor) => {
+          setSaldoSugerido(valor);
+          setAcao("SALDO");
+        }}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
@@ -272,7 +355,7 @@ function ContaDetalhePage() {
                     <td className="px-2 py-2.5 text-muted-foreground">{origemDe(t)}</td>
                     <td className="whitespace-nowrap px-2 py-2.5 text-right">
                       <span className="font-bold">
-                        {t.tipo === "AJUSTE_SALDO"
+                        {t.tipo === "AJUSTE_SALDO" || t.tipo === "ABERTURA_SALDO"
                           ? (Number(t.valor) || 0) >= 0
                             ? "+"
                             : "-"
@@ -340,5 +423,49 @@ function Linha({ label, valor }: { label: string; valor: number }) {
       <span className="text-sm text-muted-foreground">{label}</span>
       <span className="text-sm font-bold">{formatCurrency(valor)}</span>
     </li>
+  );
+}
+
+/** Ação operacional do cabeçalho da conta. */
+function AcaoConta({
+  icon,
+  children,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+/** Opção do zero state da conta recém-cadastrada. */
+function ZeroOption({
+  titulo,
+  descricao,
+  onClick,
+}: {
+  titulo: string;
+  descricao: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/50"
+    >
+      <span className="block text-sm font-semibold">{titulo}</span>
+      <span className="mt-1 block text-xs text-muted-foreground">{descricao}</span>
+    </button>
   );
 }
