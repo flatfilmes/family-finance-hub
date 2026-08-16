@@ -7,7 +7,7 @@
  * lançamentos futuros ou áreas comerciais.
  */
 import { describe, expect, it } from "vitest";
-import { parseBancoDoBrasilLines } from "./banco-do-brasil";
+import { isBancoDoBrasil, parseBancoDoBrasilLines } from "./banco-do-brasil";
 import type { PdfLine } from "@/lib/pdf-extract";
 
 const linhas = (textos: string[]): PdfLine[] =>
@@ -87,5 +87,50 @@ describe("parser Banco do Brasil", () => {
   it("lê identificação da conta", () => {
     expect(r.identificacao?.conta).toContain("12211-4");
     expect(r.identificacao?.titular).toContain("RODRIGO");
+  });
+});
+
+/**
+ * Variante real observada no dump: o PDF nem sempre entrega a marca textual
+ * "Banco do Brasil" na mesma extração, e em algumas páginas o sinal é
+ * impresso ANTES do valor. O sinal continua sendo a única fonte de verdade.
+ */
+const EXTRATO_SEM_MARCA = linhas([
+  "Extrato de Conta Corrente",
+  "Agência: 3540-8 Conta: 12211-4",
+  "Lançamentos",
+  "30/07/2026 Saldo Anterior (+) 269,64",
+  "03/08/2026 PIX RECEBIDO VALDIR PAULO M (+) 5.000,00",
+  "03/08/2026 Pagamento Fatura de Água TUBARAO SANEAMENTO (-) 52,44",
+  "03/08/2026 Cobrança de I.O.F. IOF Saldo Devedor Conta (-) 0,06",
+  "Saldo do dia (+) 5.217,14",
+  "05/08/2026 PIX RECEBIDO FULLGAZ COM (+) 250,00",
+  "05/08/2026 Pagamento de Boleto CELESC DISTRIBUICAO S.A (-) 590,82",
+  "11/08/2026 PIX ENVIADO Carlos Eduardo Pardal Gil (-) 77,00",
+  "12/08/2026 Pagto cartão crédito (-) 4,32",
+  "S A L D O (+) 4.795,00",
+  "Lançamentos Futuros",
+  "20/08/2026 CLARO RESIDENCIAL (-) 110,28",
+]);
+
+describe("Banco do Brasil — sinal antes do valor e sem marca do banco", () => {
+  const r = parseBancoDoBrasilLines(EXTRATO_SEM_MARCA);
+  const entradas = r.movimentos.filter((m) => m.valor > 0).reduce((a, m) => a + m.valor, 0);
+  const saidas = r.movimentos
+    .filter((m) => m.valor < 0)
+    .reduce((a, m) => a + Math.abs(m.valor), 0);
+
+  it("é reconhecido pelo layout de sinal impresso", () => {
+    expect(isBancoDoBrasil(EXTRATO_SEM_MARCA.map((l) => l.text))).toBe(true);
+  });
+
+  it("fecha os mesmos totais do extrato real", () => {
+    expect(r.movimentos).toHaveLength(7);
+    expect(Number(entradas.toFixed(2))).toBe(5250);
+    expect(Number(saidas.toFixed(2))).toBe(724.64);
+    expect(r.saldoInicial).toBe(269.64);
+    expect(r.saldoFinal).toBe(4795);
+    expect(Number((r.saldoInicial! + entradas - saidas).toFixed(2))).toBe(4795);
+    expect(r.futuros).toHaveLength(1);
   });
 });

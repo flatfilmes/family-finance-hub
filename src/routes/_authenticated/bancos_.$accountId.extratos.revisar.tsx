@@ -266,8 +266,11 @@ function RevisarExtrato() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
-                    {MOVEMENT_KIND_LABELS[l.tipo]}
+                    {l.acao === "MATCH_CARD_PAYMENT"
+                      ? "Pagamento de cartão"
+                      : MOVEMENT_KIND_LABELS[l.tipo]}
                   </td>
+
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {MATCH_LABELS[l.sugestao.matchStatus]}
                   </td>

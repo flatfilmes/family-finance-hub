@@ -22,9 +22,28 @@ export const BB_PARSER_ID = "EXTRATO_BANCO_DO_BRASIL_PDF";
 
 /** Valor seguido do sinal impresso pelo banco. */
 const VALOR_COM_SINAL = /(\d{1,3}(?:\.\d{3})*,\d{2})\s*\(\s*([+-])\s*\)/;
+/** Sinal impresso ANTES do valor (algumas páginas invertem a ordem das células). */
+const SINAL_ANTES_DO_VALOR = /\(\s*([+-])\s*\)\s*(\d{1,3}(?:\.\d{3})*,\d{2})/;
 /** Sinal isolado (quando o PDF quebra a linha antes do parêntese). */
 const SINAL_SOZINHO = /^\(\s*([+-])\s*\)$/;
 const DATA_INICIAL = /^(\d{2})\/(\d{2})\/(\d{4}|\d{2})/;
+
+/** Lê valor + sinal em qualquer das duas ordens possíveis. */
+function lerValorComSinal(texto: string): { valor: number; bruto: string } | null {
+  const depois = texto.match(VALOR_COM_SINAL);
+  if (depois) {
+    const abs = Math.abs(parseValorBr(depois[1]!));
+    return { valor: depois[2] === "-" ? -abs : abs, bruto: depois[0]! };
+  }
+  const antes = texto.match(SINAL_ANTES_DO_VALOR);
+  if (antes) {
+    const abs = Math.abs(parseValorBr(antes[2]!));
+    return { valor: antes[1] === "-" ? -abs : abs, bruto: antes[0]! };
+  }
+  return null;
+}
+
+
 
 type Secao = "MOVIMENTOS" | "FUTUROS" | "METADATA";
 
@@ -98,13 +117,20 @@ function buscar(textos: string[], re: RegExp) {
   return null;
 }
 
-/** É um extrato do Banco do Brasil? Exige evidência textual, não palpite. */
+/**
+ * É um extrato do Banco do Brasil? O sinal impresso "(+)/(-)" ao lado do valor
+ * é assinatura do layout BB: quando ele aparece de forma recorrente, o parser
+ * dedicado é usado mesmo que a marca textual do banco não tenha sido extraída.
+ */
 export function isBancoDoBrasil(textos: string[]) {
   const t = plano(textos.join(" "));
   const marcaBanco =
     t.includes("banco do brasil") || t.includes("bb.com.br") || /\bbanco\s*001\b/.test(t);
-  const marcaSinal = textos.some((l) => VALOR_COM_SINAL.test(l));
-  return marcaBanco && marcaSinal;
+  const linhasComSinal = textos.filter(
+    (l) => VALOR_COM_SINAL.test(l) || SINAL_ANTES_DO_VALOR.test(l),
+  ).length;
+  if (marcaBanco && linhasComSinal > 0) return true;
+  return linhasComSinal >= 3;
 }
 
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
@@ -132,10 +158,10 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     // Valor + sinal podem estar na mesma linha ou o sinal na linha seguinte.
     let alvo = raw;
     const proxima = linhas[i + 1]?.text.trim() ?? "";
-    if (!VALOR_COM_SINAL.test(alvo) && SINAL_SOZINHO.test(proxima)) alvo = `${raw} ${proxima}`;
+    if (!lerValorComSinal(alvo) && SINAL_SOZINHO.test(proxima)) alvo = `${raw} ${proxima}`;
 
-    const m = alvo.match(VALOR_COM_SINAL);
-    if (!m) {
+    const lido = lerValorComSinal(alvo);
+    if (!lido) {
       rejeitados.push({
         raw,
         valor: null,
@@ -145,8 +171,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       continue;
     }
 
-    const absoluto = Math.abs(parseValorBr(m[1]!));
-    const valor = m[2] === "-" ? -absoluto : absoluto;
+    const valor = lido.valor;
 
     // Data: a da própria linha ou a última data vista no bloco.
     const comData = DATA_INICIAL.test(raw);
@@ -154,10 +179,14 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     if (data) ultimaData = data;
 
     const descricao = resto
+      .replace(lido.bruto, " ")
       .replace(VALOR_COM_SINAL, " ")
+      .replace(SINAL_ANTES_DO_VALOR, " ")
       .replace(/\(\s*[+-]\s*\)/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+
+
 
     if (ehSaldoMetadata(descricao)) {
       const t = plano(descricao);
