@@ -330,7 +330,17 @@ function RevisarExtrato() {
         }`}
       />
 
-      <p className="-mt-3 mb-6 text-xs text-muted-foreground">{metadata.join(" · ")}</p>
+      <div className="-mt-3 mb-6 flex flex-wrap items-center gap-3">
+        <p className="text-xs text-muted-foreground">{metadata.join(" · ")}</p>
+        <Link
+          to="/dev/bank-parser-diagnostics"
+          search={{ import: "draft" }}
+          className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
+        >
+          Ver diagnóstico
+        </Link>
+      </div>
+
 
       {draft.jaImportado && (
         <p className="mb-4 rounded-2xl bg-amber-500/15 p-3 text-xs font-semibold text-amber-700 dark:text-amber-400">
