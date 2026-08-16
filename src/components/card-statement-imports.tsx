@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, MoreHorizontal, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "@tanstack/react-router";
 import { FormDialog } from "@/components/form-dialog";
@@ -8,9 +8,15 @@ import { EmptyState } from "@/components/empty-state";
 import { Card } from "@/components/page-header";
 import { SectionTitle } from "@/components/detail-page";
 import { usePermissions } from "@/hooks/usePermissions";
-import { useDeleteStatementImport, useStatementImports } from "@/hooks/useCardStatements";
+import {
+  useDeleteStatementImport,
+  useStatementImports,
+  useUndoReport,
+  useUndoStatementImport,
+} from "@/hooks/useCardStatements";
 import {
   IMPORT_STATUS_LABELS,
+  podeDesfazerImportacao,
   podeExcluirImportacao,
   type StatementImport,
 } from "@/lib/card-statements";
@@ -24,12 +30,12 @@ const FILTROS: { id: Filtro; label: string }[] = [
   { id: "todos", label: "Todas" },
   { id: "revisao", label: "Aguardando revisão" },
   { id: "confirmadas", label: "Confirmadas" },
-  { id: "canceladas", label: "Canceladas" },
+  { id: "canceladas", label: "Desfeitas/canceladas" },
 ];
 
 function tone(status: StatementImport["status"]) {
   if (status === "CONFIRMED") return "ok" as const;
-  if (status === "CANCELLED") return "muted" as const;
+  if (status === "CANCELLED" || status === "UNDONE") return "muted" as const;
   if (status === "ERROR") return "danger" as const;
   return "warn" as const;
 }
@@ -43,9 +49,134 @@ export function competenciaImportacao(imp: StatementImport) {
 function combina(filtro: Filtro, status: StatementImport["status"]) {
   if (filtro === "todos") return true;
   if (filtro === "confirmadas") return status === "CONFIRMED";
-  if (filtro === "canceladas") return status === "CANCELLED";
-  return status !== "CONFIRMED" && status !== "CANCELLED";
+  if (filtro === "canceladas") return status === "CANCELLED" || status === "UNDONE";
+  return status !== "CONFIRMED" && status !== "CANCELLED" && status !== "UNDONE";
 }
+
+/**
+ * Desfazer importação: mostra o impacto ANTES de reverter e só reverte
+ * o que pertence exclusivamente àquela importação.
+ */
+export function UndoStatementImportDialog({
+  importacao,
+  familyId,
+  onClose,
+}: {
+  importacao: StatementImport | null;
+  familyId?: string | undefined;
+  onClose: () => void;
+}) {
+  const { data: relatorio, isLoading } = useUndoReport(importacao?.id, !!importacao);
+  const desfazer = useUndoStatementImport(familyId);
+  const bloqueios = relatorio?.bloqueios ?? [];
+
+  const linhas: { label: string; valor: number }[] = relatorio
+    ? [
+        { label: "Compras criadas por esta importação", valor: relatorio.compras_criadas_exclusivas },
+        { label: "Compras apenas associadas", valor: relatorio.compras_associadas },
+        {
+          label: "Compras compartilhadas com outra importação",
+          valor: relatorio.compras_compartilhadas,
+        },
+        { label: "Parcelas criadas", valor: relatorio.parcelas },
+        { label: "Taxas", valor: relatorio.taxas },
+        { label: "Créditos/estornos", valor: relatorio.creditos },
+        { label: "Itens ignorados", valor: relatorio.ignorados },
+      ]
+    : [];
+
+  return (
+    <FormDialog
+      open={!!importacao}
+      onOpenChange={(aberto) => !aberto && onClose()}
+      title="Desfazer importação"
+      description={importacao?.nome_arquivo ?? ""}
+    >
+      <div className="space-y-3 text-sm">
+        <p className="text-muted-foreground">
+          Esta ação vai reverter os efeitos criados por esta importação. Compras vindas de nota
+          fiscal, compras compartilhadas com outra importação e histórico bancário confirmado são
+          preservados.
+        </p>
+
+        {isLoading ? (
+          <p className="text-muted-foreground">Calculando o impacto...</p>
+        ) : (
+          <>
+            <ul className="divide-y divide-border rounded-2xl border border-border">
+              {linhas.map((l) => (
+                <li key={l.label} className="flex items-center justify-between gap-3 px-4 py-2">
+                  <span className="text-muted-foreground">{l.label}</span>
+                  <span className="font-bold">{l.valor}</span>
+                </li>
+              ))}
+            </ul>
+
+            {bloqueios.length > 0 && (
+              <div className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3">
+                <p className="font-semibold text-destructive">
+                  Alguns itens possuem histórico posterior e precisarão de revisão manual.
+                </p>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {bloqueios.slice(0, 6).map((b) => (
+                    <li key={b.purchase_id}>
+                      {b.estabelecimento} · {formatCurrency(Number(b.valor) || 0)} —{" "}
+                      {b.motivos.join("; ")}
+                    </li>
+                  ))}
+                  {bloqueios.length > 6 && <li>e mais {bloqueios.length - 6}...</li>}
+                </ul>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Ao continuar, esses registros permanecem intactos e apenas o restante é revertido.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <button
+            type="button"
+            className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground"
+            onClick={onClose}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            disabled={desfazer.isPending || isLoading || !importacao}
+            className="rounded-full bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground disabled:opacity-60"
+            onClick={() =>
+              desfazer.mutate(
+                { id: importacao!.id, aceitarPendencias: bloqueios.length > 0 },
+                {
+                  onSuccess: (r) => {
+                    toast.success(
+                      r.resultado === "ALREADY_UNDONE"
+                        ? "Esta importação já estava desfeita."
+                        : `Importação desfeita: ${r.compras_removidas ?? 0} compra(s) removida(s), ${
+                            r.compras_preservadas ?? 0
+                          } preservada(s).`,
+                    );
+                    onClose();
+                  },
+                  onError: (e: Error) => toast.error(e.message),
+                },
+              )
+            }
+          >
+            {desfazer.isPending
+              ? "Desfazendo..."
+              : bloqueios.length > 0
+                ? "Entendi, desfazer mesmo assim"
+                : "Desfazer importação"}
+          </button>
+        </div>
+      </div>
+    </FormDialog>
+  );
+}
+
 
 /** Diálogo de exclusão, reutilizando as regras seguras já existentes. */
 export function DeleteStatementImportDialog({
