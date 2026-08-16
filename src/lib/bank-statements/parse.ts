@@ -380,6 +380,63 @@ export async function runBankStatementParserPipeline(file: Blob): Promise<BankPa
   return { detection, parser, parsed };
 }
 
+/**
+ * Execução OBSERVÁVEL do parser (uso do diagnóstico).
+ * Mesmo pipeline puro acima, porém nenhuma falha é convertida em `null` mudo:
+ * exceção, retorno inválido e etapas internas viram dado inspecionável.
+ */
+export async function runObservableBankStatementParser(file: Blob): Promise<BankParserExecution> {
+  const errors: ParserExecutionError[] = [];
+  let pages: Awaited<ReturnType<typeof extractPdfPageLayouts>> = [];
+  try {
+    pages = await extractPdfPageLayouts(file);
+  } catch (e) {
+    errors.push(describeParserError(e, "PDF_TEXT_EXTRACTION"));
+  }
+
+  const itens = pages.flatMap((p) => p.items.map((i) => i.text));
+  const linhas = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
+  const textos = [...linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean), ...itens];
+  const detection = detectBankStatement(textos);
+  const parser = selectBankStatementParser(detection.bank);
+  const requestedBank = parser.requestedBank ?? "GENERICO";
+
+  const textoPlano = semAcentoUpper(textos.join("\n"));
+  const input: BankParserExecutionInput = {
+    parserName: parser.name,
+    bank: detection.bank,
+    rawItemsCount: pages.reduce((a, p) => a + p.items.filter((i) => i.text.trim()).length, 0),
+    visualRowsCount: linhas.length,
+    rawTextLength: textoPlano.length,
+    hasPeriodHeader: /PERIODO\s*:?/.test(textoPlano),
+    hasOpeningBalanceRow: textoPlano.includes("SALDO ANTERIOR"),
+    hasDailyBalanceRows: textoPlano.includes("SALDO DO DIA"),
+    hasClosingBalanceRow: /S\s?A\s?L\s?D\s?O\b|SALDO FINAL|SALDO ATUAL/.test(textoPlano),
+  };
+
+  if (errors.length) return { detection, parser, parsed: null, input, internalStages: [], errors };
+
+  let parsed: ParsedBankStatement | null = null;
+  try {
+    const saida =
+      requestedBank === "BANCO_DO_BRASIL"
+        ? parseBancoDoBrasilLines(linhas)
+        : requestedBank === "ITAU"
+          ? parseItauBankStatementLayouts(pages)
+          : parseBankStatementLines(linhas);
+    const declarado = erroDeclarado(saida);
+    if (declarado)
+      errors.push({ stage: "PARSER_EXECUTION", name: "ParserReturnedFailure", message: declarado });
+    else parsed = saida;
+  } catch (e) {
+    errors.push(describeParserError(e, "PARSER_EXECUTION"));
+  }
+
+  const internalStages = parsed ? inspectParsedStatement(parsed) : [];
+  return { detection, parser, parsed, input, internalStages, errors };
+}
+
+
 /** Lê um extrato em PDF. Usada tanto no fluxo real quanto no dry run. */
 export async function readBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
   return (await runBankStatementParserPipeline(file)).parsed;
