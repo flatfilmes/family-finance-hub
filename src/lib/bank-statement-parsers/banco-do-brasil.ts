@@ -278,13 +278,17 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const { data, resto } = comData ? lerData(raw, anoBase) : { data: null, resto: raw };
     if (data) ultimaData = data;
 
-    const descricao = resto
+    const descricaoNaLinha = resto
       .replace(lido.bruto, " ")
       .replace(VALOR_COM_SINAL, " ")
       .replace(SINAL_ANTES_DO_VALOR, " ")
       .replace(/\(\s*[+-]\s*\)/g, " ")
       .replace(/\s+/g, " ")
       .trim();
+    // Histórico em duas linhas: data+valor identificam a movimentação, o texto
+    // vem das linhas vizinhas da coluna "Histórico".
+    const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
+
 
 
 
