@@ -253,32 +253,35 @@ export function BankStatementDialog({
               setLinhas([]);
               setDuplicado(false);
               setFingerprint(null);
-              if (f) ler.mutate(f);
+              if (f && modo === "IMAGEM") ler.mutate(f);
             }}
           />
         </label>
 
         {modo === "PDF" && arquivo && (
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border p-3">
-            <span className="text-xs text-muted-foreground">
+          <div className="space-y-2 rounded-2xl border border-border p-3">
+            <p className="text-xs text-muted-foreground">
               Arquivo selecionado: <strong className="text-foreground">{arquivo.name}</strong>
-            </span>
-            <PdfDiagnosticButton
-              source="BANK_STATEMENT"
-              file={arquivo}
-              parserDryRun={bankStatementDryRun}
-              className="ml-auto"
-            />
-            <button
-              type="button"
-              onClick={() => ler.mutate(arquivo)}
-              disabled={ler.isPending}
-              className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-60"
-            >
-              {ler.isPending ? "Processando…" : "Processar extrato"}
-            </button>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <PdfDiagnosticButton
+                source="BANK_STATEMENT"
+                file={arquivo}
+                parserDryRun={bankStatementDryRun}
+              />
+              <button
+                type="button"
+                onClick={() => ler.mutate(arquivo)}
+                disabled={ler.isPending}
+                className="ml-auto rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                {ler.isPending ? "Processando…" : "Revisar extrato"}
+              </button>
+            </div>
+            <DiagnosticoHint />
           </div>
         )}
+
 
         {ler.isPending && <p className="text-sm text-muted-foreground">Lendo o documento...</p>}
 
