@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { Merge } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -9,10 +11,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { MergePurchaseDialog } from "@/components/purchase-merge";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 import {
   deletePurchase,
+  escolherPrincipal,
   inspectPurchaseDeletion,
   type Purchase,
 } from "@/lib/purchases";
@@ -58,6 +63,28 @@ export function DeletePurchaseDialog({ purchase, onClose, onDeleted }: Props) {
 
   const bloqueada = !!relatorio && !relatorio.pode_excluir;
   const parcelada = (relatorio?.parcelas ?? 0) > 0;
+  const [mesclando, setMesclando] = useState(false);
+
+  if (mesclando && relatorio?.duplicada_de) {
+    // A compra com mais produtos e maior valor (a da nota fiscal) é a principal.
+    const { principal, duplicada } = escolherPrincipal(
+      { id: purchase.id, valor_total: Number(purchase.valor_total), itens: relatorio.itens },
+      {
+        id: relatorio.duplicada_de.id,
+        valor_total: Number(relatorio.duplicada_de.valor_total),
+        itens: 0,
+      },
+    );
+    return (
+      <MergePurchaseDialog
+        principalId={principal.id}
+        duplicadaId={duplicada.id}
+        onClose={onClose}
+        {...(onDeleted ? { onMerged: onDeleted } : {})}
+      />
+    );
+  }
+
 
   return (
     <AlertDialog open onOpenChange={(o) => !o && onClose()}>
@@ -113,8 +140,18 @@ export function DeletePurchaseDialog({ purchase, onClose, onDeleted }: Props) {
                 {formatCurrency(Number(relatorio.duplicada_de.valor_total))}
               </p>
               <p className="text-xs text-muted-foreground">
-                {formatDate(relatorio.duplicada_de.data_compra)} · mantenha apenas uma delas.
+                {formatDate(relatorio.duplicada_de.data_compra)} · nota fiscal e fatura do cartão
+                são o mesmo evento: prefira mesclar para não perder produtos nem parcelamento.
               </p>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                className="mt-3 rounded-full"
+                onClick={() => setMesclando(true)}
+              >
+                <Merge className="mr-1.5 size-4" /> Mesclar compras
+              </Button>
             </div>
           )}
 
