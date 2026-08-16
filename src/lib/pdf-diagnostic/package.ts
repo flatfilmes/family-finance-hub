@@ -126,7 +126,14 @@ export function buildDiagnosticPackage(input: {
 
   // Uma execução ausente NUNCA é silenciosa: vira erro explícito no pacote.
   const parserExecutionInputFallback: DiagnosticPackage["parserExecutionInput"] = input.parser
-    ? null
+    ? {
+        parserName: parserInfo.name,
+        bank,
+        rawItemsCount: bankDetectionInput.rawItemsCount,
+        visualRowsCount: bankDetectionInput.visualRowsCount,
+        rawTextLength: bankDetectionInput.rawTextLength,
+        executed: true,
+      }
     : {
         parserName: parserInfo.name,
         bank,
