@@ -17,6 +17,7 @@ import { useCreditCards } from "@/hooks/useFinanceData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useExpenseCategories } from "@/hooks/useExpenses";
+import { monthKeyLabel } from "@/lib/card-invoices";
 import {
   useProducts,
   usePurchaseInstallmentsByPurchases,
