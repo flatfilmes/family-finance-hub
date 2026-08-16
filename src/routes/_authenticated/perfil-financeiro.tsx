@@ -69,7 +69,7 @@ function PerfilFinanceiro() {
           title="Perfil Financeiro"
           subtitle="Antes de preencher o perfil financeiro, crie sua família."
         />
-        <Link to="/minha-familia" className="text-sm font-semibold text-primary">
+        <Link to="/configuracoes" className="text-sm font-semibold text-primary">
           Criar minha família →
         </Link>
       </div>

@@ -149,7 +149,7 @@ export function NoFamily() {
         subtitle="Os dados financeiros pertencem a uma família. Crie a sua para começar."
       />
       <Card>
-        <Link to="/minha-familia" className="text-sm font-semibold text-primary">
+        <Link to="/configuracoes" className="text-sm font-semibold text-primary">
           Ir para Minha Família
         </Link>
       </Card>
