@@ -141,7 +141,9 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
   const movimentos: ParsedBankMovement[] = [];
   const futuros: ParsedBankMovement[] = [];
   const aceitos: ParsedBankStatement["aceitos"] = [];
+  const checkpoints: NonNullable<ParsedBankStatement["checkpoints"]> = [];
   const rejeitados: ParsedBankStatement["rejeitados"] = [];
+
 
   let secao: Secao = "MOVIMENTOS";
   let ultimaData: string | null = null;
