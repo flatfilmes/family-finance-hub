@@ -121,14 +121,17 @@ function CartaoDetalhePage() {
   const rolar = (dir: -1 | 1) =>
     reguaRef.current?.scrollBy({ left: dir * 480, behavior: "smooth" });
 
-
   if (!family) return <NoFamily />;
 
   const cartao = cartaoSelecionado;
   if (!cartao) {
     return (
       <div>
-        <DetailHeader backTo="/cartoes" backLabel="Voltar para Cartões" title="Cartão não encontrado" />
+        <DetailHeader
+          backTo="/cartoes"
+          backLabel="Voltar para Cartões"
+          title="Cartão não encontrado"
+        />
         <Card>
           <p className="text-sm text-muted-foreground">
             Este cartão não existe ou não está disponível para o seu perfil.
@@ -216,7 +219,6 @@ function CartaoDetalhePage() {
   // Composição de um ciclo projetado: parcelas já conhecidas + recorrências previstas.
   const parcelasDoCiclo = composicaoCiclo.installments;
   const recorrenciasProjetadas = composicaoCiclo.recurringOccurrences;
-
 
   async function confirmarPagamento() {
     setErro("");
@@ -419,7 +421,6 @@ function CartaoDetalhePage() {
             </span>
           </div>
 
-
           {/* Bloco principal: tudo do ciclo selecionado em um único resumo. */}
           <Card className="mt-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -442,7 +443,6 @@ function CartaoDetalhePage() {
                           : " · valor calculado pelo sistema"}
                   </p>
                 )}
-
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {estadoSelecionado && (
@@ -694,7 +694,9 @@ function CartaoDetalhePage() {
                     <li key={l.id} className="flex items-start justify-between gap-3 py-2.5">
                       <span className="min-w-0">
                         <span className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-sm font-semibold">{l.estabelecimento}</span>
+                          <span className="truncate text-sm font-semibold">
+                            {l.estabelecimento}
+                          </span>
                           {l.kind === "recorrentes" && (
                             <StatusBadge tone="ok">Recorrente</StatusBadge>
                           )}
@@ -733,11 +735,11 @@ function CartaoDetalhePage() {
           </span>
         </summary>
         <div className="mt-2">
-      <CardStatementImports
-        familyId={family.id}
-        cardId={cartao.id}
-        onImportar={() => setImportando(true)}
-      />
+          <CardStatementImports
+            familyId={family.id}
+            cardId={cartao.id}
+            onImportar={() => setImportando(true)}
+          />
         </div>
       </details>
     </div>

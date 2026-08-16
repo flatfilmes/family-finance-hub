@@ -47,7 +47,11 @@ function ProjecaoCartaoPage() {
   if (!cartao) {
     return (
       <div>
-        <DetailHeader backTo="/cartoes" backLabel="Voltar para Cartões" title="Cartão não encontrado" />
+        <DetailHeader
+          backTo="/cartoes"
+          backLabel="Voltar para Cartões"
+          title="Cartão não encontrado"
+        />
         <Card>
           <p className="text-sm text-muted-foreground">
             Este cartão não existe ou não está disponível para o seu perfil.
@@ -122,100 +126,108 @@ function ProjecaoCartaoPage() {
       </Card>
 
       <div id="parcelamentos">
-      <Card className="mt-4">
-        <SectionTitle
-          title="Parcelamentos ativos"
-          hint={`${parcelamentos.length} em andamento · ${formatCurrency(restanteParcelas)} comprometido`}
-        />
-        {parcelamentos.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {parcelamentos.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                <span className="min-w-0">
-                  <span className="block truncate text-sm font-semibold">{p.descricao}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
-                    {p.proximaCobranca && p.proximaParcela
-                      ? ` · próxima parcela ${p.proximaParcela}/${p.total} na fatura de ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
-                      : " · última parcela já faturada"}
+        <Card className="mt-4">
+          <SectionTitle
+            title="Parcelamentos ativos"
+            hint={`${parcelamentos.length} em andamento · ${formatCurrency(restanteParcelas)} comprometido`}
+          />
+          {parcelamentos.length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {parcelamentos.map((p) => (
+                <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold">{p.descricao}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
+                      {p.proximaCobranca && p.proximaParcela
+                        ? ` · próxima parcela ${p.proximaParcela}/${p.total} na fatura de ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
+                        : " · última parcela já faturada"}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
+                    </span>
                   </span>
-                  <span className="block text-xs text-muted-foreground">
-                    {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
+                  <span className="text-right">
+                    <span className="block text-sm font-bold">{formatCurrency(p.restante)}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      restante comprometido
+                    </span>
                   </span>
-                </span>
-                <span className="text-right">
-                  <span className="block text-sm font-bold">{formatCurrency(p.restante)}</span>
-                  <span className="block text-[11px] text-muted-foreground">
-                    restante comprometido
-                  </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
       </div>
 
       <div id="recorrencias">
-      <Card className="mt-4">
-        <SectionTitle
-          title="Cobranças recorrentes"
-          hint={`${ativas.length} ativa(s) neste cartão · ${formatCurrency(previstoMes)}/mês`}
-        />
-        {recorrencias.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Nenhuma cobrança recorrente neste cartão.</p>
-        ) : (
-          <ul className="divide-y divide-border">
-            {recorrencias.map((r) => {
-              const previsao = recurringForecast(r, cartao);
-              return (
-                <li key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">{r.nome}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {RECURRENCE_LABELS[r.periodicidade]} ·{" "}
-                      {r.ativo
-                        ? previsao.data
-                          ? `próxima ${formatDate(previsao.data)} · fatura prevista ${monthKeyLabel(previsao.competencia!)}`
-                          : "sem próxima cobrança"
-                        : `cancelada em ${r.data_cancelamento ? formatDate(r.data_cancelamento) : "—"}`}
+        <Card className="mt-4">
+          <SectionTitle
+            title="Cobranças recorrentes"
+            hint={`${ativas.length} ativa(s) neste cartão · ${formatCurrency(previstoMes)}/mês`}
+          />
+          {recorrencias.length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma cobrança recorrente neste cartão.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border">
+              {recorrencias.map((r) => {
+                const previsao = recurringForecast(r, cartao);
+                return (
+                  <li
+                    key={r.id}
+                    className="flex flex-wrap items-center justify-between gap-3 py-2.5"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{r.nome}</span>
+                      <span className="block text-xs text-muted-foreground">
+                        {RECURRENCE_LABELS[r.periodicidade]} ·{" "}
+                        {r.ativo
+                          ? previsao.data
+                            ? `próxima ${formatDate(previsao.data)} · fatura prevista ${monthKeyLabel(previsao.competencia!)}`
+                            : "sem próxima cobrança"
+                          : `cancelada em ${r.data_cancelamento ? formatDate(r.data_cancelamento) : "—"}`}
+                      </span>
                     </span>
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <Badge tone={r.ativo ? "ok" : "muted"}>{r.ativo ? "Ativo" : "Cancelado"}</Badge>
-                    <span className="text-sm font-bold">
-                      {formatCurrency(Number(r.valor) || 0)}
+                    <span className="flex items-center gap-2">
+                      <Badge tone={r.ativo ? "ok" : "muted"}>
+                        {r.ativo ? "Ativo" : "Cancelado"}
+                      </Badge>
+                      <span className="text-sm font-bold">
+                        {formatCurrency(Number(r.valor) || 0)}
+                      </span>
+                      {podeEditar &&
+                        (r.ativo ? (
+                          <button
+                            type="button"
+                            onClick={() => void recorrenciaActions.cancel.mutateAsync(r.id)}
+                            className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                          >
+                            Cancelar
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void recorrenciaActions.reactivate.mutateAsync(r.id)}
+                            className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                          >
+                            Reativar
+                          </button>
+                        ))}
                     </span>
-                    {podeEditar &&
-                      (r.ativo ? (
-                        <button
-                          type="button"
-                          onClick={() => void recorrenciaActions.cancel.mutateAsync(r.id)}
-                          className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                        >
-                          Cancelar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => void recorrenciaActions.reactivate.mutateAsync(r.id)}
-                          className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                        >
-                          Reativar
-                        </button>
-                      ))}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <p className="mt-3 text-[11px] text-muted-foreground">
-          Cancelar mantém todo o histórico já lançado e apenas interrompe as próximas competências.
-        </p>
-      </Card>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            Cancelar mantém todo o histórico já lançado e apenas interrompe as próximas
+            competências.
+          </p>
+        </Card>
       </div>
     </div>
   );
