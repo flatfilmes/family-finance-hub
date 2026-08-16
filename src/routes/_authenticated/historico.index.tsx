@@ -111,7 +111,7 @@ function HistoricoPage() {
                 key={s.id}
                 to="/historico/$ano/$mes"
                 params={{ ano: String(s.ano), mes: String(s.mes) }}
-                search={{ membro: escopo || undefined }}
+                search={{ membro: escopo }}
                 className="rounded-3xl border border-border bg-card p-6 shadow-card transition hover:border-primary/40"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">

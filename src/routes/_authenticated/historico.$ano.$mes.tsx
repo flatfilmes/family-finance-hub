@@ -24,11 +24,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-type Search = { membro?: string };
+type Search = { membro: string };
 
 export const Route = createFileRoute("/_authenticated/historico/$ano/$mes")({
   validateSearch: (search: Record<string, unknown>): Search => ({
-    membro: typeof search.membro === "string" ? search.membro : undefined,
+    membro: typeof search["membro"] === "string" ? (search["membro"] as string) : "",
   }),
   head: () => ({
     meta: [
@@ -59,7 +59,7 @@ function DetalheMes() {
   const [motivo, setMotivo] = useState("");
 
   const competencia = { ano: Number(ano), mes: Number(mes) };
-  const escopo = perms.isAdmin ? (search.membro ?? "") : perms.myMemberId;
+  const escopo = perms.isAdmin ? search.membro : perms.myMemberId;
 
   const lista = snapshots.data ?? [];
   const snapshot =
@@ -102,7 +102,7 @@ function DetalheMes() {
               navigate({
                 to: "/historico/$ano/$mes",
                 params: { ano, mes },
-                search: { membro: v || undefined },
+                search: { membro: v },
               })
             }
           />
@@ -228,7 +228,7 @@ function DetalheMes() {
                       reopen.mutate({
                         ano: competencia.ano,
                         mes: competencia.mes,
-                        motivo: motivo.trim() || undefined,
+                        motivo: motivo.trim(),
                       })
                     }
                     className="mt-4 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60"

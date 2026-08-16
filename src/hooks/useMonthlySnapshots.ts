@@ -145,7 +145,7 @@ export function useReopenMonth(familyId?: string) {
   const qc = useQueryClient();
   const { user } = useAuth();
   return useMutation({
-    mutationFn: (input: { ano: number; mes: number; motivo?: string }) =>
+    mutationFn: (input: { ano: number; mes: number; motivo?: string | undefined }) =>
       reopenMonth({ familyId: familyId!, userId: user?.id ?? null, ...input }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["monthly-snapshots", familyId] });

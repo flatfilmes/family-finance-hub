@@ -375,7 +375,7 @@ export async function reopenMonth(input: {
   userId: string | null;
   ano: number;
   mes: number;
-  motivo?: string;
+  motivo?: string | undefined;
 }) {
   const { error } = await supabase
     .from("monthly_snapshots")
