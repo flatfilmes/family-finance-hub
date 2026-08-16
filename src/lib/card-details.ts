@@ -45,7 +45,12 @@ export function utilizadoDoCartao(input: {
   return input.utilizadoParcelas + compras;
 }
 
-/** Linhas da fatura: parcelas ligadas à fatura + compras ainda sem parcela gerada. */
+/**
+ * Linhas de um ciclo: parcelas ligadas à fatura (fonte final = card_invoice_id)
+ * + compras do cartão ainda sem parcela gerada, associadas pelo ciclo do cartão.
+ * A data sozinha nunca decide: ela só serve para derivar o ciclo das compras
+ * que ainda não têm entidade de parcela/fatura.
+ */
 export function linhasDaFatura(input: {
   invoice: CardInvoice | null;
   parcelas: ExpenseInstallment[];
@@ -53,6 +58,8 @@ export function linhasDaFatura(input: {
   comprasComParcelas: Set<string>;
   despesaPorId: Map<string, Expense>;
   compraPorId: Map<string, Purchase>;
+  /** Quando informado, restringe as compras sem parcela ao ciclo da fatura. */
+  card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null;
 }): LinhaFatura[] {
   const linhas: LinhaFatura[] = [];
   const doInvoice = input.invoice
@@ -77,12 +84,17 @@ export function linhasDaFatura(input: {
           ? `${parcela.numero_parcela}/${parcela.total_parcelas}`
           : "—",
       valor: Number(parcela.valor_parcela) || 0,
+      purchaseId,
     });
   }
 
   for (const compra of input.comprasDoCartao) {
     if (input.comprasComParcelas.has(compra.id)) continue;
     if (compra.status_pagamento !== "COMPROMETIDO") continue;
+    if (input.card && input.invoice) {
+      const ciclo = cycleForDate(input.card, compra.data_compra);
+      if (ciclo.data_fechamento !== input.invoice.data_fechamento) continue;
+    }
     linhas.push({
       id: compra.id,
       data: compra.data_compra,
@@ -92,11 +104,13 @@ export function linhasDaFatura(input: {
       kind: kindOf(compra.tipo_compra as string),
       parcela: "—",
       valor: Number(compra.valor_total) || 0,
+      purchaseId: compra.id,
     });
   }
 
   return linhas.sort((a, b) => (a.data < b.data ? 1 : -1));
 }
+
 
 /**
  * Próximas faturas do cartão: parcelas futuras já registradas + projeção das
