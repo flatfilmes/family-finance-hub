@@ -1306,6 +1306,7 @@ export type Database = {
           created_by: string | null
           data_recebimento: string | null
           descricao: string
+          dia_recebimento: number | null
           family_id: string
           frequencia: Database["public"]["Enums"]["income_frequency"]
           id: string
@@ -1320,6 +1321,7 @@ export type Database = {
           created_by?: string | null
           data_recebimento?: string | null
           descricao: string
+          dia_recebimento?: number | null
           family_id: string
           frequencia?: Database["public"]["Enums"]["income_frequency"]
           id?: string
@@ -1334,6 +1336,7 @@ export type Database = {
           created_by?: string | null
           data_recebimento?: string | null
           descricao?: string
+          dia_recebimento?: number | null
           family_id?: string
           frequencia?: Database["public"]["Enums"]["income_frequency"]
           id?: string
