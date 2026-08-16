@@ -5,22 +5,31 @@
  *
  *   data | lançamentos | valor (R$) | saldo (R$)
  *
- * Regras próprias do Itaú — NENHUMA regra do Banco do Brasil é reaproveitada
- * (o Itaú não imprime "(+)/(-)"; o sinal vem no próprio número e a coluna
- * "saldo (R$)" é o que distingue checkpoint de lançamento):
+ * IMPORTANTE — por que este parser lê o PDF por conta própria:
+ * `extractPdfLines()` aplica o divisor de DUAS COLUNAS (feito para faturas de
+ * cartão). No extrato de conta o maior vão vertical da página fica entre a
+ * descrição e as colunas numéricas, então aquele divisor separava
+ * "data + descrição" de "valor + saldo" em linhas diferentes e o parser
+ * enxergava ZERO movimentações. Aqui montamos as linhas direto dos itens do
+ * pdf.js, agrupando por Y e classificando cada número pelo X da coluna.
  *
- *  - PERÍODO: vem de "período de visualização: DD/MM/AAAA até DD/MM/AAAA".
- *    Nunca da maior data encontrada no documento;
- *  - SALDO DE ABERTURA: último "SALDO DO DIA" anterior a period_start;
- *  - CHECKPOINT: linha "SALDO DO DIA" com valor na coluna saldo;
- *  - SALDO ATUAL FORA DO PERÍODO: checkpoint com data > period_end não é
- *    histórico do extrato — vira `saldoReferenciaAtual` (metadado);
- *  - TRANSAÇÃO: linha com data + descrição + valor na coluna "valor (R$)"
- *    (sem valor na coluna saldo).
+ * Regras próprias do Itaú — NENHUMA regra do Banco do Brasil é reaproveitada:
+ *  - PERÍODO: só de "período de visualização: DD/MM/AAAA até DD/MM/AAAA";
+ *  - ABERTURA: último "SALDO DO DIA" anterior a period_start;
+ *  - CHECKPOINT: "SALDO DO DIA" dentro do período (coluna saldo);
+ *  - SALDO FORA DO PERÍODO: vira `saldoReferenciaAtual` (metadado), nunca
+ *    checkpoint nem saldo final;
+ *  - TRANSAÇÃO: data + descrição + número na coluna "valor (R$)".
  *
  * Nada aqui persiste nem cria ajuste: divergência é mostrada, nunca corrigida.
  */
-import { extractPdfLines, parseValorBr, type PdfCell, type PdfLine } from "@/lib/pdf-extract";
+import {
+  extractPdfPageLayouts,
+  parseValorBr,
+  type PdfCell,
+  type PdfLine,
+  type PdfPageLayout,
+} from "@/lib/pdf-extract";
 import { normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import type {
   BankMovementKind,
@@ -32,10 +41,13 @@ import type {
 
 export const ITAU_BANK_PARSER_ID = "ITAU_BANK_STATEMENT";
 
-const VALOR_RE = /^-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}$|^-?\s?\d+,\d{2}$/;
+const VALOR_RE = /^-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}-?$|^-?\s?\d+,\d{2}-?$/;
 const DATA_CELULA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?$/;
 const PERIODO_RE =
   /per[ií]odo\s+de\s+visualiza[cç][aã]o[:\s]*([0-3]\d\/[01]\d\/\d{4})\s*(?:at[eé]|a|-)\s*([0-3]\d\/[01]\d\/\d{4})/i;
+
+/** Tolerância de Y para considerar que dois itens estão na MESMA linha visual. */
+const Y_TOLERANCIA_ITAU = 3;
 
 const plano = (t: string) => semAcento(t).toLowerCase().replace(/\s+/g, " ").trim();
 
@@ -56,7 +68,8 @@ function valorDaCelula(texto: string): number | null {
   const limpo = texto.replace(/\s+/g, " ").trim();
   if (!VALOR_RE.test(limpo)) return null;
   const abs = Math.abs(parseValorBr(limpo));
-  return limpo.trim().startsWith("-") ? -abs : abs;
+  const negativo = limpo.startsWith("-") || limpo.endsWith("-");
+  return negativo ? -abs : abs;
 }
 
 /** Linha de controle de saldo do Itaú — nunca é movimentação. */
@@ -95,123 +108,258 @@ export function classificarItau(descricao: string): {
   return { tipo: "OUTRO", semantica: "OTHER" };
 }
 
-/**
- * É um extrato Itaú? Reconhecemos pelo cabeçalho do documento e pela estrutura
- * de colunas "lançamentos / valor (R$) / saldo (R$)".
- */
-export function isItauBankStatement(textos: string[]) {
+// ------------------------------------------------------------------ detecção
+
+/** Sinais textuais do extrato de conta Itaú (o logo pode não existir como texto). */
+const SINAIS_ITAU: { id: string; peso: number; teste: (t: string) => boolean }[] = [
+  { id: "extrato conta / lançamentos", peso: 2, teste: (t) => t.includes("extrato conta") },
+  { id: "período de visualização", peso: 2, teste: (t) => t.includes("periodo de visualizacao") },
+  { id: "colunas valor (R$) / saldo (R$)", peso: 2, teste: (t) => t.includes("valor (r$)") && t.includes("saldo (r$)") },
+  { id: "Limite da Conta", peso: 1, teste: (t) => t.includes("limite da conta") },
+  { id: "FATURA PAGA ITAU", peso: 2, teste: (t) => t.includes("fatura paga itau") },
+  { id: "PIX TRANSF", peso: 1, teste: (t) => t.includes("pix transf") },
+  { id: "REND PAGO APLIC AUT MAIS", peso: 1, teste: (t) => t.includes("rend pago aplic aut") },
+  { id: "marca Itaú / banco 341", peso: 1, teste: (t) => t.includes("itau") || /\bbanco\s*341\b/.test(t) },
+];
+
+export type ItauDetection = {
+  detectedBank: "ITAU" | "UNKNOWN";
+  confidence: number;
+  matchedSignals: string[];
+};
+
+/** Detecção por múltiplos sinais — nunca depende só da palavra "Itaú". */
+export function detectItauBankStatement(textos: string[]): ItauDetection {
   const t = plano(textos.join(" "));
-  const marca =
-    t.includes("itau") || t.includes("itaú") || /\bbanco\s*341\b/.test(t) || t.includes("itau.com");
-  const estrutura =
-    (t.includes("lancamentos") || t.includes("extrato conta")) &&
-    t.includes("saldo (r$)") &&
-    t.includes("valor (r$)");
-  const saldoDoDia = textos.filter((l) => plano(l).includes("saldo do dia")).length >= 2;
-  if (estrutura) return true;
-  return marca && saldoDoDia;
+  const saldoDoDia = textos.filter((l) => plano(l).includes("saldo do dia")).length;
+  const matched = SINAIS_ITAU.filter((s) => s.teste(t));
+  const matchedSignals = matched.map((s) => s.id);
+  let score = matched.reduce((a, s) => a + s.peso, 0);
+  if (saldoDoDia >= 2) {
+    score += 2;
+    matchedSignals.push(`SALDO DO DIA (${saldoDoDia}x)`);
+  }
+  const total = SINAIS_ITAU.reduce((a, s) => a + s.peso, 0) + 2;
+  return {
+    detectedBank: score >= 4 ? "ITAU" : "UNKNOWN",
+    confidence: Number(Math.min(1, score / total).toFixed(2)),
+    matchedSignals,
+  };
 }
 
+/** Compatibilidade: roteamento booleano usado pelo leitor genérico. */
+export function isItauBankStatement(textos: string[]) {
+  return detectItauBankStatement(textos).detectedBank === "ITAU";
+}
+
+// ------------------------------------------------------- colunas e montagem
+
+export type ItauItem = { text: string; x: number; y: number; width: number; page: number };
+
+export type ItauColumns = {
+  valorX: number;
+  saldoX: number;
+  /** X a partir do qual um número é SALDO, não valor. */
+  limite: number;
+  /** X mínimo para um número ser considerado da coluna valor. */
+  valorMinX: number;
+  source: "HEADER" | "CLUSTER" | "PADRAO";
+};
+
+const centro = (i: { x: number; width?: number }) => i.x + Math.max(0, i.width ?? 0) / 2;
+
 /**
- * Descobre o X das colunas "valor (R$)" e "saldo (R$)" pelo cabeçalho impresso.
- * Sem cabeçalho, usa o agrupamento dos números à direita: a coluna mais à
- * direita é o saldo.
+ * Descobre as colunas "valor (R$)" e "saldo (R$)": primeiro pelo cabeçalho
+ * impresso, depois pelos dois agrupamentos de X dos números da página.
  */
-function detectarColunas(linhas: PdfLine[]): { valorX: number; saldoX: number } | null {
-  for (const linha of linhas) {
-    const cabecalho = plano(linha.text);
-    if (!cabecalho.includes("saldo")) continue;
-    const valorCell = linha.cells.find((c) => plano(c.text).startsWith("valor"));
-    const saldoCell = linha.cells.find((c) => plano(c.text).startsWith("saldo"));
-    if (valorCell && saldoCell && saldoCell.x > valorCell.x) {
-      return { valorX: valorCell.x, saldoX: saldoCell.x };
+export function detectarColunasItau(itens: ItauItem[], pageWidth = 595): ItauColumns | null {
+  const valorHeader = itens.find((i) => plano(i.text).startsWith("valor"));
+  const saldoHeader = itens.find(
+    (i) =>
+      plano(i.text).startsWith("saldo (") ||
+      (plano(i.text).startsWith("saldo") &&
+        !!valorHeader &&
+        Math.abs(i.y - valorHeader.y) <= Y_TOLERANCIA_ITAU &&
+        i.x > valorHeader.x),
+  );
+  if (valorHeader && saldoHeader && saldoHeader.x > valorHeader.x) {
+    const valorX = centro(valorHeader);
+    const saldoX = centro(saldoHeader);
+    return {
+      valorX,
+      saldoX,
+      limite: (valorX + saldoX) / 2,
+      valorMinX: valorX - (saldoX - valorX),
+      source: "HEADER",
+    };
+  }
+
+  const numeros = itens.filter((i) => valorDaCelula(i.text) !== null).map(centro).sort((a, b) => a - b);
+  if (numeros.length >= 4) {
+    let corte = -1;
+    let maiorGap = 0;
+    for (let i = 0; i < numeros.length - 1; i++) {
+      const gap = (numeros[i + 1] as number) - (numeros[i] as number);
+      if (gap > maiorGap && gap >= 25) {
+        maiorGap = gap;
+        corte = i;
+      }
+    }
+    if (corte >= 0) {
+      const esquerda = numeros.slice(0, corte + 1);
+      const direita = numeros.slice(corte + 1);
+      const media = (xs: number[]) => xs.reduce((a, x) => a + x, 0) / xs.length;
+      const valorX = media(esquerda);
+      const saldoX = media(direita);
+      return {
+        valorX,
+        saldoX,
+        limite: (numeros[corte] as number) + maiorGap / 2,
+        valorMinX: valorX - (saldoX - valorX) * 1.5,
+        source: "CLUSTER",
+      };
     }
   }
 
-  const xs = linhas
-    .flatMap((l) => l.cells)
-    .filter((c) => valorDaCelula(c.text) !== null)
-    .map((c) => c.x)
-    .sort((a, b) => a - b);
-  if (xs.length < 2) return null;
-  const maiorX = xs[xs.length - 1]!;
-  const anteriores = xs.filter((x) => maiorX - x > 20);
-  if (!anteriores.length) return null;
-  return { valorX: anteriores[anteriores.length - 1]!, saldoX: maiorX };
+  if (!pageWidth) return null;
+  const valorX = pageWidth * 0.72;
+  const saldoX = pageWidth * 0.9;
+  return { valorX, saldoX, limite: (valorX + saldoX) / 2, valorMinX: pageWidth * 0.5, source: "PADRAO" };
 }
 
-type LinhaLida = {
-  data: string | null;
-  descricao: string;
-  valor: number | null;
-  saldo: number | null;
+/** Linha do extrato já resolvida em colunas. */
+export type ItauRow = {
+  page: number;
+  y: number;
+  date: string | null;
+  description: string;
+  amount: number | null;
+  balance: number | null;
   raw: string;
-  page: number | null;
 };
 
-/** Separa cada linha nas quatro colunas do extrato Itaú. */
-function lerLinha(
-  linha: PdfLine,
-  colunas: { valorX: number; saldoX: number } | null,
+function montarRow(
+  cells: PdfCell[],
+  page: number,
+  y: number,
+  colunas: ItauColumns | null,
   anoBase: number,
-): LinhaLida {
-  const raw = linha.text.replace(/\s+/g, " ").trim();
-  const cells: PdfCell[] = linha.cells.length ? linha.cells : [{ x: 0, text: raw }];
-  const meioValorSaldo = colunas ? (colunas.valorX + colunas.saldoX) / 2 : Number.POSITIVE_INFINITY;
+): ItauRow {
+  const ordenadas = [...cells].sort((a, b) => a.x - b.x).filter((c) => c.text.trim());
+  const raw = ordenadas.map((c) => c.text.trim()).join(" ").replace(/\s+/g, " ").trim();
 
-  let data: string | null = null;
-  let valor: number | null = null;
-  let saldo: number | null = null;
+  let date: string | null = null;
+  let amount: number | null = null;
+  let balance: number | null = null;
   const descricao: string[] = [];
 
-  for (const cell of cells) {
+  for (const cell of ordenadas) {
     const texto = cell.text.replace(/\s+/g, " ").trim();
     if (!texto) continue;
+
     const numero = valorDaCelula(texto);
     if (numero !== null) {
-      if (cell.x >= meioValorSaldo) saldo = numero;
-      else valor = numero;
+      const x = centro(cell);
+      if (!colunas) {
+        // Sem geometria confiável: o número mais à direita é o saldo.
+        if (amount === null) amount = numero;
+        else balance = numero;
+        continue;
+      }
+      if (x >= colunas.limite) balance = numero;
+      else if (x >= colunas.valorMinX) amount = numero;
+      else descricao.push(texto);
       continue;
     }
+
     const iso = isoCelula(texto, anoBase);
-    if (iso && data === null && descricao.length === 0) {
-      data = iso;
+    if (iso && date === null && descricao.length === 0) {
+      date = iso;
       continue;
     }
     descricao.push(texto);
   }
 
-  // Sem cabeçalho de colunas: dois números na linha = valor + saldo.
-  if (!colunas) {
-    const numeros = cells
-      .map((c) => valorDaCelula(c.text.trim()))
-      .filter((n): n is number => n !== null);
-    if (numeros.length >= 2) {
-      valor = numeros[numeros.length - 2]!;
-      saldo = numeros[numeros.length - 1]!;
-    }
-  }
-
   return {
-    data,
-    descricao: descricao.join(" ").replace(/\s+/g, " ").trim(),
-    valor,
-    saldo,
+    page,
+    y,
+    date,
+    description: descricao.join(" ").replace(/\s+/g, " ").trim(),
+    amount,
+    balance,
     raw,
-    page: linha.page ?? null,
   };
 }
 
-/** Interpreta as linhas já reconstruídas do PDF do Itaú. */
-export function parseItauBankStatementLines(linhas: PdfLine[]): ParsedBankStatement {
-  const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const colunas = detectarColunas(linhas);
+/**
+ * Monta as linhas do extrato agrupando os itens do pdf.js pela coordenada Y.
+ * Nunca usa o divisor de duas colunas — no extrato ele quebra a tabela.
+ */
+export function assembleItauRows(
+  itens: ItauItem[],
+  colunas: ItauColumns | null,
+  anoBase: number,
+): ItauRow[] {
+  const ordenados = [...itens]
+    .filter((i) => i.text.trim())
+    .sort((a, b) => (a.page - b.page) || b.y - a.y || a.x - b.x);
 
+  const rows: ItauRow[] = [];
+  let bucket: ItauItem[] = [];
+  let refY: number | null = null;
+  let refPage: number | null = null;
+
+  const fechar = () => {
+    if (!bucket.length) return;
+    const page = bucket[0]!.page;
+    const y = bucket[0]!.y;
+    const cells: PdfCell[] = bucket.map((i) => ({ x: i.x, width: i.width, text: i.text }));
+    const row = montarRow(cells, page, y, colunas, anoBase);
+    if (row.raw) rows.push(row);
+    bucket = [];
+  };
+
+  for (const item of ordenados) {
+    if (refPage !== item.page || refY === null || Math.abs(refY - item.y) > Y_TOLERANCIA_ITAU) {
+      fechar();
+      refPage = item.page;
+      refY = item.y;
+    }
+    bucket.push(item);
+  }
+  fechar();
+  return rows;
+}
+
+// -------------------------------------------------------------- diagnóstico
+
+export type ItauPipelineDiagnostics = {
+  detection: ItauDetection;
+  period: { periodStart: string | null; periodEnd: string | null };
+  columns: ItauColumns | null;
+  rawItems: number;
+  assembledRows: number;
+  parsedTransactions: number;
+  parsedCheckpoints: number;
+  openingBalance: { amount: number | null; date: string | null };
+  referenceBalance: { amount: number | null; date: string | null };
+  validation: { status: "PASS" | "FAIL"; errors: string[] };
+  rows: ItauRow[];
+};
+
+// ------------------------------------------------------------------- parser
+
+function interpretar(
+  rows: ItauRow[],
+  textos: string[],
+  colunas: ItauColumns | null,
+  rawItems: number,
+  detection: ItauDetection,
+): ParsedBankStatement & { pipeline: ItauPipelineDiagnostics } {
   // 1. PERÍODO — sempre declarado pelo documento.
   const periodoTexto = textos.map((t) => t.match(PERIODO_RE)).find(Boolean);
   const periodoInicio = periodoTexto?.[1] ? isoBr(periodoTexto[1]) : null;
   const periodoFim = periodoTexto?.[2] ? isoBr(periodoTexto[2]) : null;
-  const anoBase = periodoInicio ? Number(periodoInicio.slice(0, 4)) : new Date().getFullYear();
 
   const movimentos: ParsedBankMovement[] = [];
   const aceitos: ParsedBankStatement["aceitos"] = [];
@@ -220,87 +368,65 @@ export function parseItauBankStatementLines(linhas: PdfLine[]): ParsedBankStatem
 
   let ultimaData: string | null = null;
 
-  for (const linha of linhas) {
-    const lida = lerLinha(linha, colunas, anoBase);
-    if (!lida.raw) continue;
-    if (lida.data) ultimaData = lida.data;
-    const data = lida.data ?? ultimaData;
+  for (const row of rows) {
+    if (row.date) ultimaData = row.date;
+    const data = row.date ?? ultimaData;
 
-    // 2. CHECKPOINT: "SALDO DO DIA" com valor na coluna saldo. Nunca transação.
-    if (ehLinhaDeSaldo(lida.descricao)) {
-      const saldo = lida.saldo ?? lida.valor;
-      if (data && saldo !== null) {
-        saldosLidos.push({ data, saldo, rotulo: lida.descricao });
-      }
+    // 2. CHECKPOINT: "SALDO DO DIA" — nunca vira transação.
+    if (ehLinhaDeSaldo(row.description)) {
+      const saldo = row.balance ?? row.amount;
+      if (data && saldo !== null) saldosLidos.push({ data, saldo, rotulo: row.description });
       rejeitados.push({
-        raw: lida.raw,
+        raw: row.raw,
         valor: saldo,
-        page: lida.page,
+        page: row.page,
         reason: "BALANCE_CHECKPOINT — saldo do dia, não é movimentação",
       });
       continue;
     }
 
-    if (lida.valor === null || lida.valor === 0) {
+    if (row.amount === null || row.amount === 0) {
       rejeitados.push({
-        raw: lida.raw,
-        valor: lida.valor,
-        page: lida.page,
-        reason: lida.saldo !== null ? "somente coluna de saldo" : "sem valor de lançamento",
+        raw: row.raw,
+        valor: row.amount,
+        page: row.page,
+        reason: row.balance !== null ? "somente coluna de saldo" : "sem valor de lançamento",
       });
       continue;
     }
-
-    if (!lida.descricao || lida.descricao.length < 3) {
-      rejeitados.push({
-        raw: lida.raw,
-        valor: lida.valor,
-        page: lida.page,
-        reason: "sem descrição reconhecível",
-      });
+    if (!row.description || row.description.length < 3) {
+      rejeitados.push({ raw: row.raw, valor: row.amount, page: row.page, reason: "sem descrição reconhecível" });
       continue;
     }
-
     if (!data) {
-      rejeitados.push({
-        raw: lida.raw,
-        valor: lida.valor,
-        page: lida.page,
-        reason: "sem data contábil",
-      });
+      rejeitados.push({ raw: row.raw, valor: row.amount, page: row.page, reason: "sem data contábil" });
       continue;
     }
 
-    const { tipo, semantica } = classificarItau(lida.descricao);
+    const { tipo, semantica } = classificarItau(row.description);
     movimentos.push({
       data,
-      descricaoOriginal: lida.descricao,
-      descricaoNormalizada: normalizeDescricao(lida.descricao),
-      valor: lida.valor,
-      tipo: tipo === "OUTRO" ? (lida.valor >= 0 ? "ENTRADA" : "SAIDA") : tipo,
+      descricaoOriginal: row.description,
+      descricaoNormalizada: normalizeDescricao(row.description),
+      valor: row.amount,
+      tipo: tipo === "OUTRO" ? (row.amount >= 0 ? "ENTRADA" : "SAIDA") : tipo,
       semantica,
     });
-    aceitos.push({ raw: lida.raw, valor: lida.valor, page: lida.page });
+    aceitos.push({ raw: row.raw, valor: row.amount, page: row.page });
   }
 
   const ordenados = [...saldosLidos].sort((a, b) => a.data.localeCompare(b.data));
 
-  // 3/4. Abertura = último saldo anterior ao período; saldo fora do período =
-  // referência do documento (saldo atual), nunca checkpoint histórico.
+  // 3/4. Abertura = último saldo anterior ao período; saldo posterior ao
+  // período é referência do documento (saldo atual), nunca checkpoint.
   const anteriores = periodoInicio ? ordenados.filter((c) => c.data < periodoInicio) : [];
   const posteriores = periodoFim ? ordenados.filter((c) => c.data > periodoFim) : [];
   const doPeriodo = ordenados.filter(
-    (c) =>
-      (!periodoInicio || c.data >= periodoInicio) && (!periodoFim || c.data <= periodoFim),
+    (c) => (!periodoInicio || c.data >= periodoInicio) && (!periodoFim || c.data <= periodoFim),
   );
 
-  const saldoInicial = anteriores.length ? anteriores[anteriores.length - 1]!.saldo : null;
-  const saldoReferenciaAtual = posteriores.length
-    ? {
-        data: posteriores[posteriores.length - 1]!.data,
-        saldo: posteriores[posteriores.length - 1]!.saldo,
-      }
-    : null;
+  const abertura = anteriores.length ? anteriores[anteriores.length - 1]! : null;
+  const referencia = posteriores.length ? posteriores[posteriores.length - 1]! : null;
 
   // Um checkpoint por dia: o último saldo impresso do dia é o que vale.
   const checkpoints = [...new Map(doPeriodo.map((c) => [c.data, c])).values()].sort((a, b) =>
@@ -312,8 +438,7 @@ export function parseItauBankStatementLines(linhas: PdfLine[]): ParsedBankStatem
     !!d && (!periodoInicio || d >= periodoInicio) && (!periodoFim || d <= periodoFim);
 
   const realizados = movimentos.filter((m) => dentroDoPeriodo(m.data));
-  const foraDoPeriodo = movimentos.filter((m) => !dentroDoPeriodo(m.data));
-  for (const m of foraDoPeriodo) {
+  for (const m of movimentos.filter((m) => !dentroDoPeriodo(m.data))) {
     rejeitados.push({
       raw: m.descricaoOriginal,
       valor: m.valor,
@@ -330,15 +455,43 @@ export function parseItauBankStatementLines(linhas: PdfLine[]): ParsedBankStatem
     return null;
   };
 
+  // 5. Conferência matemática por checkpoint — só diagnostica, não corrige.
+  const erros: string[] = [];
+  if (!periodoInicio || !periodoFim) erros.push("Período de visualização não encontrado.");
+  if (!realizados.length) erros.push("Nenhuma movimentação reconhecida no período.");
+  if (abertura === null) erros.push("Saldo de abertura (saldo do dia anterior ao período) não encontrado.");
+  const round = (n: number) => Number(n.toFixed(2));
+  if (abertura) {
+    for (const c of checkpoints) {
+      const soma = realizados.filter((m) => (m.data ?? "") <= c.data).reduce((a, m) => a + m.valor, 0);
+      const calculado = round(abertura.saldo + soma);
+      if (round(calculado - c.saldo) !== 0)
+        erros.push(`Saldo do dia ${c.data}: documento ${c.saldo} × calculado ${calculado}.`);
+    }
+  }
+
+  const pipeline: ItauPipelineDiagnostics = {
+    detection,
+    period: { periodStart: periodoInicio, periodEnd: periodoFim },
+    columns: colunas,
+    rawItems,
+    assembledRows: rows.length,
+    parsedTransactions: realizados.length,
+    parsedCheckpoints: checkpoints.length,
+    openingBalance: { amount: abertura?.saldo ?? null, date: abertura?.data ?? null },
+    referenceBalance: { amount: referencia?.saldo ?? null, date: referencia?.data ?? null },
+    validation: { status: erros.length ? "FAIL" : "PASS", errors: erros },
+    rows,
+  };
+
   return {
     parser: ITAU_BANK_PARSER_ID,
-    // Identidade temporal: SOMENTE "período de visualização". Sem esse texto o
-    // extrato fica sem período — nunca inferimos a partir dos movimentos.
+    // Identidade temporal: SOMENTE "período de visualização".
     periodoInicio,
     periodoFim,
-    saldoInicial,
+    saldoInicial: abertura?.saldo ?? null,
     saldoFinal,
-    saldoReferenciaAtual,
+    saldoReferenciaAtual: referencia ? { data: referencia.data, saldo: referencia.saldo } : null,
     movimentos: realizados,
     checkpoints,
     futuros: [],
@@ -350,9 +503,68 @@ export function parseItauBankStatementLines(linhas: PdfLine[]): ParsedBankStatem
     },
     aceitos,
     rejeitados,
+    pipeline,
   };
 }
 
+/** Entrada oficial: itens crus do pdf.js (sem o divisor de duas colunas). */
+export function parseItauBankStatementLayouts(
+  pages: PdfPageLayout[],
+): ParsedBankStatement & { pipeline: ItauPipelineDiagnostics } {
+  const itens: ItauItem[] = pages.flatMap((p) =>
+    p.items
+      .filter((i) => i.text.trim())
+      .map((i) => ({ text: i.text, x: i.x, y: i.y, width: i.width, page: p.page })),
+  );
+  const larguraPagina = pages[0]?.width ?? 595;
+  const colunas = detectarColunasItau(itens, larguraPagina);
+
+  // Ano base só é usado em datas sem ano (DD/MM); o período manda sempre.
+  const textoPreliminar = assembleItauRows(itens, colunas, new Date().getFullYear()).map((r) => r.raw);
+  const periodoTexto = textoPreliminar.map((t) => t.match(PERIODO_RE)).find(Boolean);
+  const anoBase = periodoTexto?.[1] ? Number(periodoTexto[1].slice(6)) : new Date().getFullYear();
+
+  const rows = assembleItauRows(itens, colunas, anoBase);
+  const detection = detectItauBankStatement(rows.map((r) => r.raw));
+  return interpretar(rows, rows.map((r) => r.raw), colunas, itens.length, detection);
+}
+
+/**
+ * Entrada alternativa: linhas já reconstruídas (usada em testes e no
+ * roteamento antigo). Cada `PdfLine` já é uma linha do extrato.
+ */
+export function parseItauBankStatementLines(
+  linhas: PdfLine[],
+): ParsedBankStatement & { pipeline: ItauPipelineDiagnostics } {
+  const itens: ItauItem[] = linhas.flatMap((l) =>
+    (l.cells.length ? l.cells : [{ x: 0, text: l.text }]).map((c) => ({
+      text: c.text,
+      x: c.x,
+      y: l.y,
+      width: c.width ?? 0,
+      page: l.page ?? 1,
+    })),
+  );
+  const colunas = detectarColunasItau(itens);
+  const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const periodoTexto = textos.map((t) => t.match(PERIODO_RE)).find(Boolean);
+  const anoBase = periodoTexto?.[1] ? Number(periodoTexto[1].slice(6)) : new Date().getFullYear();
+
+  const rows = linhas
+    .map((l) =>
+      montarRow(
+        l.cells.length ? l.cells : [{ x: 0, text: l.text }],
+        l.page ?? 1,
+        l.y,
+        colunas,
+        anoBase,
+      ),
+    )
+    .filter((r) => r.raw);
+
+  return interpretar(rows, textos, colunas, itens.length, detectItauBankStatement(textos));
+}
+
 export async function readItauBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
-  return parseItauBankStatementLines(await extractPdfLines(file));
+  return parseItauBankStatementLayouts(await extractPdfPageLayouts(file));
 }
