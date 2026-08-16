@@ -35,8 +35,17 @@ export type ExtractedNota = {
   };
 };
 
-export type PdfCell = { x: number; text: string };
-export type PdfLine = { y: number; text: string; cells: PdfCell[] };
+export type PdfCell = { x: number; text: string; width?: number };
+export type PdfLine = {
+  y: number;
+  text: string;
+  cells: PdfCell[];
+  /** Página (1-based) de onde a linha veio. */
+  page?: number;
+  /** Coluna visual: "ESQUERDA" | "DIREITA" | "UNICA" (linha de largura total). */
+  column?: "ESQUERDA" | "DIREITA" | "UNICA";
+};
+
 
 /** Converte "1.234,56" ou "1234.56" em número. */
 export function parseValorBr(raw: string): number {
