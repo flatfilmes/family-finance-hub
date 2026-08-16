@@ -36,7 +36,7 @@ export type SpendingBreakdown = {
   valorContratadoParcelamentos: number;
 };
 
-const CAIXA_METHODS = ["PIX", "DEBITO", "DINHEIRO", "TRANSFERENCIA", "OUTRO", "A_DEFINIR"];
+const CAIXA_METHODS = ["PIX", "DEBITO", "DINHEIRO", "TRANSFERENCIA", "A_DEFINIR"];
 
 function monthOf(dateIso: string) {
   return dateIso.slice(0, 7);
