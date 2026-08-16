@@ -292,15 +292,8 @@ function recuperarDatas(
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
 export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const periodoTexto = textos
-    .join(" ")
-    .match(/per[ií]odo\s*:?\s*(\d{2}\/\d{2}\/\d{4})\s*(?:a|até|-)\s*(\d{2}\/\d{2}\/\d{4})/i);
-  const periodoOficial = periodoTexto
-    ? {
-        inicio: lerData(periodoTexto[1]!, new Date().getFullYear()).data,
-        fim: lerData(periodoTexto[2]!, new Date().getFullYear()).data,
-      }
-    : null;
+  const cabecalho = parseBBStatementPeriod(textos.join(" "));
+  const periodoOficial = cabecalho ? { inicio: cabecalho.start, fim: cabecalho.end } : null;
   const anoBase = periodoOficial?.inicio
     ? Number(periodoOficial.inicio.slice(0, 4))
     : new Date().getFullYear();
