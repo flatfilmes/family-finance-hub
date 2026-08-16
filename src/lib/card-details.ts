@@ -173,3 +173,102 @@ export function parcelamentosAtivos(input: {
   }
   return resultado.sort((a, b) => b.restante - a.restante);
 }
+
+// ---------- Fonte de verdade da fatura do ciclo ----------
+
+export type FaturaDoCiclo = {
+  /** Valor exibido em "Fatura atual" / "Fatura estimada". */
+  valor: number;
+  /** true quando o valor vem de uma fatura importada e confirmada. */
+  oficial: boolean;
+  label: "Fatura atual" | "Fatura estimada";
+  vencimento: string | null;
+  importId: string | null;
+};
+
+type ImportacaoFatura = {
+  id: string;
+  credit_card_id: string;
+  status: string;
+  valor_total_fatura: number | string | null;
+  data_vencimento: string | null;
+  data_fechamento: string | null;
+  periodo_fim: string | null;
+  created_at: string;
+};
+
+/**
+ * Fatura oficial de um ciclo: a importação CONFIRMADA do mesmo cartão cujo
+ * vencimento (ou fechamento/competência) corresponde ao ciclo da fatura interna.
+ * Nunca aceita importação de outro ciclo.
+ */
+export function importacaoOficialDoCiclo(input: {
+  cardId: string;
+  invoice: { data_vencimento: string; data_fechamento: string } | null;
+  imports: ImportacaoFatura[];
+}): ImportacaoFatura | null {
+  if (!input.invoice) return null;
+  const mes = (v?: string | null) => (v ? v.slice(0, 7) : null);
+  const candidatas = input.imports
+    .filter((i) => i.credit_card_id === input.cardId && i.status === "CONFIRMED")
+    .filter((i) => {
+      if (i.data_vencimento) return i.data_vencimento === input.invoice!.data_vencimento;
+      if (i.data_fechamento) return mes(i.data_fechamento) === mes(input.invoice!.data_fechamento);
+      return mes(i.periodo_fim) === mes(input.invoice!.data_fechamento);
+    })
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  return candidatas[0] ?? null;
+}
+
+/**
+ * Hierarquia: fatura oficial importada confirmada > cálculo interno.
+ * Quando não existe documento oficial do ciclo, o valor é uma estimativa e o
+ * rótulo muda para "Fatura estimada".
+ */
+export function faturaDoCiclo(input: {
+  cardId: string;
+  invoice: { data_vencimento: string; data_fechamento: string; valor_total: number | string } | null;
+  imports: ImportacaoFatura[];
+}): FaturaDoCiclo {
+  const oficial = importacaoOficialDoCiclo(input);
+  if (oficial) {
+    return {
+      valor: Number(oficial.valor_total_fatura) || 0,
+      oficial: true,
+      label: "Fatura atual",
+      vencimento: oficial.data_vencimento ?? input.invoice?.data_vencimento ?? null,
+      importId: oficial.id,
+    };
+  }
+  return {
+    valor: Number(input.invoice?.valor_total ?? 0) || 0,
+    oficial: false,
+    label: "Fatura estimada",
+    vencimento: input.invoice?.data_vencimento ?? null,
+    importId: null,
+  };
+}
+
+/**
+ * Composição documentada do limite utilizado:
+ *   fatura do ciclo atual
+ * + parcelas de ciclos futuros já registradas
+ * + parcelas de ciclos anteriores ainda em aberto (atraso)
+ * + compras comprometidas no cartão que ainda não viraram parcela
+ */
+export function composicaoUtilizado(input: {
+  utilizadoParcelas: number;
+  faturaAtual: number;
+  parcelasFuturas: number;
+  comprasSemParcela: number;
+}) {
+  const outros =
+    input.utilizadoParcelas - input.faturaAtual - input.parcelasFuturas;
+  return {
+    faturaAtual: input.faturaAtual,
+    parcelasFuturas: input.parcelasFuturas,
+    comprasSemParcela: input.comprasSemParcela,
+    outros: Math.round(outros * 100) / 100,
+    total: input.utilizadoParcelas + input.comprasSemParcela,
+  };
+}
