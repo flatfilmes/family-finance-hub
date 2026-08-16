@@ -159,6 +159,10 @@ function ContaDetalhePage() {
     perms.isAdmin || (perms.podeLancar && conta.member_id === perms.myMemberId);
 
   // O saldo atual já é atualizado pelas movimentações; aqui apenas as apresentamos.
+  const hoje = new Date().toISOString().slice(0, 10);
+  const inicio = periodo ? `${periodo}-01` : null;
+  const fim = periodo ? ultimoDiaDoMes(periodo) : null;
+
   const doPeriodo = (movimentos ?? []).filter(
     (t) =>
       t.bank_account_id === conta.id &&
@@ -166,35 +170,55 @@ function ContaDetalhePage() {
       (!periodo || t.data_movimento.startsWith(periodo)),
   );
 
+  // Extrato realizado: até hoje. O que vem depois é previsão, nunca saldo.
+  const realizados = doPeriodo.filter((t) => t.data_movimento <= hoje);
+  const proximos = doPeriodo
+    .filter((t) => t.data_movimento > hoje)
+    .sort((a, b) => a.data_movimento.localeCompare(b.data_movimento));
+
+  const ledger = buildDailyBankLedger({
+    accountId: conta.id,
+    transactions: (movimentos ?? []).filter((t) => t.data_movimento <= hoje),
+    startDate: inicio,
+    endDate: fim && fim < hoje ? fim : hoje,
+    checkpoints: checkpoints ?? [],
+  });
+
   const soma = (tipo: Transaction["tipo"], rows = doPeriodo) =>
     rows.filter((t) => t.tipo === tipo).reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
 
   // Abertura de saldo é posição patrimonial: nunca entra como receita do período.
-  const entradas = soma("ENTRADA");
-  const saidas = soma("SAIDA");
-  const pagamentos = soma("PAGAMENTO_CARTAO");
-  const transferencias = soma("TRANSFERENCIA");
-  const resultado = entradas - saidas - pagamentos;
+  const entradas = ledger.totalInflows;
+  const saidas = ledger.totalOutflows;
+  const pagamentos = soma("PAGAMENTO_CARTAO", realizados);
+  const transferencias = soma("TRANSFERENCIA", realizados);
+  const resultado = entradas - saidas;
 
   const origemDe = (t: Transaction) =>
     origemDoMovimento(t, t.purchase_id ? compraPorId.get(t.purchase_id) : undefined);
 
-  const filtrados = doPeriodo.filter(
-    (t) =>
-      (!filtroOrigem || origemDe(t) === filtroOrigem) &&
-      matchesSearch(busca, t.descricao),
-  );
+  const passaNoFiltro = (t: Transaction) =>
+    (!filtroOrigem || origemDe(t) === filtroOrigem) && matchesSearch(busca, t.descricao);
+
+  const filtrandoAlgo = Boolean(filtroOrigem || busca);
+  const dias = ledger.days
+    .map((dia) => ({ ...dia, visiveis: dia.transactions.filter(passaNoFiltro) }))
+    .filter((dia) => !filtrandoAlgo || dia.visiveis.length > 0);
+
+  const diasComDivergencia = ledger.days.filter((d) => d.confere === false);
 
   const somaPorOrigem = (origem: string, tipos: Transaction["tipo"][]) =>
-    doPeriodo
+    realizados
       .filter((t) => tipos.includes(t.tipo) && origemDe(t) === origem)
       .reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
 
   const saidasPix = somaPorOrigem("PIX", ["SAIDA"]) + somaPorOrigem("Débito", ["SAIDA"]);
   const saidasBoleto = somaPorOrigem("Boleto", ["SAIDA"]);
-  const saidasOutras = saidas - saidasPix - saidasBoleto;
+  const saidasDiretas = soma("SAIDA", realizados);
+  const saidasOutras = saidasDiretas - saidasPix - saidasBoleto;
 
-  const entradasLista = doPeriodo.filter((t) => t.tipo === "ENTRADA");
+  const entradasLista = realizados.filter((t) => t.tipo === "ENTRADA");
+
 
   return (
     <div>
