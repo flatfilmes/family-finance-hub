@@ -71,6 +71,7 @@ const ORIGENS = [
   "Boleto",
   "Transferência",
   "Pagamento de cartão",
+  "Ajuste de saldo",
   "Dinheiro",
   "Outros",
 ];
