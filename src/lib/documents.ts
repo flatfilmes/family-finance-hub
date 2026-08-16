@@ -218,6 +218,40 @@ export async function rejectDocument(documentId: string) {
 }
 
 /**
+ * Remove o arquivo original do Storage depois que a compra foi criada.
+ * Os dados estruturados (compra e produtos) continuam intactos.
+ */
+export async function purgeDocumentFile(doc: { id: string; url_arquivo?: string | null }) {
+  if (doc.url_arquivo) {
+    await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.url_arquivo]);
+  }
+  await supabase.from("documents").update({ url_arquivo: null }).eq("id", doc.id);
+}
+
+/**
+ * Cancelamento antes da confirmação: apaga o arquivo temporário,
+ * as extrações relacionadas e o próprio registro do documento.
+ */
+export async function discardDocument(doc: { id: string; url_arquivo?: string | null }) {
+  if (doc.url_arquivo) {
+    await supabase.storage.from(DOCUMENTS_BUCKET).remove([doc.url_arquivo]);
+  }
+  const { data: extractions } = await supabase
+    .from("document_extractions")
+    .select("id")
+    .eq("document_id", doc.id);
+  const ids = (extractions ?? []).map((e) => e.id);
+  if (ids.length > 0) {
+    await supabase.from("document_extraction_items").delete().in("extraction_id", ids);
+    await supabase.from("document_extractions").delete().in("id", ids);
+  }
+  await supabase.from("purchase_imports").delete().eq("document_id", doc.id);
+  const { error } = await supabase.from("documents").delete().eq("id", doc.id);
+  if (error) throw error;
+}
+
+
+/**
  * Etapa de aprovação manual: transforma um documento revisado em compra oficial,
  * com todo o impacto financeiro (conta, cartão, parcelas, recorrência),
  * vincula o documento à compra e marca o documento como CONFIRMADO.
