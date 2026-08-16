@@ -135,6 +135,8 @@ export type BankParserDiagnostics = {
   parserInternalStages: ParserInternalStage[];
 
   checkpointTrace: Array<{ rowText: string; date: string | null; balance: number | null; status: string; reason: string }>;
+  /** Rastro temporal do passe único do parser (somente diagnóstico). */
+  temporalTrace: NonNullable<ParsedBankStatement["temporalTrace"]>;
   accepted: unknown[];
   rejected: unknown[];
   metadata: unknown[];
@@ -353,6 +355,7 @@ export async function buildBankParserDiagnostics(
     parserExecutionInput: null,
     parserInternalStages: [],
     checkpointTrace: [],
+    temporalTrace: [],
     accepted: [],
     rejected: [],
     metadata: [],
@@ -565,6 +568,7 @@ export async function buildBankParserDiagnostics(
     parserExecutionInput: parserExecutionInput,
     parserInternalStages,
     checkpointTrace,
+    temporalTrace: parsed.temporalTrace ?? [],
     accepted: parsed.aceitos,
     rejected: parsed.rejeitados,
     metadata: [
@@ -742,6 +746,7 @@ export function diagnosticsFromParsedStatement(
       validation,
     },
     checkpointTrace: [],
+    temporalTrace: [],
     accepted: parsed.aceitos,
     rejected: parsed.rejeitados,
     metadata: [],

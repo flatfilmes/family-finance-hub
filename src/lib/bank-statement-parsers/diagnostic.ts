@@ -109,6 +109,7 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
     counts,
     failure: d.failure,
     checkpointTrace: trace,
+    temporalTrace: d.temporalTrace,
     pipelineStages: d.pipelineStages,
     errors: d.errors,
     detection: {
