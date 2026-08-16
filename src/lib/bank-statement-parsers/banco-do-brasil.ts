@@ -192,6 +192,11 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       const t = plano(descricao);
       if (t.startsWith("saldo anterior")) saldoInicial = valor;
       else saldoFinal = valor;
+      // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
+      const dataCheck = data ?? ultimaData;
+      if (dataCheck && !t.startsWith("saldo anterior")) {
+        checkpoints.push({ data: dataCheck, saldo: valor, rotulo: descricao });
+      }
       rejeitados.push({
         raw,
         valor,
@@ -200,6 +205,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       });
       continue;
     }
+
 
     if (secao === "METADATA") {
       rejeitados.push({
