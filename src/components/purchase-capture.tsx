@@ -880,6 +880,10 @@ function RevisarDocumento({
                 toast.error("O valor total precisa ser maior que zero.");
                 return;
               }
+              if (!formaPagamento) {
+                toast.error("Selecione a forma de pagamento.");
+                return;
+              }
               if (formaPagamento === "CREDITO" && !cartaoId) {
                 toast.error("Selecione o cartão usado na compra.");
                 return;
@@ -888,6 +892,7 @@ function RevisarDocumento({
                 toast.error("Selecione a conta bancária usada no pagamento.");
                 return;
               }
+
               confirmar.mutate();
             }}
           >
