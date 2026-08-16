@@ -156,17 +156,36 @@ function CartaoDetalhePage() {
           </>
         }
         actions={
-          cartao.member_id ? (
-            <Link
-              to="/membro/$memberId"
-              params={{ memberId: cartao.member_id }}
-              className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          <>
+            <button
+              type="button"
+              onClick={() => setImportando(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
             >
-              Ver perfil do titular
-            </Link>
-          ) : null
+              <FileUp className="size-3.5" /> Importar fatura
+            </button>
+            {cartao.member_id ? (
+              <Link
+                to="/membro/$memberId"
+                params={{ memberId: cartao.member_id }}
+                className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                Ver perfil do titular
+              </Link>
+            ) : null}
+          </>
         }
       />
+
+      {importando && (
+        <StatementImportDialog
+          cards={dados.cards}
+          cardIdInicial={cartao.id}
+          onClose={() => setImportando(false)}
+        />
+      )}
+
+
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
