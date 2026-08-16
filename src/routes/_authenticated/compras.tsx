@@ -7,7 +7,7 @@ import { PAYMENT_STATUS_TONES } from "@/lib/status";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useViewMode } from "@/components/view-mode";
@@ -36,7 +36,6 @@ import {
   PAYMENT_FILTER_LABELS,
   PAYMENT_METHOD_SHORT,
   PAYMENT_STATUS_LABELS,
-  PAYMENT_STATUS_CLASSES,
   PAYMENT_STATUS_SHORT,
   PURCHASE_KINDS,
   PURCHASE_KIND_HINTS,
