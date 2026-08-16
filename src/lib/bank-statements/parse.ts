@@ -63,6 +63,110 @@ export type BankParserPipelineResult = {
   parsed: ParsedBankStatement;
 };
 
+/** Etapa interna do parser, observada depois da execução (sem alterar regras). */
+export type ParserInternalStage = {
+  stage:
+    | "HEADER_PERIOD"
+    | "OPENING_BALANCE"
+    | "TRANSACTION_ROWS"
+    | "DAILY_CHECKPOINTS"
+    | "CLOSING_BALANCE"
+    | "CANONICAL_BUILD";
+  status: "PASS" | "FAIL";
+  reason: string;
+};
+
+/** Entrada exata recebida pelo parser — prova de que ele não rodou "no vazio". */
+export type BankParserExecutionInput = {
+  parserName: string | null;
+  bank: DetectedBank | null;
+  rawItemsCount: number;
+  visualRowsCount: number;
+  rawTextLength: number;
+  hasPeriodHeader: boolean;
+  hasOpeningBalanceRow: boolean;
+  hasDailyBalanceRows: boolean;
+  hasClosingBalanceRow: boolean;
+};
+
+export type ParserExecutionError = {
+  stage: string;
+  name: string;
+  message: string;
+  stack?: string;
+  cause?: string;
+};
+
+/** Execução observável do parser: sucesso, exceção ou retorno inválido. */
+export type BankParserExecution = {
+  detection: BankDetectionResult;
+  parser: BankParserSelection;
+  parsed: ParsedBankStatement | null;
+  input: BankParserExecutionInput;
+  internalStages: ParserInternalStage[];
+  errors: ParserExecutionError[];
+};
+
+const semAcentoUpper = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+
+/** Descreve o erro sem esconder nada (tela DEV/Admin). */
+export function describeParserError(e: unknown, stage: string): ParserExecutionError {
+  if (e instanceof Error)
+    return {
+      stage,
+      name: e.name,
+      message: e.message,
+      ...(e.stack ? { stack: e.stack } : {}),
+      ...(e.cause !== undefined ? { cause: String((e as { cause?: unknown }).cause) } : {}),
+    };
+  return { stage, name: "NonError", message: String(e) };
+}
+
+/** Etapas internas derivadas do que o parser devolveu (nenhuma regra alterada). */
+export function inspectParsedStatement(parsed: ParsedBankStatement): ParserInternalStage[] {
+  const checkpoints = parsed.checkpoints ?? [];
+  return [
+    {
+      stage: "HEADER_PERIOD",
+      status: parsed.periodoInicio && parsed.periodoFim ? "PASS" : "FAIL",
+      reason: `periodStart=${parsed.periodoInicio ?? "null"} periodEnd=${parsed.periodoFim ?? "null"}`,
+    },
+    {
+      stage: "OPENING_BALANCE",
+      status: parsed.saldoInicial !== null && parsed.saldoInicial !== undefined ? "PASS" : "FAIL",
+      reason: `saldoInicial=${parsed.saldoInicial ?? "null"} data=${parsed.saldoInicialData ?? "null"}`,
+    },
+    {
+      stage: "TRANSACTION_ROWS",
+      status: parsed.movimentos.length > 0 ? "PASS" : "FAIL",
+      reason: `${parsed.movimentos.length} movimentos · ${parsed.aceitos.length} aceitos · ${parsed.rejeitados.length} rejeitados`,
+    },
+    {
+      stage: "DAILY_CHECKPOINTS",
+      status: checkpoints.length > 0 ? "PASS" : "FAIL",
+      reason: `${checkpoints.length} checkpoints lidos`,
+    },
+    {
+      stage: "CLOSING_BALANCE",
+      status: parsed.saldoFinal !== null && parsed.saldoFinal !== undefined ? "PASS" : "FAIL",
+      reason: `saldoFinal=${parsed.saldoFinal ?? "null"} data=${parsed.saldoFinalData ?? "null"}`,
+    },
+  ];
+}
+
+/** Alguns parsers podem sinalizar falha sem lançar: isso também vira erro. */
+function erroDeclarado(saida: unknown): string | null {
+  if (!saida || typeof saida !== "object") return "O parser devolveu um valor não-objeto.";
+  const o = saida as { ok?: boolean; success?: boolean; error?: unknown; reason?: unknown; movimentos?: unknown };
+  if (o.ok === false || o.success === false)
+    return String(o.error ?? o.reason ?? "O parser devolveu ok:false sem motivo.");
+  if (!Array.isArray(o.movimentos))
+    return "O parser não devolveu a lista de movimentos (ParsedBankStatement inválido).";
+  return null;
+}
+
+
 
 const MOEDA = /-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}|-?\s?\d+,\d{2}/g;
 
