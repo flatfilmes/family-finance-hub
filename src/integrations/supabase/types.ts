@@ -2412,8 +2412,13 @@ export type Database = {
           descricao: string
           family_id: string
           id: string
+          income_id: string | null
+          manual: boolean
           member_id: string | null
+          natureza: string | null
+          observacao: string | null
           purchase_id: string | null
+          reversal_of: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           tipo: Database["public"]["Enums"]["transaction_type"]
           transfer_group_id: string | null
@@ -2431,8 +2436,13 @@ export type Database = {
           descricao?: string
           family_id: string
           id?: string
+          income_id?: string | null
+          manual?: boolean
           member_id?: string | null
+          natureza?: string | null
+          observacao?: string | null
           purchase_id?: string | null
+          reversal_of?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tipo: Database["public"]["Enums"]["transaction_type"]
           transfer_group_id?: string | null
@@ -2450,8 +2460,13 @@ export type Database = {
           descricao?: string
           family_id?: string
           id?: string
+          income_id?: string | null
+          manual?: boolean
           member_id?: string | null
+          natureza?: string | null
+          observacao?: string | null
           purchase_id?: string | null
+          reversal_of?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tipo?: Database["public"]["Enums"]["transaction_type"]
           transfer_group_id?: string | null
@@ -2489,6 +2504,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_income_id_fkey"
+            columns: ["income_id"]
+            isOneToOne: false
+            referencedRelation: "incomes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transactions_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
@@ -2500,6 +2522,13 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_reversal_of_fkey"
+            columns: ["reversal_of"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
         ]
@@ -2571,6 +2600,19 @@ export type Database = {
         Args: { _family_id: string; _keep_structure: boolean }
         Returns: Json
       }
+      register_bank_movement: {
+        Args: {
+          _account_id: string
+          _data?: string
+          _descricao?: string
+          _direcao: string
+          _income_id?: string
+          _natureza?: string
+          _observacao?: string
+          _valor: number
+        }
+        Returns: string
+      }
       reset_family_completely: {
         Args: { _backup_created?: boolean; _family_id: string }
         Returns: Json
@@ -2582,6 +2624,10 @@ export type Database = {
           _remover_demo?: boolean
         }
         Returns: Json
+      }
+      reverse_bank_transaction: {
+        Args: { _motivo?: string; _transaction_id: string }
+        Returns: string
       }
       set_bank_account_balance: {
         Args: {
