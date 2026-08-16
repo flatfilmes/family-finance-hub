@@ -43,7 +43,8 @@ export function StatementImportDialog({
   const criar = useCreateStatementImport(family?.id);
 
   const [modo, setModo] = useState<Modo>("conferir");
-  const [cardId, setCardId] = useState(cardIdInicial || cards[0]?.id || "");
+  // Fora da página de um cartão o destino precisa ser escolhido: nunca adivinhamos.
+  const [cardId, setCardId] = useState(cardIdInicial);
   const [file, setFile] = useState<File | null>(null);
   const [parsed, setParsed] = useState<ParsedStatement | null>(null);
   const [duplicata, setDuplicata] = useState<{ id: string; created_at: string } | null>(null);
@@ -93,7 +94,7 @@ export function StatementImportDialog({
       <div className="max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-t-3xl border border-border bg-card p-6 shadow-card sm:rounded-3xl">
         <h2 className="text-xl font-extrabold">Importar fatura</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Envie a fatura em PDF. Você poderá conferir os lançamentos antes de salvar qualquer
+          Escolha o cartão e envie a fatura em PDF. Você poderá conferir os lançamentos antes de salvar qualquer
           alteração.
         </p>
 
@@ -127,27 +128,37 @@ export function StatementImportDialog({
         </div>
 
         <div className="mt-4 grid gap-4">
-          <Field label="Cartão">
-            <select
-              className={inputClass}
-              value={cardId}
-              onChange={(e) => {
-                setCardId(e.target.value);
-                setParsed(null);
-              }}
-            >
-              {cards.length === 0 && <option value="">Nenhum cartão disponível</option>}
-              {cards.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome_cartao} · {c.banco}
+          <Field label="Cartão de destino">
+            {cardIdInicial && cartao ? (
+              <div className="rounded-2xl border border-border bg-muted/40 px-4 py-3 text-sm font-semibold">
+                {cartao.nome_cartao} · {cartao.banco}
+              </div>
+            ) : (
+              <select
+                className={inputClass}
+                value={cardId}
+                onChange={(e) => {
+                  setCardId(e.target.value);
+                  setParsed(null);
+                }}
+                aria-label="Cartão de destino"
+              >
+                <option value="">
+                  {cards.length === 0 ? "Nenhum cartão disponível" : "Selecione o cartão"}
                 </option>
-              ))}
-            </select>
+                {cards.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome_cartao} · {c.banco}
+                  </option>
+                ))}
+              </select>
+            )}
           </Field>
 
           <Field label="Arquivo da fatura (PDF digital)">
             <input
               type="file"
+              disabled={!cartao}
               accept="application/pdf,.pdf"
               className={inputClass}
               onChange={(e) => {
