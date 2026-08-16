@@ -17,13 +17,14 @@ import {
 import { readCardStatementPdf, type ParsedStatement } from "@/lib/card-statement-parsers";
 import type { CreditCard } from "@/lib/finance";
 
-export function useStatementImports(familyId?: string) {
+export function useStatementImports(familyId?: string, cardId?: string) {
   return useQuery({
-    queryKey: ["card-statement-imports", familyId],
-    queryFn: () => fetchStatementImports(familyId!),
+    queryKey: ["card-statement-imports", familyId, cardId ?? "todos"],
+    queryFn: () => fetchStatementImports(familyId!, cardId),
     enabled: !!familyId,
   });
 }
+
 
 export function useStatementImport(id?: string) {
   return useQuery({

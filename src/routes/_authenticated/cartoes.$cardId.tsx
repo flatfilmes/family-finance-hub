@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { FileUp, Receipt } from "lucide-react";
 import { StatementImportDialog } from "@/components/statement-import-dialog";
+import { CardStatementImports } from "@/components/card-statement-imports";
+
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { TONE_DOTS, usageTone } from "@/lib/status";
@@ -386,6 +388,14 @@ function CartaoDetalhePage() {
           <p className="mt-4 text-xs font-semibold text-emerald-600">Fatura paga</p>
         )}
       </Card>
+
+      <CardStatementImports
+        familyId={family.id}
+        cardId={cartao.id}
+        onImportar={() => setImportando(true)}
+      />
+
+
 
       <Card className="mt-4">
         <SectionTitle title="Lançamentos da fatura" />
