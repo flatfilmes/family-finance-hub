@@ -7,9 +7,11 @@ import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { useStatementImports } from "@/hooks/useCardStatements";
 import {
   agruparCiclos,
+  buildCardCycleComposition,
   classificarCiclosDoCartao,
   composicaoUtilizado,
   faturaDoCiclo,
+  linhasDaFatura,
   linhasDaFatura,
   obrigacaoAbertaDoCartao,
   parcelamentosAtivos,
@@ -96,8 +98,34 @@ export function useCardsData(familyId?: string) {
         classificarCiclosDoCartao({
           invoices: faturasDoCartao(cardId),
           imports: importacoes.data ?? [],
+          card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
+          recorrencias: recorrenciasDoCartao(cardId),
+          parcelas: parcelasDoCartao(cardId),
         }),
       ),
+    /**
+     * Composição do ciclo — função única usada pela régua, pelo resumo, pelos
+     * lançamentos, pelos compromissos futuros e pelo planejamento.
+     */
+    composicaoCicloDe: (
+      cardId: string,
+      ciclo: Parameters<typeof buildCardCycleComposition>[0]["ciclo"],
+      itensOficiais?: Parameters<typeof buildCardCycleComposition>[0]["itensOficiais"],
+    ) =>
+      buildCardCycleComposition({
+        ciclo,
+        itensOficiais: itensOficiais ?? null,
+        linhasInternas: linhasDaFatura({
+          invoice: (ciclo?.invoice as CardInvoice | undefined) ?? null,
+          parcelas: parcelas.data ?? [],
+          comprasDoCartao: comprasDoCartao(cardId),
+          comprasComParcelas,
+          despesaPorId,
+          compraPorId,
+          card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
+        }).map((l) => ({ ...l, itemId: l.id })),
+        compraPorId,
+      }),
     recorrenciasDoCartao,
     parcelasDoCartao,
     /**
@@ -144,6 +172,10 @@ export function useCardsData(familyId?: string) {
       }),
     proximasDe: (cardId: string) =>
       proximasObrigacoes({
+        card: (cards.data ?? []).find((c) => c.id === cardId) ?? {
+          dia_fechamento: 1,
+          dia_vencimento: 10,
+        },
         parcelas: parcelas.data ?? [],
         faturas: faturasDoCartao(cardId),
         recorrencias: recorrenciasDoCartao(cardId),
