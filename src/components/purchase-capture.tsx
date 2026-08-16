@@ -540,11 +540,42 @@ function RevisarDocumento({
       forma_pagamento?: Confianca;
       items?: Confianca;
     };
-
     pagamento_descricao?: string | null;
+    items?: {
+      descricao_produto?: string;
+      quantidade?: number;
+      unidade?: string;
+      valor_unitario?: number;
+      valor_total?: number;
+    }[];
   } | null;
   const confianca = brutos?.confianca ?? {};
   const pagamentoLido = brutos?.pagamento_descricao ?? null;
+  const valorLido = Number(extracao?.valor_total ?? 0);
+
+  // Produtos lidos: prioriza a tabela de itens; se ela estiver vazia, usa a
+  // cópia guardada no JSON da extração (nunca perde o que o parser encontrou).
+  const produtosLidos = useMemo<NewPurchaseItem[]>(() => {
+    const daTabela = (itensPdf ?? []).map((i) => ({
+      product_id: "",
+      descricao_produto: i.descricao_produto,
+      quantidade: String(Number(i.quantidade) || 1),
+      unidade: i.unidade || "UN",
+      valor_unitario: String(Number(i.valor_unitario) || 0),
+      categoria_id: i.categoria_sugerida ?? "",
+    }));
+    if (daTabela.length > 0) return daTabela;
+    return (brutos?.items ?? [])
+      .filter((i) => (i.descricao_produto ?? "").trim() !== "")
+      .map((i) => ({
+        product_id: "",
+        descricao_produto: i.descricao_produto!.trim(),
+        quantidade: String(Number(i.quantidade) || 1),
+        unidade: i.unidade || "UN",
+        valor_unitario: String(Number(i.valor_unitario) || 0),
+        categoria_id: "",
+      }));
+  }, [itensPdf, brutos]);
 
   useEffect(() => {
     if (!itensExtraidos || itensExtraidos.length === 0) return;
@@ -571,26 +602,37 @@ function RevisarDocumento({
     }
   }, [extracao]);
 
-
   useEffect(() => {
-    if (!itensPdf || itensPdf.length === 0) return;
-    setItems(
-      itensPdf.map((i) => ({
-        product_id: "",
-        descricao_produto: i.descricao_produto,
-        quantidade: String(Number(i.quantidade) || 1),
-        unidade: i.unidade,
-        valor_unitario: String(Number(i.valor_unitario) || 0),
-        categoria_id: i.categoria_sugerida ?? "",
-      })),
-    );
-  }, [itensPdf]);
+    if (produtosLidos.length > 0) {
+      setItems(produtosLidos);
+      return;
+    }
+    // Sem produtos identificados, mas com valor total lido: não deixa o formulário zerado.
+    if (extracao && valorLido > 0) {
+      setItems((prev) => {
+        const vazio = prev.every((i) => i.descricao_produto.trim() === "" && !i.valor_unitario);
+        if (!vazio) return prev;
+        return [
+          {
+            ...linhaVazia(),
+            descricao_produto: extracao.estabelecimento
+              ? `Compra em ${extracao.estabelecimento}`
+              : "Compra",
+            valor_unitario: String(valorLido),
+          },
+        ];
+      });
+    }
+  }, [produtosLidos, extracao, valorLido]);
 
-
-  const total = items.reduce(
+  const somaProdutos = items.reduce(
     (acc, i) => acc + (Number(i.quantidade) || 0) * (Number(i.valor_unitario) || 0),
     0,
   );
+  const total = somaProdutos > 0 ? somaProdutos : valorLido;
+  const confere = valorLido > 0 && Math.abs(somaProdutos - valorLido) < 0.02;
+  const divergente = valorLido > 0 && somaProdutos > 0 && !confere;
+
 
   const confirmar = useMutation({
     mutationFn: () =>
