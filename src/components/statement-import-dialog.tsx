@@ -12,7 +12,7 @@ import {
   useCreateStatementImport,
   useReadStatementPdf,
 } from "@/hooks/useCardStatements";
-import { formatOptional } from "@/lib/card-statements";
+import { formatOptional, PrepareStatementError } from "@/lib/card-statements";
 import type { ParsedStatement } from "@/lib/card-statement-parsers";
 import { formatCurrency, type CreditCard } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
@@ -49,6 +49,7 @@ export function StatementImportDialog({
   const [parsed, setParsed] = useState<ParsedStatement | null>(null);
   const [duplicata, setDuplicata] = useState<{ id: string; created_at: string } | null>(null);
   const [erro, setErro] = useState("");
+  const [detalheTecnico, setDetalheTecnico] = useState("");
 
   const cartao = cards.find((c) => c.id === cardId) ?? null;
   const ocupado = ler.isPending || criar.isPending || checarDuplicata.isPending;
@@ -74,6 +75,7 @@ export function StatementImportDialog({
   async function confirmarLeitura() {
     if (!parsed || !cartao) return;
     setErro("");
+    setDetalheTecnico("");
     try {
       const importacao = await criar.mutateAsync({
         card: cartao,
@@ -85,9 +87,21 @@ export function StatementImportDialog({
       onClose();
       navigate({ to: "/cartoes/faturas/$importId", params: { importId: importacao.id } });
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível preparar a revisão.");
+      setErro("Não conseguimos preparar esta fatura para revisão.");
+      if (import.meta.env.DEV) {
+        if (e instanceof PrepareStatementError) {
+          const ctx = Object.entries(e.contexto ?? {})
+            .filter(([, v]) => v != null && v !== "")
+            .map(([k, v]) => `${k}: ${String(v)}`)
+            .join(" · ");
+          setDetalheTecnico(`Etapa: ${e.step}\n${ctx ? `${ctx}\n` : ""}Erro: ${e.detalhe}`);
+        } else {
+          setDetalheTecnico(e instanceof Error ? e.message : String(e));
+        }
+      }
     }
   }
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6">
@@ -209,6 +223,11 @@ export function StatementImportDialog({
         )}
 
         {erro && <p className="mt-3 text-sm font-semibold text-destructive">{erro}</p>}
+        {detalheTecnico && (
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl bg-muted/60 p-3 text-[11px] text-muted-foreground">
+            {detalheTecnico}
+          </pre>
+        )}
 
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
           <PdfDiagnosticButton
