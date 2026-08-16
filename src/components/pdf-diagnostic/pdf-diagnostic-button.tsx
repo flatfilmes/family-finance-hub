@@ -3,6 +3,7 @@ import { Bug } from "lucide-react";
 import { PdfDiagnosticDialog } from "@/components/pdf-diagnostic/pdf-diagnostic-dialog";
 import { useFamily } from "@/hooks/useFamilyData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { pdfDiagnosticFlagEnabled } from "@/lib/pdf-diagnostic/availability";
 import type { DiagnosticSource, ParserDryRun } from "@/lib/pdf-diagnostic";
 
 /**
@@ -24,7 +25,8 @@ export function PdfDiagnosticButton({
   const { data: family } = useFamily();
   const [aberto, setAberto] = useState(false);
 
-  const disponivel = perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo);
+  const disponivel =
+    perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo || pdfDiagnosticFlagEnabled());
   if (!disponivel) return null;
 
   return (
