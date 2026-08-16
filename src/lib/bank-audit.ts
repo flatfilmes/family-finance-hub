@@ -243,6 +243,14 @@ export type StatementItemInput = {
   purchase_id_criada?: string | null;
   purchase_id_matched?: string | null;
 };
+export type CardPaymentPending = {
+  transaction: Transaction;
+  /** Data lida no próprio histórico do extrato, quando existir. */
+  dataNoHistorico: string | null;
+  /** Data contábil (coluna "Dia") diverge da data citada no histórico. */
+  dataDivergente: boolean;
+};
+
 
 export type BankAudit = {
   periodoInicio: string | null;
