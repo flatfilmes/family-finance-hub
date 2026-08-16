@@ -497,7 +497,6 @@ function MesCard({
   diasAbertos: boolean;
   onToggleDias: () => void;
 }) {
-  const tone = mes.confere === false ? "danger" : mes.confere ? "ok" : "muted";
   return (
     <div className="rounded-2xl border border-border">
       <button
