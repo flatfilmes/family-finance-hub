@@ -708,7 +708,7 @@ export type InvoiceCheck = {
 type CheckItemLike = {
   descricao_original: string;
   valor: number | string;
-  tipo_sugerido: StatementItemKind;
+  tipo_sugerido: ItemKind;
 };
 
 /**
