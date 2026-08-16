@@ -66,7 +66,7 @@ export const IMPORT_STATUS_LABELS: Record<ImportStatus, string> = {
 
 /** Regra única de confirmação de uma fatura importada em toda a aplicação. */
 export function isStatementConfirmed(
-  importacao: Pick<StatementImport, "status"> | null | undefined,
+  importacao: { status: string } | null | undefined,
 ) {
   return importacao?.status === "CONFIRMED";
 }

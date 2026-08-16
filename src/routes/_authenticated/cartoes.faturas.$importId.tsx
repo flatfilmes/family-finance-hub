@@ -24,6 +24,7 @@ import {
   KIND_LABELS,
   IMPORT_STATUS_LABELS,
   formatOptional,
+  isStatementConfirmed,
   invoiceCheck,
   needsAttention,
   resolveReviewAction,

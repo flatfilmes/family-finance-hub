@@ -22,7 +22,7 @@ import { useSpendingSummary } from "@/hooks/useSpendingSummary";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
-import { useCardOverview } from "@/hooks/useCardInvoices";
+import { useCardsData } from "@/hooks/useCardsData";
 import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import { filterByMember } from "@/components/member-filter";
 import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
@@ -563,11 +563,13 @@ function CapacidadeCartoes({
   const { data: cards } = useCreditCards(familyId);
   const { data: accounts } = useBankAccounts(familyId);
   const cartoes = filterByMember(cards ?? [], memberId);
-  const overview = useCardOverview(familyId, cartoes);
+  const dados = useCardsData(familyId);
 
-  const faturas = overview.porCartao
-    .filter((o) => o.faturaAtual?.status !== "PAGA")
-    .reduce((acc, o) => acc + o.valorFaturaAtual, 0);
+  const obrigacoes = cartoes.map((cartao) => ({
+    cartao,
+    obrigacao: dados.obrigacaoAbertaDe(cartao.id),
+  }));
+  const faturas = obrigacoes.reduce((acc, item) => acc + item.obrigacao.valor, 0);
   const contas = filterByMember(accounts ?? [], memberId).filter((a) => a.ativo);
   const saldo = contas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
 
@@ -658,14 +660,15 @@ function CapacidadeCartoes({
           />
         </div>
 
-        {overview.porCartao.length > 0 && (
+        {obrigacoes.length > 0 && (
           <ul className="mt-4 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-            {overview.porCartao.map((o) => (
-              <li key={o.card.id}>
-                {o.card.banco} · {o.card.nome_cartao}:{" "}
+            {obrigacoes.map(({ cartao, obrigacao }) => (
+              <li key={cartao.id}>
+                {cartao.banco} · {cartao.nome_cartao}:{" "}
                 <span className="font-semibold text-foreground">
-                  {formatCurrency(o.valorFaturaAtual)}
+                  {formatCurrency(obrigacao.valor)}
                 </span>
+                {obrigacao.aberta ? (obrigacao.oficial ? " · oficial" : " · estimada") : " · paga"}
               </li>
             ))}
           </ul>
