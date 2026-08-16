@@ -543,6 +543,9 @@ export const ESTADO_CICLO_LABELS: Record<EstadoCiclo, string> = {
   PROJETADA: "Projetada",
 };
 
+/** Origem do valor exibido para um ciclo — regra única do sistema. */
+export type FonteValorCiclo = "OFFICIAL_STATEMENT" | "ESTIMATED" | "PROJECTED";
+
 export type CicloClassificado<T> = {
   invoice: T;
   competencia: string;
@@ -551,7 +554,9 @@ export type CicloClassificado<T> = {
   real: boolean;
   oficial: boolean;
   valor: number;
+  fonte: FonteValorCiclo;
 };
+
 
 type InvoiceBase = {
   id: string;
