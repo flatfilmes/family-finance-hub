@@ -704,15 +704,22 @@ export async function findDuplicateImport(familyId: string, fingerprint: string)
   return data;
 }
 
-export async function fetchStatementImports(familyId: string) {
-  const { data, error } = await supabase
+/**
+ * Faturas importadas da família. Quando `cardId` é informado, retorna apenas as
+ * importações daquele cartão — a página do cartão é a fonte principal da lista.
+ */
+export async function fetchStatementImports(familyId: string, cardId?: string) {
+  let query = supabase
     .from("card_statement_imports")
     .select("*")
     .eq("family_id", familyId)
     .order("created_at", { ascending: false });
+  if (cardId) query = query.eq("credit_card_id", cardId);
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }
+
 
 export async function fetchStatementImport(id: string) {
   const { data, error } = await supabase
