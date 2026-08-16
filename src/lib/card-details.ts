@@ -477,8 +477,9 @@ export function agruparCiclos<T extends InvoiceBase>(ciclos: CicloClassificado<T
   const reais = ciclos.filter((c) => c.estado !== "PROJETADA" && c.estado !== "EM_FORMACAO");
   const emFormacao = ciclos.find((c) => c.estado === "EM_FORMACAO") ?? null;
   const projecoes = ciclos.filter((c) => c.estado === "PROJETADA");
-  const emAberto = reais.filter((c) => c.estado !== "PAGA");
-  const atual = emAberto[0] ?? reais[reais.length - 1] ?? null;
+  // A fatura atual é o último ciclo real (o mais recente já fechado);
+  // ciclos antigos não pagos continuam no histórico marcados como vencidos.
+  const atual = reais[reais.length - 1] ?? null;
   const historico = reais.filter((c) => c.invoice.id !== atual?.invoice.id).reverse();
   return { atual, emFormacao, historico, projecoes, reais };
 }
