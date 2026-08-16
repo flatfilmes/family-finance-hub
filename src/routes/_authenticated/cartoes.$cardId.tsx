@@ -9,6 +9,7 @@ import { TONE_DOTS, usageTone } from "@/lib/status";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Field, inputClass } from "@/components/page-header";
 import { Badge, DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
+import { StatusBadge } from "@/components/status-badge";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCardsData } from "@/hooks/useCardsData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
@@ -22,12 +23,10 @@ import { monthKeyLabel } from "@/lib/card-invoices";
 import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
 import {
   ESTADO_CICLO_LABELS,
-  KIND_LABELS,
   KIND_OFICIAL_LABELS,
   linhasOficiaisDaFatura,
   resumoOficialDaFatura,
   type EstadoCiclo,
-  type Kind,
   type KindOficial,
   type LinhaOficial,
 } from "@/lib/card-details";
@@ -43,12 +42,12 @@ export const Route = createFileRoute("/_authenticated/cartoes/$cardId")({
       {
         name: "description",
         content:
-          "Página completa do cartão: fatura atual, composição, lançamentos, parcelamentos, recorrências e projeção das próximas faturas.",
+          "Navegue pelos ciclos do cartão: fatura fechada, fatura em formação, lançamentos por dia, parcelamentos e recorrências.",
       },
       { property: "og:title", content: "Detalhes do cartão — Família Finance AI" },
       {
         property: "og:description",
-        content: "Fatura, limite, lançamentos e pagamento do cartão em uma página completa.",
+        content: "Fatura, limite, lançamentos e pagamento do cartão organizados por ciclo.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -56,6 +55,40 @@ export const Route = createFileRoute("/_authenticated/cartoes/$cardId")({
   }),
   component: CartaoDetalhePage,
 });
+
+const toneEstado = (estado: EstadoCiclo) =>
+  estado === "PAGA"
+    ? ("ok" as const)
+    : estado === "VENCIDA"
+      ? ("danger" as const)
+      : estado === "EM_FORMACAO"
+        ? ("muted" as const)
+        : ("warn" as const);
+
+/** Painel secundário recolhido: mantém a página curta sem esconder informação. */
+function Secundario({
+  titulo,
+  resumo,
+  children,
+}: {
+  titulo: string;
+  resumo: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="mt-4">
+      <details>
+        <summary className="cursor-pointer list-none">
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm font-bold">{titulo}</span>
+            <span className="text-xs text-muted-foreground">{resumo}</span>
+          </span>
+        </summary>
+        <div className="mt-3">{children}</div>
+      </details>
+    </Card>
+  );
+}
 
 function CartaoDetalhePage() {
   const { cardId } = Route.useParams();
@@ -68,8 +101,7 @@ function CartaoDetalhePage() {
   const recorrenciaActions = useRecurringExpenseActions(family?.id);
   const view = useViewMode();
 
-  const [faturaId, setFaturaId] = useState("");
-  const [aba, setAba] = useState<"fechada" | "proxima" | "historico">("fechada");
+  const [cicloId, setCicloId] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [busca, setBusca] = useState("");
@@ -84,16 +116,17 @@ function CartaoDetalhePage() {
   const ciclos = dados.ciclosDe(cardId);
   const cicloFechado = ciclos.atual;
   const cicloProximo = ciclos.emFormacao;
-  const doHistorico = ciclos.historico.find((c) => c.invoice.id === faturaId) ?? null;
+  // Navegação única: histórico (mais antigo → recente), fatura fechada e fatura em formação.
+  const selecionaveis = [
+    ...ciclos.historico.slice().reverse(),
+    ...(cicloFechado ? [cicloFechado] : []),
+    ...(cicloProximo ? [cicloProximo] : []),
+  ];
   const cicloSelecionado =
-    (aba === "proxima" ? cicloProximo : aba === "historico" ? doHistorico : cicloFechado) ??
-    cicloFechado ??
-    cicloProximo ??
-    null;
+    selecionaveis.find((c) => c.invoice.id === cicloId) ?? cicloFechado ?? cicloProximo ?? null;
   const fatura = cicloSelecionado?.invoice ?? null;
   // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
   const faturaCiclo = dados.faturaDe(cardId, fatura);
-  const faturaFechadaCiclo = dados.faturaDe(cardId, cicloFechado?.invoice ?? null);
   const itensOficiais = useStatementItems(faturaCiclo.importId ?? undefined);
 
   if (!family) return <NoFamily />;
@@ -112,21 +145,12 @@ function CartaoDetalhePage() {
     );
   }
 
-  const info = dados.info(cartao.id);
   const limite = Number(cartao.limite) || 0;
   const utilizado = dados.utilizadoDe(cartao.id);
   const disponivel = limite - utilizado;
   const uso = limite > 0 ? Math.min(100, (utilizado / limite) * 100) : 0;
 
-  // Só ciclos reais (fechados/pagos/oficiais) e a fatura em formação entram no seletor.
-  const selecionaveis = [ciclos.atual, ciclos.emFormacao, ...ciclos.historico].filter(
-    (c): c is NonNullable<typeof c> => !!c,
-  );
   const estadoSelecionado: EstadoCiclo | null = cicloSelecionado?.estado ?? null;
-  const toneEstado = (estado: EstadoCiclo) =>
-    estado === "PAGA" ? "ok" : estado === "VENCIDA" ? "danger" : estado === "EM_FORMACAO" ? "muted" : "warn";
-  const optionLabel = (c: (typeof selecionaveis)[number]) =>
-    `${monthKeyLabel(c.competencia)} · ${formatCurrency(c.valor)} · ${ESTADO_CICLO_LABELS[c.estado]}`;
 
   // Ciclo fechado com importação confirmada: a fatura do cartão é a fonte oficial.
   // Um lançamento nunca some do resumo por não ter purchase materializada no ciclo.
@@ -147,15 +171,17 @@ function CartaoDetalhePage() {
   );
   const resumo = resumoOficialDaFatura(filtradas);
   const soma = (kind: KindOficial) => resumo[kind];
-  const totalFatura = resumo.total;
+  const totalCiclo = usarOficial ? resumo.total : faturaCiclo.valor;
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "—";
 
-  // O que já está entrando na próxima fatura (ciclo em formação).
-  const linhasProxima = cicloProximo ? dados.linhasDe(cartao.id, cicloProximo.invoice) : [];
-  const somaProxima = (kind: Kind) =>
-    linhasProxima.filter((l) => l.kind === kind).reduce((acc, l) => acc + l.valor, 0);
-  const totalProxima = linhasProxima.reduce((acc, l) => acc + l.valor, 0);
+  // Lançamentos agrupados por dia (leitura natural, sem tabela gigante).
+  const porDia = new Map<string, LinhaOficial[]>();
+  for (const l of filtradas) {
+    const chave = l.data || "sem-data";
+    porDia.set(chave, [...(porDia.get(chave) ?? []), l]);
+  }
+  const dias = [...porDia.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
 
   const proximas = dados.proximasDe(cartao.id);
   const parcelamentos = dados.parcelamentosDe(cartao.id);
@@ -165,14 +191,12 @@ function CartaoDetalhePage() {
 
   const composicao = dados.composicaoDe(cartao.id);
 
-
   // Capacidade de pagamento: mesma fórmula da visão geral, aplicada às contas do titular.
   const contasAutorizadas = filterByMember(accounts ?? [], cartao.member_id ?? "sem").filter(
     (a) => a.ativo,
   );
   const saldoContas = contasAutorizadas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
   const valorFaturaAberta = fatura && fatura.status !== "PAGA" ? faturaCiclo.valor : 0;
-
   const capacidade = saldoContas - valorFaturaAberta;
   const statusPagamento =
     capacidade < 0 ? "Crítico" : capacidade < valorFaturaAberta * 0.2 ? "Atenção" : "Seguro";
@@ -180,6 +204,12 @@ function CartaoDetalhePage() {
 
   const contasParaPagar = (accounts ?? []).filter((a) => a.ativo);
   const podePagar = !view.isViewer;
+  const podePagarEsteCiclo =
+    podePagar &&
+    !!fatura &&
+    fatura.status !== "PAGA" &&
+    estadoSelecionado !== "EM_FORMACAO" &&
+    Number(fatura.valor_total) > 0;
 
   async function confirmarPagamento() {
     setErro("");
@@ -241,64 +271,207 @@ function CartaoDetalhePage() {
         />
       )}
 
+      {/* Navegação principal: um ciclo por vez. */}
+      {selecionaveis.length === 0 ? (
+        <Card>
+          <p className="text-sm text-muted-foreground">
+            Nenhum ciclo registrado neste cartão ainda. Importe uma fatura ou lance uma compra no
+            cartão para começar.
+          </p>
+        </Card>
+      ) : (
+        <>
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {selecionaveis.map((c) => {
+              const ativo = c.invoice.id === cicloSelecionado?.invoice.id;
+              return (
+                <button
+                  key={c.invoice.id}
+                  type="button"
+                  onClick={() => {
+                    setCicloId(c.invoice.id);
+                    setPagando(false);
+                  }}
+                  className={`min-w-[9.5rem] shrink-0 rounded-2xl border px-4 py-3 text-left transition ${
+                    ativo
+                      ? "border-primary bg-accent"
+                      : "border-border hover:bg-accent/50"
+                  }`}
+                >
+                  <span className="block text-xs font-semibold text-muted-foreground">
+                    {monthKeyLabel(c.competencia)}
+                  </span>
+                  <span className="mt-0.5 block text-base font-extrabold">
+                    {formatCurrency(c.valor)}
+                  </span>
+                  <span className="mt-1 block">
+                    <StatusBadge tone={toneEstado(c.estado)}>
+                      {ESTADO_CICLO_LABELS[c.estado]}
+                    </StatusBadge>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
+          {/* Bloco principal: tudo do ciclo selecionado em um único resumo. */}
+          <Card className="mt-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-muted-foreground">
+                  {cicloSelecionado ? monthKeyLabel(cicloSelecionado.competencia) : "Ciclo"}
+                </p>
+                <p className="mt-1 text-3xl font-black">{formatCurrency(totalCiclo)}</p>
+                {fatura && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Ciclo de {formatDate(fatura.data_inicio_ciclo)} a{" "}
+                    {formatDate(fatura.data_fechamento)} · vencimento{" "}
+                    {formatDate(fatura.data_vencimento)}
+                    {estadoSelecionado === "EM_FORMACAO"
+                      ? " · valor parcial, o ciclo ainda não fechou"
+                      : usarOficial
+                        ? " · fatura oficial importada"
+                        : " · valor calculado pelo sistema"}
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {estadoSelecionado && (
+                  <Badge tone={toneEstado(estadoSelecionado)}>
+                    {ESTADO_CICLO_LABELS[estadoSelecionado]}
+                  </Badge>
+                )}
+                {podePagarEsteCiclo && !pagando && (
+                  <button
+                    type="button"
+                    onClick={() => setPagando(true)}
+                    className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground"
+                  >
+                    Pagar fatura
+                  </button>
+                )}
+                {fatura?.status === "PAGA" && (
+                  <span className="text-xs font-semibold text-emerald-600">Fatura paga</span>
+                )}
+              </div>
+            </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label="Fatura fechada"
-          value={formatCurrency(cicloFechado ? faturaFechadaCiclo.valor : 0)}
-          hint={
-            cicloFechado
-              ? `Vence em ${formatDate(cicloFechado.invoice.data_vencimento)} · ${ESTADO_CICLO_LABELS[cicloFechado.estado]}`
-              : "Nenhum ciclo fechado"
-          }
-          big
-        />
-        <Metric
-          label="Próxima fatura"
-          value={formatCurrency(totalProxima)}
-          hint={
-            cicloProximo
-              ? `Em formação · fecha ${formatDate(cicloProximo.invoice.data_fechamento)}`
-              : "Sem ciclo em formação"
-          }
-          big
-        />
-        <Metric
-          label="Parcelas futuras"
-          value={formatCurrency(restanteParcelas)}
-          hint="Soma das parcelas ainda não quitadas"
-          big
-        />
-        <Metric
-          label="Limite disponível"
-          value={formatCurrency(disponivel)}
-          hint={`Utilizado ${formatCurrency(utilizado)} de ${formatCurrency(limite)} · ${composicao.oficial ? "fatura oficial do ciclo" : "fatura estimada do ciclo"} ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
-          tone={disponivel < 0 ? "danger" : "ok"}
-          big
-        />
-      </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
+              <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
+              <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
+              {usarOficial && (
+                <>
+                  <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
+                  <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
+                </>
+              )}
+              <Metric
+                label={usarOficial ? "Total oficial da fatura" : "Total do ciclo"}
+                value={formatCurrency(totalCiclo)}
+                big
+              />
+            </div>
+            {usarOficial && (
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Resumo montado a partir dos {itensDoCiclo.length} lançamentos da fatura importada e
+                confirmada — inclui parcelas de séries antigas, taxas e estornos sem compra
+                registrada neste ciclo.
+              </p>
+            )}
 
+            {podePagarEsteCiclo && pagando && (
+              <div className="mt-4 grid gap-3 rounded-2xl bg-muted/50 p-4 sm:grid-cols-3">
+                <Field label="Conta de origem">
+                  <select
+                    className={inputClass}
+                    value={conta}
+                    onChange={(e) => setConta(e.target.value)}
+                    aria-label="Conta bancária de origem"
+                  >
+                    <option value="">Selecione</option>
+                    {contasParaPagar.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.banco} · {a.nome_conta} ({formatCurrency(Number(a.saldo_atual))})
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Data do pagamento">
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={dataPagamento}
+                    onChange={(e) => setDataPagamento(e.target.value)}
+                  />
+                </Field>
+                <Field label="Valor">
+                  <input
+                    className={inputClass}
+                    value={formatCurrency(Number(fatura?.valor_total) || 0)}
+                    readOnly
+                    aria-label="Valor da fatura"
+                  />
+                </Field>
+                <div className="flex flex-wrap items-end gap-3 sm:col-span-3">
+                  <button
+                    type="button"
+                    onClick={() => void confirmarPagamento()}
+                    disabled={pagar.isPending}
+                    className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
+                  >
+                    {pagar.isPending ? "Pagando..." : "Confirmar pagamento"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPagando(false);
+                      setErro("");
+                    }}
+                    className="rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground"
+                  >
+                    Cancelar
+                  </button>
+                  <p className="text-[11px] text-muted-foreground">
+                    O pagamento gera apenas uma movimentação bancária de pagamento de cartão — nunca
+                    uma nova compra.
+                  </p>
+                </div>
+                {erro && (
+                  <p className="text-xs font-semibold text-destructive sm:col-span-3">{erro}</p>
+                )}
+              </div>
+            )}
+          </Card>
+        </>
+      )}
 
-      <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-        <div
-          className={`h-full rounded-full ${TONE_DOTS[usageTone(uso)]}`}
-          style={{ width: `${uso}%` }}
-        />
-      </div>
-
-      <Card className="mt-6">
-        <SectionTitle
-          title="Capacidade de pagamento"
-          hint="Compara a fatura em aberto com o saldo das contas do titular."
-        />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Metric label={faturaCiclo.label} value={formatCurrency(valorFaturaAberta)} />
+      {/* Limite e capacidade: uma linha de leitura rápida. */}
+      <Card className="mt-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <Metric
+            label="Limite disponível"
+            value={formatCurrency(disponivel)}
+            hint={`Utilizado ${formatCurrency(utilizado)} de ${formatCurrency(limite)} · ${composicao.oficial ? "fatura oficial do ciclo" : "fatura estimada do ciclo"} ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
+            tone={disponivel < 0 ? "danger" : "ok"}
+          />
+          <Metric
+            label="Parcelas futuras"
+            value={formatCurrency(restanteParcelas)}
+            hint="Soma das parcelas ainda não quitadas"
+          />
           <Metric label="Saldo nas contas do titular" value={formatCurrency(saldoContas)} />
           <Metric
-            label="Sobra após pagar"
+            label="Sobra após pagar esta fatura"
             value={formatCurrency(capacidade)}
             tone={capacidade < 0 ? "danger" : "ok"}
+            hint={statusPagamento}
+          />
+        </div>
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={`h-full rounded-full ${TONE_DOTS[usageTone(uso)]}`}
+            style={{ width: `${uso}%` }}
           />
         </div>
         <div className="mt-3">
@@ -306,182 +479,16 @@ function CartaoDetalhePage() {
         </div>
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <SectionTitle
-              title="Fatura fechada"
-              hint="Ciclo já encerrado — é o valor que precisa ser pago."
-            />
-            {cicloFechado && (
-              <Badge tone={toneEstado(cicloFechado.estado)}>
-                {ESTADO_CICLO_LABELS[cicloFechado.estado]}
-              </Badge>
-            )}
-          </div>
-          {cicloFechado ? (
-            <>
-              <p className="text-sm font-semibold text-muted-foreground">
-                {monthKeyLabel(cicloFechado.competencia)}
-              </p>
-              <p className="mt-1 text-3xl font-black">
-                {formatCurrency(faturaFechadaCiclo.valor)}
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Fechamento {formatDate(cicloFechado.invoice.data_fechamento)} · vencimento{" "}
-                {formatDate(cicloFechado.invoice.data_vencimento)}
-                {faturaFechadaCiclo.oficial
-                  ? " · fatura oficial importada"
-                  : " · valor calculado pelo sistema"}
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAba("fechada");
-                    setFaturaId("");
-                    document
-                      .getElementById("compras-do-ciclo")
-                      ?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                >
-                  Ver lançamentos
-                </button>
-                {podePagar &&
-                  cicloFechado.invoice.status !== "PAGA" &&
-                  Number(cicloFechado.invoice.valor_total) > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAba("fechada");
-                        setFaturaId("");
-                        setPagando(true);
-                      }}
-                      className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground"
-                    >
-                      Pagar fatura
-                    </button>
-                  )}
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Nenhum ciclo fechado até agora neste cartão.
-            </p>
-          )}
-        </Card>
-
-        <Card>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <SectionTitle
-              title="Próxima fatura"
-              hint="Compras feitas depois do fechamento entram aqui."
-            />
-            <Badge tone="muted">Em formação</Badge>
-          </div>
-          {cicloProximo ? (
-            <>
-              <p className="text-sm font-semibold text-muted-foreground">
-                {monthKeyLabel(cicloProximo.competencia)}
-              </p>
-              <p className="mt-1 text-3xl font-black">{formatCurrency(totalProxima)}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Total até agora · fecha {formatDate(cicloProximo.invoice.data_fechamento)} · vence{" "}
-                {formatDate(cicloProximo.invoice.data_vencimento)}
-              </p>
-              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Compras da próxima fatura
-              </p>
-              {linhasProxima.length === 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Nada lançado no novo ciclo ainda.
-                </p>
-              ) : (
-                <ul className="mt-2 divide-y divide-border">
-                  {linhasProxima.slice(0, 6).map((l) => (
-                    <li key={l.id} className="flex items-center justify-between gap-3 py-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">
-                          {l.estabelecimento}
-                        </span>
-                        <span className="block text-xs text-muted-foreground">
-                          {formatDate(l.data)} · {KIND_LABELS[l.kind]}
-                          {l.parcela !== "—" ? ` · ${l.parcela}` : ""}
-                        </span>
-                      </span>
-                      <span className="text-sm font-bold">{formatCurrency(l.valor)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-                <span>Compras novas: {formatCurrency(somaProxima("normais"))}</span>
-                <span>Parcelas: {formatCurrency(somaProxima("parceladas"))}</span>
-                <span>Taxas/recorrências: {formatCurrency(somaProxima("recorrentes"))}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setAba("proxima");
-                  setFaturaId("");
-                  document
-                    .getElementById("compras-do-ciclo")
-                    ?.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="mt-3 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
-              >
-                Ver tudo da próxima fatura
-              </button>
-            </>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Nenhum ciclo em formação neste momento.
-            </p>
-          )}
-        </Card>
-      </div>
-
-      <div id="compras-do-ciclo" />
+      {/* Lançamentos do ciclo selecionado, agrupados por dia. */}
       <Card className="mt-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <SectionTitle
-            title={usarOficial ? "Lançamentos da fatura oficial" : "Compras vinculadas ao ciclo"}
-            hint={
-              usarOficial
-                ? "Lista completa da fatura importada e confirmada: o total fecha com o documento do banco."
-                : "Compras materializadas no sistema para este ciclo — a fatura oficial ainda não foi importada."
-            }
-          />
-          {estadoSelecionado && (
-            <Badge tone={toneEstado(estadoSelecionado)}>{ESTADO_CICLO_LABELS[estadoSelecionado]}</Badge>
-          )}
-        </div>
-
-        <div className="mb-3 flex flex-wrap gap-2">
-          {(
-            [
-              ["fechada", "Fatura fechada", cicloFechado],
-              ["proxima", "Próxima fatura", cicloProximo],
-            ] as const
-          ).map(([valor, rotulo, ciclo]) =>
-            ciclo ? (
-              <button
-                key={valor}
-                type="button"
-                onClick={() => setAba(valor)}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-                  aba === valor
-                    ? "bg-primary text-primary-foreground"
-                    : "border border-border text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {rotulo} · {monthKeyLabel(ciclo.competencia)}
-              </button>
-            ) : null,
-          )}
-        </div>
-
+        <SectionTitle
+          title="Lançamentos do ciclo"
+          hint={
+            usarOficial
+              ? "Lista completa da fatura importada e confirmada."
+              : "Compras, parcelas e recorrências registradas neste ciclo."
+          }
+        />
         <div className="mb-3">
           <SearchInput
             value={busca}
@@ -490,26 +497,7 @@ function CartaoDetalhePage() {
             placeholder="Estabelecimento ou descrição"
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Outra competência (histórico)">
-            <select
-              className={inputClass}
-              value={aba === "historico" ? faturaId : ""}
-              onChange={(e) => {
-                setFaturaId(e.target.value);
-                setAba(e.target.value ? "historico" : "fechada");
-              }}
-              aria-label="Fatura do histórico"
-            >
-              <option value="">Ciclo atual selecionado</option>
-              {ciclos.historico.map((c) => (
-                <option key={c.invoice.id} value={c.invoice.id}>
-                  {optionLabel(c)}
-                </option>
-              ))}
-            </select>
-          </Field>
-
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Tipo de lançamento">
             <select
               className={inputClass}
@@ -542,243 +530,126 @@ function CartaoDetalhePage() {
           </Field>
         </div>
 
-        {fatura && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Ciclo de {formatDate(fatura.data_inicio_ciclo)} a {formatDate(fatura.data_fechamento)} ·
-            fechamento {formatDate(fatura.data_fechamento)} · vencimento{" "}
-            {formatDate(fatura.data_vencimento)}
-            {estadoSelecionado === "EM_FORMACAO"
-              ? " · valor parcial, o ciclo ainda não fechou"
-              : cicloSelecionado?.oficial
-                ? " · fatura oficial importada"
-                : " · valor calculado pelo sistema"}
-          </p>
-        )}
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
-          <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
-          <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
-          {usarOficial && (
-            <>
-              <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
-              <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
-            </>
-          )}
-          <Metric
-            label={usarOficial ? "Total oficial da fatura" : "Total da fatura"}
-            value={formatCurrency(totalFatura)}
-            big
-          />
-        </div>
-        {usarOficial && (
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Resumo montado a partir dos {itensDoCiclo.length} lançamentos da fatura importada e
-            confirmada — inclui parcelas de séries antigas, taxas e estornos que não têm compra
-            registrada neste ciclo.
-          </p>
-        )}
-
-        {podePagar && fatura && fatura.status !== "PAGA" && Number(fatura.valor_total) > 0 && (
-          <div className="mt-4 rounded-2xl bg-muted/50 p-4">
-            {pagando ? (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="Conta de origem">
-                  <select
-                    className={inputClass}
-                    value={conta}
-                    onChange={(e) => setConta(e.target.value)}
-                    aria-label="Conta bancária de origem"
-                  >
-                    <option value="">Selecione</option>
-                    {contasParaPagar.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.banco} · {a.nome_conta} ({formatCurrency(Number(a.saldo_atual))})
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-                <Field label="Data do pagamento">
-                  <input
-                    type="date"
-                    className={inputClass}
-                    value={dataPagamento}
-                    onChange={(e) => setDataPagamento(e.target.value)}
-                  />
-                </Field>
-                <Field label="Valor">
-                  <input
-                    className={inputClass}
-                    value={formatCurrency(Number(fatura.valor_total))}
-                    readOnly
-                    aria-label="Valor da fatura"
-                  />
-                </Field>
-                <div className="flex flex-wrap items-end gap-3 sm:col-span-3">
-                  <button
-                    type="button"
-                    onClick={() => void confirmarPagamento()}
-                    disabled={pagar.isPending}
-                    className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-60"
-                  >
-                    {pagar.isPending ? "Pagando..." : "Confirmar pagamento"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPagando(false);
-                      setErro("");
-                    }}
-                    className="rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-                {erro && (
-                  <p className="text-xs font-semibold text-destructive sm:col-span-3">{erro}</p>
-                )}
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setPagando(true)}
-                className="rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground"
-              >
-                Pagar fatura
-              </button>
-            )}
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              O pagamento gera apenas uma movimentação bancária do tipo pagamento de cartão — nunca
-              uma nova compra.
-            </p>
-          </div>
-        )}
-        {fatura?.status === "PAGA" && (
-          <p className="mt-4 text-xs font-semibold text-emerald-600">Fatura paga</p>
-        )}
-      </Card>
-
-      <CardStatementImports
-        familyId={family.id}
-        cardId={cartao.id}
-        onImportar={() => setImportando(true)}
-      />
-
-
-
-      <Card className="mt-4">
-        <SectionTitle title="Lançamentos da fatura" />
         {filtradas.length === 0 ? (
-          <EmptyState
-            icon={<Receipt className="size-5" />}
-            title="Nenhum lançamento nesta fatura"
-            description="Compras no cartão, parcelas e recorrências deste ciclo aparecem aqui assim que forem registradas."
-          />
+          <div className="mt-3">
+            <EmptyState
+              icon={<Receipt className="size-5" />}
+              title="Nenhum lançamento neste ciclo"
+              description="Compras no cartão, parcelas e recorrências deste ciclo aparecem aqui assim que forem registradas."
+            />
+          </div>
         ) : (
-          <div className="-mx-2 overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead>
-                <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-2 py-2">Data</th>
-                  <th className="px-2 py-2">Descrição</th>
-                  <th className="px-2 py-2">Categoria</th>
-                  <th className="px-2 py-2">Tipo</th>
-                  <th className="px-2 py-2">Parcela</th>
-                  <th className="px-2 py-2 text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtradas.map((l) => (
-                  <tr key={l.id}>
-                    <td className="whitespace-nowrap px-2 py-2.5 text-muted-foreground">
-                      {formatDate(l.data)}
-                    </td>
-                    <td className="px-2 py-2.5 font-semibold">{l.estabelecimento}</td>
-                    <td className="px-2 py-2.5 text-muted-foreground">
-                      {categoriaNome(l.categoriaId)}
-                    </td>
-                    <td className="px-2 py-2.5 text-muted-foreground">{KIND_OFICIAL_LABELS[l.kind]}</td>
-                    <td className="px-2 py-2.5 text-muted-foreground">{l.parcela}</td>
-                    <td className="whitespace-nowrap px-2 py-2.5 text-right font-bold">
-                      {formatCurrency(l.valor)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-4 space-y-4">
+            {dias.map(([dia, itens]) => (
+              <div key={dia}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    {dia === "sem-data" ? "Sem data" : formatDate(dia)}
+                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground">
+                    {formatCurrency(itens.reduce((acc, l) => acc + l.valor, 0))}
+                  </p>
+                </div>
+                <ul className="mt-1 divide-y divide-border">
+                  {itens.map((l) => (
+                    <li key={l.id} className="flex items-start justify-between gap-3 py-2.5">
+                      <span className="min-w-0">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-semibold">{l.estabelecimento}</span>
+                          {l.kind === "recorrentes" && (
+                            <StatusBadge tone="ok">Recorrente</StatusBadge>
+                          )}
+                          {l.kind === "parceladas" && (
+                            <StatusBadge tone="info">
+                              {l.parcela !== "—" ? `Parcela ${l.parcela}` : "Parcelada"}
+                            </StatusBadge>
+                          )}
+                          {(l.kind === "taxas" || l.kind === "creditos") && (
+                            <StatusBadge tone="muted">{KIND_OFICIAL_LABELS[l.kind]}</StatusBadge>
+                          )}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {categoriaNome(l.categoriaId)}
+                        </span>
+                      </span>
+                      <span className="whitespace-nowrap text-sm font-bold">
+                        {formatCurrency(l.valor)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
       </Card>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <SectionTitle
-            title="Compromissos futuros"
-            hint="Projeção de parcelas e recorrências dos próximos meses — não são faturas fechadas."
-          />
-          {proximas.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhum compromisso futuro registrado.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {proximas.map((m) => (
-                <li key={m.key} className="flex items-center justify-between gap-3 py-2.5">
-                  <span className="min-w-0">
-                    <span className="block text-sm font-semibold">{monthKeyLabel(m.key)}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {cicloProximo && m.key === cicloProximo.competencia
-                        ? "Em formação · detalhado acima"
-                        : "Projetado"}{" "}
-                      · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
-                      {formatCurrency(m.recorrencias)}
-                    </span>
-
+      {/* Áreas secundárias: continuam acessíveis, sem alongar a página. */}
+      <Secundario
+        titulo="Parcelamentos ativos"
+        resumo={`${parcelamentos.length} em andamento · ${formatCurrency(restanteParcelas)} comprometido`}
+      >
+        {parcelamentos.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {parcelamentos.map((p) => (
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">{p.descricao}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
+                    {p.proximaCobranca
+                      ? ` · próxima cobrança ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
+                      : ""}
                   </span>
-                  <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-
-        <Card>
-          <SectionTitle
-            title="Parcelamentos ativos"
-            hint="Cada compra parcelada continua sendo uma única compra — as parcelas é que mudam de ciclo."
-          />
-          {parcelamentos.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {parcelamentos.map((p) => (
-                <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-semibold">{p.descricao}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
-                      {p.proximaCobranca
-                        ? ` · próxima cobrança ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
-                        : ""}
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
-                    </span>
+                  <span className="block text-xs text-muted-foreground">
+                    {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
                   </span>
-                  <span className="text-right">
-                    <span className="block text-sm font-bold">{formatCurrency(p.restante)}</span>
-                    <span className="block text-[11px] text-muted-foreground">
-                      restante comprometido
-                    </span>
+                </span>
+                <span className="text-right">
+                  <span className="block text-sm font-bold">{formatCurrency(p.restante)}</span>
+                  <span className="block text-[11px] text-muted-foreground">
+                    restante comprometido
                   </span>
-                </li>
-              ))}
-            </ul>
-          )}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Secundario>
 
-        </Card>
-      </div>
+      <Secundario
+        titulo="Compromissos futuros"
+        resumo="Projeção de parcelas e recorrências — não são faturas fechadas"
+      >
+        {proximas.length === 0 ? (
+          <p className="text-xs text-muted-foreground">Nenhum compromisso futuro registrado.</p>
+        ) : (
+          <ul className="divide-y divide-border">
+            {proximas.map((m) => (
+              <li key={m.key} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">{monthKeyLabel(m.key)}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {cicloProximo && m.key === cicloProximo.competencia
+                      ? "Em formação"
+                      : "Projetado"}{" "}
+                    · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
+                    {formatCurrency(m.recorrencias)}
+                  </span>
+                </span>
+                <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Secundario>
 
-      <Card className="mt-4">
-        <SectionTitle title="Cobranças recorrentes" />
+      <Secundario
+        titulo="Cobranças recorrentes"
+        resumo={`${recorrencias.filter((r) => r.ativo).length} ativa(s) neste cartão`}
+      >
         {recorrencias.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nenhuma cobrança recorrente neste cartão.</p>
         ) : (
@@ -820,7 +691,13 @@ function CartaoDetalhePage() {
             ))}
           </ul>
         )}
-      </Card>
+      </Secundario>
+
+      <CardStatementImports
+        familyId={family.id}
+        cardId={cartao.id}
+        onImportar={() => setImportando(true)}
+      />
     </div>
   );
 }
