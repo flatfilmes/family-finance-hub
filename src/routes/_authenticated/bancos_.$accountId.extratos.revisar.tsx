@@ -36,7 +36,7 @@ import {
 } from "@/lib/bank-statements";
 import { clearStatementDraft, loadStatementDraft } from "@/lib/bank-statements/draft";
 
-export const Route = createFileRoute("/_authenticated/bancos/$accountId/extratos/revisar")({
+export const Route = createFileRoute("/_authenticated/bancos_/$accountId/extratos/revisar")({
   head: () => ({
     meta: [
       { title: "Revisar extrato bancário — Família Finance AI" },
