@@ -443,7 +443,7 @@ function ContaDetalhePage() {
         {filtrados.length === 0 ? (
           <EmptyState
             icon={<Receipt className="size-5" />}
-            title="Nenhuma movimentação no período"
+            title="Nenhuma movimentação neste período"
             description="Entradas, compras no PIX/débito e pagamentos de fatura desta conta aparecem aqui."
           />
         ) : (
