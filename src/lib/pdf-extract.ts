@@ -7,6 +7,7 @@
  * Quando um campo não é identificado, ele volta nulo — nunca chutado.
  */
 import type { PaymentMethod } from "@/lib/expenses";
+import { parseDanfeProductTables } from "@/lib/danfe/danfe-spatial";
 
 export type Confianca = "ALTA" | "MEDIA" | "BAIXA";
 
