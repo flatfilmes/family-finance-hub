@@ -19,6 +19,7 @@ import { filterByMember } from "@/components/member-filter";
 import { formatCurrency } from "@/lib/finance";
 import { PAYMENT_METHOD_LABELS, formatDate, type PaymentMethod } from "@/lib/expenses";
 import { UNIDADES, usesBankAccount, type NewPurchaseItem } from "@/lib/purchases";
+import { suggestCategoryId } from "@/lib/category-suggest";
 import {
   DOCUMENT_STATUS_CLASSES,
   DOCUMENT_STATUS_LABELS,
@@ -270,6 +271,7 @@ const linhaVazia = (): NewPurchaseItem => ({
   unidade: "UN",
   valor_unitario: "",
   categoria_id: "",
+  categoria_sugerida: "",
 });
 
 /** Fila de revisão e histórico dos documentos enviados. */
@@ -559,29 +561,41 @@ function RevisarDocumento({
   // Um produto só conta como lido quando existe de fato na tabela de itens.
   // A cópia bruta não pode mascarar uma falha de persistência.
   const produtosLidos = useMemo<NewPurchaseItem[]>(() => {
-    return (itensPdf ?? []).map((i) => ({
-      product_id: "",
-      descricao_produto: i.descricao_produto,
-      quantidade: String(Number(i.quantidade) || 1),
-      unidade: i.unidade || "UN",
-      valor_unitario: String(Number(i.valor_unitario) || 0),
-      categoria_id: i.categoria_sugerida ?? "",
-    }));
-  }, [itensPdf]);
+    const lista = categorias ?? [];
+    return (itensPdf ?? []).map((i) => {
+      const sugerida =
+        i.categoria_sugerida ?? suggestCategoryId(i.descricao_produto, lista) ?? "";
+      return {
+        product_id: "",
+        descricao_produto: i.descricao_produto,
+        quantidade: String(Number(i.quantidade) || 1),
+        unidade: i.unidade || "UN",
+        valor_unitario: String(Number(i.valor_unitario) || 0),
+        categoria_id: sugerida,
+        categoria_sugerida: sugerida,
+      };
+    });
+  }, [itensPdf, categorias]);
 
   useEffect(() => {
     if (!itensExtraidos || itensExtraidos.length === 0) return;
+    const lista = categorias ?? [];
     setItems(
-      itensExtraidos.map((i) => ({
-        product_id: "",
-        descricao_produto: i.descricao_produto,
-        quantidade: String(Number(i.quantidade)),
-        unidade: i.unidade,
-        valor_unitario: String(Number(i.valor_unitario)),
-        categoria_id: i.categoria_sugerida ?? "",
-      })),
+      itensExtraidos.map((i) => {
+        const sugerida =
+          i.categoria_sugerida ?? suggestCategoryId(i.descricao_produto, lista) ?? "";
+        return {
+          product_id: "",
+          descricao_produto: i.descricao_produto,
+          quantidade: String(Number(i.quantidade)),
+          unidade: i.unidade,
+          valor_unitario: String(Number(i.valor_unitario)),
+          categoria_id: sugerida,
+          categoria_sugerida: sugerida,
+        };
+      }),
     );
-  }, [itensExtraidos]);
+  }, [itensExtraidos, categorias]);
 
   // Preenchimento automático com o que foi lido do PDF (só o que foi identificado).
   useEffect(() => {
@@ -856,16 +870,33 @@ function RevisarDocumento({
             <Field label="Categoria">
               <select
                 value={item.categoria_id}
-                onChange={(e) => setItem(index, { categoria_id: e.target.value })}
+                onChange={(e) =>
+                  setItem(index, {
+                    categoria_id: e.target.value,
+                    categoria_sugerida:
+                      item.categoria_sugerida ??
+                      suggestCategoryId(item.descricao_produto, categorias ?? []) ??
+                      "",
+                  })
+                }
                 className={inputClass}
               >
-                <option value="">Sem categoria</option>
+                <option value="">Selecione uma categoria</option>
                 {(categorias ?? []).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nome}
                   </option>
                 ))}
               </select>
+              {item.categoria_sugerida && item.categoria_sugerida === item.categoria_id ? (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Categoria sugerida automaticamente — você pode alterar.
+                </p>
+              ) : item.categoria_id === "" ? (
+                <p className="mt-1 text-[11px] text-amber-600 dark:text-amber-400">
+                  Não foi possível identificar este campo — escolha a categoria.
+                </p>
+              ) : null}
             </Field>
             <div className="flex items-end justify-between gap-2">
               <p className="text-sm font-semibold">
