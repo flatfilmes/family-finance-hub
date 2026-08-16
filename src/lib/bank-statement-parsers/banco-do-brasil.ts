@@ -141,7 +141,9 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
   const movimentos: ParsedBankMovement[] = [];
   const futuros: ParsedBankMovement[] = [];
   const aceitos: ParsedBankStatement["aceitos"] = [];
+  const checkpoints: NonNullable<ParsedBankStatement["checkpoints"]> = [];
   const rejeitados: ParsedBankStatement["rejeitados"] = [];
+
 
   let secao: Secao = "MOVIMENTOS";
   let ultimaData: string | null = null;
@@ -192,6 +194,11 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       const t = plano(descricao);
       if (t.startsWith("saldo anterior")) saldoInicial = valor;
       else saldoFinal = valor;
+      // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
+      const dataCheck = data ?? ultimaData;
+      if (dataCheck && !t.startsWith("saldo anterior")) {
+        checkpoints.push({ data: dataCheck, saldo: valor, rotulo: descricao });
+      }
       rejeitados.push({
         raw,
         valor,
@@ -200,6 +207,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       });
       continue;
     }
+
 
     if (secao === "METADATA") {
       rejeitados.push({
@@ -265,7 +273,12 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     saldoInicial,
     saldoFinal: saldoFinal ?? saldoRotulado,
     movimentos,
+    // Um checkpoint por dia: o último saldo impresso é o que vale.
+    checkpoints: [...new Map(checkpoints.map((c) => [c.data, c])).values()].sort((a, b) =>
+      a.data.localeCompare(b.data),
+    ),
     futuros,
+
     identificacao: {
       banco: "Banco do Brasil",
       agencia: buscar(textos, /ag[êe]ncia[:\s]+([\d.\-]{3,10})/i),

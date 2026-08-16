@@ -71,6 +71,77 @@ export type Database = {
           },
         ]
       }
+      bank_balance_checkpoints: {
+        Row: {
+          bank_account_id: string
+          created_at: string
+          created_by: string | null
+          data: string
+          family_id: string
+          id: string
+          import_id: string | null
+          member_id: string | null
+          origem: string
+          rotulo: string | null
+          saldo_informado: number
+        }
+        Insert: {
+          bank_account_id: string
+          created_at?: string
+          created_by?: string | null
+          data: string
+          family_id: string
+          id?: string
+          import_id?: string | null
+          member_id?: string | null
+          origem?: string
+          rotulo?: string | null
+          saldo_informado: number
+        }
+        Update: {
+          bank_account_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: string
+          family_id?: string
+          id?: string
+          import_id?: string | null
+          member_id?: string | null
+          origem?: string
+          rotulo?: string | null
+          saldo_informado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_balance_checkpoints_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_balance_checkpoints_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_balance_checkpoints_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_balance_checkpoints_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_imports: {
         Row: {
           bank_account_id: string

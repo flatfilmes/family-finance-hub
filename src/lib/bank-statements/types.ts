@@ -68,6 +68,13 @@ export type ParsedBankMovement = {
   tipo: BankMovementKind;
 };
 
+/** Saldo impresso pelo banco em um dia — conferência, nunca movimentação. */
+export type ParsedBalanceCheckpoint = {
+  data: string;
+  saldo: number;
+  rotulo?: string | null;
+};
+
 /** Resultado completo da leitura de um extrato (dry run). */
 export type ParsedBankStatement = {
   parser: string;
@@ -76,8 +83,11 @@ export type ParsedBankStatement = {
   saldoInicial: number | null;
   saldoFinal: number | null;
   movimentos: ParsedBankMovement[];
+  /** Saldos diários impressos no documento ("Saldo do dia", "S A L D O"). */
+  checkpoints?: ParsedBalanceCheckpoint[];
   /** Lançamentos futuros (previstos): nunca entram no período realizado. */
   futuros?: ParsedBankMovement[];
+
   /** Dados institucionais lidos do documento, apenas para exibição. */
   identificacao?: {
     banco: string | null;

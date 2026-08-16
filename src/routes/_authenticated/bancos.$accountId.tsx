@@ -31,7 +31,10 @@ import { BankStatementDialog } from "@/components/bank/statement-import-dialog";
 import { MovementDialog } from "@/components/bank/movement-dialog";
 import { TransferDialog } from "@/components/transfer-dialog";
 import { useReverseBankTransaction } from "@/hooks/useBankMovements";
+import { useBankBalanceCheckpoints } from "@/hooks/useBankLedger";
+import { buildDailyBankLedger, movementEffect } from "@/lib/bank-ledger";
 import { MOVEMENT_NATURE_LABELS, type MovementNature } from "@/lib/bank-movements";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,6 +115,8 @@ function ContaDetalhePage() {
   const { data: movimentos } = useTransactions(family?.id);
   const { data: purchases } = usePurchases(family?.id);
   const memberName = useMemberName(family?.id);
+  const { data: checkpoints } = useBankBalanceCheckpoints(accountId);
+
 
   const perms = usePermissions();
   const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM" | "DEPOSITO" | "RETIRADA" | "TRANSFERENCIA">(null);
@@ -159,6 +164,10 @@ function ContaDetalhePage() {
     perms.isAdmin || (perms.podeLancar && conta.member_id === perms.myMemberId);
 
   // O saldo atual já é atualizado pelas movimentações; aqui apenas as apresentamos.
+  const hoje = new Date().toISOString().slice(0, 10);
+  const inicio = periodo ? `${periodo}-01` : null;
+  const fim = periodo ? ultimoDiaDoMes(periodo) : null;
+
   const doPeriodo = (movimentos ?? []).filter(
     (t) =>
       t.bank_account_id === conta.id &&
@@ -166,35 +175,55 @@ function ContaDetalhePage() {
       (!periodo || t.data_movimento.startsWith(periodo)),
   );
 
+  // Extrato realizado: até hoje. O que vem depois é previsão, nunca saldo.
+  const realizados = doPeriodo.filter((t) => t.data_movimento <= hoje);
+  const proximos = doPeriodo
+    .filter((t) => t.data_movimento > hoje)
+    .sort((a, b) => a.data_movimento.localeCompare(b.data_movimento));
+
+  const ledger = buildDailyBankLedger({
+    accountId: conta.id,
+    transactions: (movimentos ?? []).filter((t) => t.data_movimento <= hoje),
+    startDate: inicio,
+    endDate: fim && fim < hoje ? fim : hoje,
+    checkpoints: checkpoints ?? [],
+  });
+
   const soma = (tipo: Transaction["tipo"], rows = doPeriodo) =>
     rows.filter((t) => t.tipo === tipo).reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
 
   // Abertura de saldo é posição patrimonial: nunca entra como receita do período.
-  const entradas = soma("ENTRADA");
-  const saidas = soma("SAIDA");
-  const pagamentos = soma("PAGAMENTO_CARTAO");
-  const transferencias = soma("TRANSFERENCIA");
-  const resultado = entradas - saidas - pagamentos;
+  const entradas = ledger.totalInflows;
+  const saidas = ledger.totalOutflows;
+  const pagamentos = soma("PAGAMENTO_CARTAO", realizados);
+  const transferencias = soma("TRANSFERENCIA", realizados);
+  const resultado = entradas - saidas;
 
   const origemDe = (t: Transaction) =>
     origemDoMovimento(t, t.purchase_id ? compraPorId.get(t.purchase_id) : undefined);
 
-  const filtrados = doPeriodo.filter(
-    (t) =>
-      (!filtroOrigem || origemDe(t) === filtroOrigem) &&
-      matchesSearch(busca, t.descricao),
-  );
+  const passaNoFiltro = (t: Transaction) =>
+    (!filtroOrigem || origemDe(t) === filtroOrigem) && matchesSearch(busca, t.descricao);
+
+  const filtrandoAlgo = Boolean(filtroOrigem || busca);
+  const dias = ledger.days
+    .map((dia) => ({ ...dia, visiveis: dia.transactions.filter(passaNoFiltro) }))
+    .filter((dia) => !filtrandoAlgo || dia.visiveis.length > 0);
+
+  const diasComDivergencia = ledger.days.filter((d) => d.confere === false);
 
   const somaPorOrigem = (origem: string, tipos: Transaction["tipo"][]) =>
-    doPeriodo
+    realizados
       .filter((t) => tipos.includes(t.tipo) && origemDe(t) === origem)
       .reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
 
   const saidasPix = somaPorOrigem("PIX", ["SAIDA"]) + somaPorOrigem("Débito", ["SAIDA"]);
   const saidasBoleto = somaPorOrigem("Boleto", ["SAIDA"]);
-  const saidasOutras = saidas - saidasPix - saidasBoleto;
+  const saidasDiretas = soma("SAIDA", realizados);
+  const saidasOutras = saidasDiretas - saidasPix - saidasBoleto;
 
-  const entradasLista = doPeriodo.filter((t) => t.tipo === "ENTRADA");
+  const entradasLista = realizados.filter((t) => t.tipo === "ENTRADA");
+
 
   return (
     <div>
@@ -439,101 +468,165 @@ function ContaDetalhePage() {
       </Card>
 
       <Card className="mt-4">
-        <SectionTitle title="Movimentações" />
-        {filtrados.length === 0 ? (
-          <EmptyState
-            icon={<Receipt className="size-5" />}
-            title="Nenhuma movimentação neste período"
-            description="Entradas, compras no PIX/débito e pagamentos de fatura desta conta aparecem aqui."
-          />
+        <SectionTitle
+          title="Extrato da conta"
+          hint="Saldo anterior, movimentos do dia e saldo do dia — igual ao extrato do banco."
+        />
+
+        {diasComDivergencia.length > 0 && (
+          <div className="mb-4 rounded-2xl border border-destructive/40 bg-destructive/5 p-3 text-xs">
+            <span className="font-semibold text-destructive">
+              {diasComDivergencia.length === 1
+                ? "1 dia diverge do saldo informado pelo banco"
+                : `${diasComDivergencia.length} dias divergem do saldo informado pelo banco`}
+            </span>
+            <ul className="mt-1 space-y-0.5 text-muted-foreground">
+              {diasComDivergencia.slice(0, 5).map((d) => (
+                <li key={d.date}>
+                  {formatDate(d.date)}: banco {formatCurrency(d.reportedClosingBalance ?? 0)} ·
+                  sistema {formatCurrency(d.calculatedClosingBalance)} (diferença{" "}
+                  {formatCurrency(d.difference ?? 0)})
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-3 py-2.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Saldo anterior
+          </span>
+          <span className="text-sm font-bold">{formatCurrency(ledger.openingBalance)}</span>
+        </div>
+
+        {dias.length === 0 ? (
+          <div className="mt-3">
+            <EmptyState
+              icon={<Receipt className="size-5" />}
+              title="Nenhuma movimentação neste período"
+              description="Entradas, compras no PIX/débito e pagamentos de fatura desta conta aparecem aqui."
+            />
+          </div>
         ) : (
-          <div className="-mx-2 overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-sm">
-              <thead>
-                <tr className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-2 py-2">Data</th>
-                  <th className="px-2 py-2">Descrição</th>
-                  <th className="px-2 py-2">Tipo</th>
-                  <th className="px-2 py-2">Origem</th>
-                  <th className="px-2 py-2 text-right">Valor</th>
-                  <th className="px-2 py-2 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {filtrados.map((t) => (
-                  <tr key={t.id}>
-                    <td className="whitespace-nowrap px-2 py-2.5 text-muted-foreground">
-                      {formatDate(t.data_movimento)}
-                    </td>
-                    <td className="px-2 py-2.5">
-                      <span className="block font-semibold">{t.descricao}</span>
-                      {t.tipo === "TRANSFERENCIA" && (
+          <div className="mt-3 space-y-4">
+            {dias.map((dia) => (
+              <div key={dia.date} className="rounded-2xl border border-border">
+                <div className="flex items-center justify-between gap-3 border-b border-border px-3 py-2">
+                  <span className="text-xs font-semibold">{formatDate(dia.date)}</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Entradas {formatCurrency(dia.inflows)} · Saídas {formatCurrency(dia.outflows)}
+                  </span>
+                </div>
+
+                <ul className="divide-y divide-border">
+                  {dia.visiveis.map((t) => (
+                    <li key={t.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">{t.descricao}</span>
                         <span className="block text-[11px] text-muted-foreground">
-                          Origem: {conta.banco} · {conta.nome_conta} — transferência interna, não é
-                          gasto da família
+                          {origemDe(t)}
+                          {t.tipo === "TRANSFERENCIA" &&
+                            " · transferência interna, não é gasto da família"}
                         </span>
-                      )}
-                    </td>
-                    <td className="px-2 py-2.5 text-muted-foreground">
-                      {t.tipo === "ENTRADA"
-                        ? "Entrada"
-                        : t.tipo === "PAGAMENTO_CARTAO"
-                          ? "Pagamento de cartão"
-                          : t.tipo === "TRANSFERENCIA"
-                            ? "Transferência"
-                            : t.tipo === "AJUSTE_SALDO"
-                              ? "Ajuste de saldo"
-                              : "Saída"}
-                    </td>
-                    <td className="px-2 py-2.5 text-muted-foreground">{origemDe(t)}</td>
-                    <td className="whitespace-nowrap px-2 py-2.5 text-right">
-                      <span className="font-bold">
-                        {t.tipo === "AJUSTE_SALDO" || t.tipo === "ABERTURA_SALDO"
-                          ? (Number(t.valor) || 0) >= 0
-                            ? "+"
-                            : "-"
-                          : t.tipo === "ENTRADA"
-                            ? "+"
-                            : "-"}
-                        {formatCurrency(Math.abs(Number(t.valor) || 0))}
                       </span>
-                      <span
-                        className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${TRANSACTION_STATUS_CLASSES[t.status]}`}
-                      >
-                        {TRANSACTION_STATUS_LABELS[t.status]}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-2 py-2.5 text-right">
-                      {podeOperar && podeEstornar(t) ? (
-                        <button
-                          type="button"
-                          disabled={estornar.isPending}
-                          onClick={() =>
-                            estornar.mutate(
-                              { transactionId: t.id },
-                              {
-                                onSuccess: () =>
-                                  toast.success(
-                                    "Estorno registrado. O lançamento original continua no histórico.",
-                                  ),
-                                onError: (err: Error) => toast.error(err.message),
-                              },
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                      <span className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={`text-sm font-bold ${
+                            movementEffect(t) >= 0 ? "text-emerald-600" : "text-foreground"
+                          }`}
                         >
-                          <Undo2 className="size-3" />
-                          Estornar
-                        </button>
-                      ) : null}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          {movementEffect(t) >= 0 ? "+" : "−"}
+                          {formatCurrency(Math.abs(movementEffect(t)))}
+                        </span>
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${TRANSACTION_STATUS_CLASSES[t.status]}`}
+                        >
+                          {TRANSACTION_STATUS_LABELS[t.status]}
+                        </span>
+                        {podeOperar && podeEstornar(t) ? (
+                          <button
+                            type="button"
+                            disabled={estornar.isPending}
+                            onClick={() =>
+                              estornar.mutate(
+                                { transactionId: t.id },
+                                {
+                                  onSuccess: () =>
+                                    toast.success(
+                                      "Estorno registrado. O lançamento original continua no histórico.",
+                                    ),
+                                  onError: (err: Error) => toast.error(err.message),
+                                },
+                              )
+                            }
+                            aria-label="Estornar movimentação"
+                            className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                          >
+                            <Undo2 className="size-3" />
+                            Estornar
+                          </button>
+                        ) : null}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/40 px-3 py-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Saldo do dia
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {dia.confere === true && <Badge tone="ok">Confere com o banco</Badge>}
+                    {dia.confere === false && (
+                      <Badge tone="danger">
+                        Banco: {formatCurrency(dia.reportedClosingBalance ?? 0)} · diferença{" "}
+                        {formatCurrency(dia.difference ?? 0)}
+                      </Badge>
+                    )}
+                    <span className="text-sm font-bold">
+                      {formatCurrency(dia.calculatedClosingBalance)}
+                    </span>
+                  </span>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-primary/5 px-3 py-2.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Saldo final do período
+              </span>
+              <span className="text-sm font-bold">{formatCurrency(ledger.closingBalance)}</span>
+            </div>
           </div>
         )}
       </Card>
+
+      {proximos.length > 0 && (
+        <Card className="mt-4">
+          <SectionTitle
+            title="Próximos lançamentos"
+            hint="Previstos para os próximos dias — ainda não afetam o saldo do dia."
+          />
+          <ul className="divide-y divide-border">
+            {proximos.map((t) => (
+              <li key={t.id} className="flex items-center justify-between gap-3 py-2.5">
+                <span className="min-w-0">
+                  <span className="block truncate text-sm font-semibold">{t.descricao}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {formatDate(t.data_movimento)} · {origemDe(t)}
+                  </span>
+                </span>
+                <span className="text-sm font-bold text-muted-foreground">
+                  {movementEffect(t) >= 0 ? "+" : "−"}
+                  {formatCurrency(Math.abs(movementEffect(t)))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
@@ -574,7 +667,14 @@ function ContaDetalhePage() {
   );
 }
 
+/** Último dia do mês de referência (YYYY-MM) em ISO. */
+function ultimoDiaDoMes(periodo: string) {
+  const [ano, mes] = periodo.split("-").map(Number);
+  return new Date(Date.UTC(ano!, mes!, 0)).toISOString().slice(0, 10);
+}
+
 function Linha({ label, valor }: { label: string; valor: number }) {
+
   return (
     <li className="flex items-center justify-between gap-3 py-2.5">
       <span className="text-sm text-muted-foreground">{label}</span>
