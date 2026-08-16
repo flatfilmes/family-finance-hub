@@ -123,7 +123,8 @@ function ContaDetalhePage() {
     Number(conta.saldo_atual) !== 0 ||
     movimentosDaConta.some((t) => t.tipo === "ABERTURA_SALDO");
   const semMovimento = movimentosDaConta.length === 0;
-  const podeOperar = perms.isAdmin || perms.canManageMember(conta.member_id);
+  const podeOperar =
+    perms.isAdmin || (perms.podeLancar && conta.member_id === perms.myMemberId);
 
   // O saldo atual já é atualizado pelas movimentações; aqui apenas as apresentamos.
   const doPeriodo = (movimentos ?? []).filter(
