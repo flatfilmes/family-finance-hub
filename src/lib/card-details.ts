@@ -12,6 +12,8 @@ import type { Purchase } from "@/lib/purchases";
 import type { CreditCard } from "@/lib/finance";
 import type { Expense } from "@/lib/expenses";
 import { isStatementConfirmed } from "@/lib/card-statements";
+import { resolveReviewType } from "@/lib/statement-types";
+
 
 
 export type Kind = "normais" | "parceladas" | "recorrentes";
