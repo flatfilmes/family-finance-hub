@@ -51,6 +51,9 @@ const OPERACOES = [
 const SO_NUMERO = /^\d[\d.\-]*$/;
 /** Data ou data+hora citada dentro do histórico ("04/01 12:48"). */
 const DATA_HORA_NO_INICIO = /^\d{2}\/\d{2}(?:\/\d{2,4})?(?:\s+\d{2}:\d{2})?\s*/;
+/** Data/hora do evento em QUALQUER posição do texto — pertence ao occurredAt. */
+const DATA_HORA_EM_QUALQUER_LUGAR = /\b\d{2}\/\d{2}(?:\/\d{2,4})?(?:\s+\d{2}:\d{2})?\b/g;
+
 
 function plano(texto: string) {
   return semAcento(texto).toLowerCase().replace(/\s+/g, " ").trim();
@@ -113,17 +116,28 @@ export function montarDescricaoBb(pedacos: Array<string | null | undefined>): De
     };
   }
 
-  // Operação bancária: prefixo impresso pelo banco, comparado sem acento/caixa.
+  // OPERAÇÃO BANCÁRIA: prefixo impresso pelo banco. Procuramos em QUALQUER
+  // posição do histórico montado — o extrator pode devolver a linha da
+  // operação depois da linha da contraparte.
   const alvo = plano(historico);
   let bankOperation: string | null = null;
-  let resto = historico;
+  let melhorPos = Number.POSITIVE_INFINITY;
+  let melhorTam = 0;
   for (const operacao of OPERACOES) {
     const chave = plano(operacao);
     const pos = alvo.indexOf(chave);
-    if (pos !== 0) continue;
-    bankOperation = historico.slice(0, chave.length).trim();
-    resto = historico.slice(chave.length).trim();
-    break;
+    if (pos < 0) continue;
+    // Menor posição vence; em empate, a operação mais específica (mais longa).
+    if (pos < melhorPos || (pos === melhorPos && chave.length > melhorTam)) {
+      melhorPos = pos;
+      melhorTam = chave.length;
+    }
+  }
+
+  let resto = historico;
+  if (melhorTam > 0) {
+    bankOperation = historico.slice(melhorPos, melhorPos + melhorTam).trim();
+    resto = `${historico.slice(0, melhorPos)} ${historico.slice(melhorPos + melhorTam)}`.trim();
   }
 
   const counterparty =
@@ -131,16 +145,21 @@ export function montarDescricaoBb(pedacos: Array<string | null | undefined>): De
       removerColunasTecnicas(
         resto
           .replace(DATA_HORA_NO_INICIO, "")
-          .replace(/^[-–·:,]+\s*/, "")
-          .replace(/\b\d{2}\/\d{2}(?:\/\d{2,4})?\s+\d{2}:\d{2}\b/g, " "),
+          .replace(DATA_HORA_EM_QUALQUER_LUGAR, " ")
+          .replace(/^[-–·:,.\s]+/, "")
+          .replace(/\s+[.·-]{2,}\s+/g, " ")
+          .replace(/\s+/g, " "),
       ),
     ) || null;
+
+  const semDataHora = (t: string) =>
+    limparPedaco(t.replace(DATA_HORA_EM_QUALQUER_LUGAR, " ").replace(/\s+/g, " "));
 
   const description = bankOperation
     ? [bankOperation, counterparty].filter(Boolean).join(" · ")
     : partes.length > 1
-      ? partes.join(" · ")
-      : historico;
+      ? partes.map(semDataHora).filter(Boolean).join(" · ")
+      : semDataHora(historico);
 
   return {
     description,
@@ -150,6 +169,13 @@ export function montarDescricaoBb(pedacos: Array<string | null | undefined>): De
     historico,
   };
 }
+
+/** A linha de Histórico ABRE um lançamento (começa por operação do banco)? */
+export function comecaComOperacaoBb(texto: string): boolean {
+  const t = plano(texto);
+  return OPERACOES.some((operacao) => t.startsWith(plano(operacao)));
+}
+
 
 /** Conectivos que não agregam identidade econômica à descrição normalizada. */
 const CONECTIVOS = new Set(["DE", "DA", "DO", "DAS", "DOS", "E", "COM", "EM", "NO", "NA"]);

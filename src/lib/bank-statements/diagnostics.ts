@@ -511,20 +511,42 @@ export async function buildBankParserDiagnostics(
       }
     : null;
 
-  const checkpointTrace = rows
-    .filter((row) => normalizar(`${row.raw} ${row.description}`).includes("SALDO DO DIA"))
-    .map((row) => {
-      const checkpoint = statement.checkpoints.find((item) =>
-        row.balance !== null ? Math.abs(item.amount - row.balance) < 0.005 : item.date === row.date,
+  // FONTE ÚNICA: o rastro reflete os checkpoints REALMENTE criados pelo parser
+  // — nunca uma segunda interpretação das rows. Rows de saldo que não viraram
+  // checkpoint aparecem depois, para não esconder perdas reais.
+  const usadasNoTrace = new Set<number>();
+  const checkpointTrace = [
+    ...statement.checkpoints.map((checkpoint) => {
+      const row = rows.find(
+        (r, i) =>
+          !usadasNoTrace.has(i) &&
+          r.balance !== null &&
+          Math.abs(r.balance - checkpoint.amount) < 0.005,
       );
+      if (row) usadasNoTrace.add(rows.indexOf(row));
       return {
-        rowText: row.raw,
-        date: checkpoint?.date ?? row.date,
-        balance: checkpoint?.amount ?? row.balance,
-        status: checkpoint ? "PARSED_CHECKPOINT" : row.status,
-        reason: checkpoint?.type ?? row.reason,
+        rowText: row?.raw ?? checkpoint.label ?? "Saldo",
+        date: checkpoint.date,
+        balance: checkpoint.amount,
+        status: "PARSED_CHECKPOINT",
+        reason: checkpoint.type,
       };
-    });
+    }),
+    ...rows
+      .filter(
+        (row, i) =>
+          !usadasNoTrace.has(i) &&
+          normalizar(`${row.raw} ${row.description}`).includes("SALDO DO DIA"),
+      )
+      .map((row) => ({
+        rowText: row.raw,
+        date: row.date,
+        balance: row.balance,
+        status: row.status,
+        reason: row.reason,
+      })),
+  ];
+
   const parserOutput = {
     periodStart: statement.periodStart,
     periodEnd: statement.periodEnd,

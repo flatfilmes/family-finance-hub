@@ -18,7 +18,7 @@ import { extractPdfLines, parseValorBr, type PdfCell, type PdfLine } from "@/lib
 import { lerData, semAcento } from "@/lib/card-statement-parsers/generic";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "@/lib/bank-statements/types";
 import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
-import { montarDescricaoBb, removerColunasTecnicas } from "./bb-description";
+import { comecaComOperacaoBb, montarDescricaoBb, removerColunasTecnicas } from "./bb-description";
 
 export const BB_PARSER_ID = "EXTRATO_BANCO_DO_BRASIL_PDF";
 
@@ -188,66 +188,107 @@ function recuperarHistoricos(
   linhas: PdfLine[],
   descricaoDaLinha: Array<string | null>,
 ): Map<number, { acima: string[]; abaixo: string[] }> {
-  // EVENT ASSEMBLER: toda linha financeira (menos as de saldo) pode ter o
-  // Histórico impresso em linhas vizinhas — acima e/ou abaixo do valor.
-  const financeiras = linhas
-    .map((linha, index) => ({ linha, index }))
-    .filter(
-      ({ index }) =>
-        descricaoDaLinha[index] !== null && !ehSaldoMetadata(descricaoDaLinha[index] ?? ""),
+  const ehFinanceira = (i: number) => descricaoDaLinha[i] !== null;
+  const ehSaldo = (i: number) => ehFinanceira(i) && ehSaldoMetadata(descricaoDaLinha[i] ?? "");
+
+  // Linha candidata: texto puro na coluna do histórico, sem data e sem valor.
+  const ehCandidata = (linha: PdfLine, index: number) => {
+    if (ehFinanceira(index)) return false;
+    const raw = linha.text.replace(/\s+/g, " ").trim();
+    if (raw.length < 3) return false;
+    if (DATA_INICIAL.test(raw)) return false;
+    if (ehSaldoMetadata(raw)) return false;
+    const t = plano(raw);
+    if ([...CABECALHOS_FUTUROS, ...CABECALHOS_METADATA, ...CABECALHOS_MOVIMENTOS].some((c) => t.startsWith(c)))
+      return false;
+    if (linha.cells.length) {
+      const inicio = Math.min(...linha.cells.map((c) => c.x));
+      if (inicio < HISTORICO_X_MIN) return false;
+    }
+    return true;
+  };
+
+  const resultado = new Map<number, { acima: string[]; abaixo: string[] }>();
+  const anexar = (dono: number, onde: "acima" | "abaixo", texto: string) => {
+    const atual = resultado.get(dono) ?? { acima: [], abaixo: [] };
+    atual[onde].push(texto);
+    resultado.set(dono, atual);
+  };
+  const texto = (i: number) => linhas[i]!.text.replace(/\s+/g, " ").trim();
+  const perto = (a: number, b: number) =>
+    (linhas[a]!.page ?? 1) === (linhas[b]!.page ?? 1) &&
+    Math.abs(linhas[a]!.y - linhas[b]!.y) <= HISTORICO_Y_MAX * 3;
+
+  // BLOCOS DE HISTÓRICO: linhas de texto consecutivas entre duas linhas
+  // financeiras. O bloco é dividido no ponto em que uma OPERAÇÃO BANCÁRIA
+  // ("Pix - Enviado", "Pagamento de Boleto"…) abre o próximo lançamento:
+  // antes dela o texto é continuação do lançamento anterior; a partir dela
+  // pertence ao lançamento seguinte. Assim nunca anexamos texto do próximo
+  // evento nem perdemos a linha da operação.
+  let i = 0;
+  while (i < linhas.length) {
+    if (!ehCandidata(linhas[i]!, i)) {
+      i++;
+      continue;
+    }
+    const bloco: number[] = [];
+    while (i < linhas.length && ehCandidata(linhas[i]!, i)) bloco.push(i++);
+
+    const anterior = (() => {
+      for (let k = bloco[0]! - 1; k >= 0; k--) if (ehFinanceira(k)) return ehSaldo(k) ? null : k;
+      return null;
+    })();
+    const seguinte = (() => {
+      for (let k = bloco[bloco.length - 1]! + 1; k < linhas.length; k++)
+        if (ehFinanceira(k)) return ehSaldo(k) ? null : k;
+      return null;
+    })();
+
+    const distancia = (idx: number, alvo: number | null) =>
+      alvo === null ? Number.POSITIVE_INFINITY : Math.abs(linhas[idx]!.y - linhas[alvo]!.y);
+    // O corte é a linha de OPERAÇÃO que abre o próximo lançamento: ela precisa
+    // estar mais perto do lançamento seguinte do que do anterior — assim uma
+    // operação impressa logo ABAIXO do valor ("Pagto cartão crédito") continua
+    // pertencendo ao lançamento que a gerou.
+    const corte = bloco.findIndex(
+      (idx) => comecaComOperacaoBb(texto(idx)) && distancia(idx, seguinte) <= distancia(idx, anterior),
     );
 
-  // Linhas candidatas: texto puro na coluna do histórico, sem data e sem valor.
-  const candidatas = linhas
-    .map((linha, index) => ({ linha, index }))
-    .filter(({ linha, index }) => {
-      if (descricaoDaLinha[index] !== null) return false; // é linha financeira
-      const raw = linha.text.replace(/\s+/g, " ").trim();
-      if (raw.length < 3) return false;
-      if (DATA_INICIAL.test(raw)) return false;
-      if (ehSaldoMetadata(raw)) return false;
-      const t = plano(raw);
-      if ([...CABECALHOS_FUTUROS, ...CABECALHOS_METADATA, ...CABECALHOS_MOVIMENTOS].some((c) => t.startsWith(c)))
-        return false;
-      if (linha.cells.length) {
-        const inicio = Math.min(...linha.cells.map((c) => c.x));
-        if (inicio < HISTORICO_X_MIN) return false;
+
+    bloco.forEach((idx, pos) => {
+      let dono: number | null;
+      let onde: "acima" | "abaixo";
+      if (corte >= 0) {
+        // Antes da operação = continuação do anterior; daí em diante = próximo.
+        dono = pos < corte ? anterior : seguinte;
+        onde = pos < corte ? "abaixo" : "acima";
+        if (dono === null) {
+          dono = pos < corte ? seguinte : anterior;
+          onde = pos < corte ? "acima" : "abaixo";
+        }
+      } else {
+        // Sem operação no bloco: fica com o lançamento mais próximo (empate
+        // para o anterior, que é a continuação natural da contraparte).
+        const dAnterior =
+          anterior !== null && perto(idx, anterior)
+            ? Math.abs(linhas[idx]!.y - linhas[anterior]!.y)
+            : Number.POSITIVE_INFINITY;
+        const dSeguinte =
+          seguinte !== null && perto(idx, seguinte)
+            ? Math.abs(linhas[idx]!.y - linhas[seguinte]!.y)
+            : Number.POSITIVE_INFINITY;
+        if (dAnterior === Number.POSITIVE_INFINITY && dSeguinte === Number.POSITIVE_INFINITY) return;
+        dono = dAnterior <= dSeguinte ? anterior : seguinte;
+        onde = dAnterior <= dSeguinte ? "abaixo" : "acima";
       }
-      return true;
-    });
-
-  const usadas = new Set<number>();
-  const resultado = new Map<number, { acima: string[]; abaixo: string[] }>();
-
-  for (const { linha, index } of financeiras) {
-    const proximas = candidatas
-      .filter(({ linha: c, index: ci }) => {
-        if (usadas.has(ci)) return false;
-        if ((c.page ?? 1) !== (linha.page ?? 1)) return false;
-        return Math.abs(c.y - linha.y) <= HISTORICO_Y_MAX;
-      })
-      // Não anexar texto do próximo lançamento: só o que está mais perto desta
-      // linha financeira do que de qualquer outra.
-      .filter(({ linha: c }) =>
-        financeiras.every(
-          ({ linha: outra, index: oi }) =>
-            oi === index || Math.abs(c.y - linha.y) <= Math.abs(c.y - outra.y),
-        ),
-      )
-      .sort((a, b) => b.linha.y - a.linha.y);
-
-    if (!proximas.length) continue;
-    for (const p of proximas) usadas.add(p.index);
-    const texto = (p: (typeof proximas)[number]) => p.linha.text.replace(/\s+/g, " ").trim();
-    resultado.set(index, {
-      // Ordem documental: o que está acima do valor vem antes.
-      acima: proximas.filter((p) => p.linha.y > linha.y).map(texto),
-      abaixo: proximas.filter((p) => p.linha.y <= linha.y).map(texto),
+      if (dono === null || !perto(idx, dono)) return;
+      anexar(dono, onde, texto(idx));
     });
   }
 
   return resultado;
 }
+
 
 /**
  * HISTÓRICO IMPRESSO NA PRÓPRIA LINHA FINANCEIRA.
