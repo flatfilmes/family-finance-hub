@@ -556,6 +556,24 @@ function RevisarExtrato() {
         </Card>
       )}
 
+      {bloqueado && (
+        <Card>
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
+            <div>
+              <h2 className="font-bold text-destructive">Leitura do extrato inválida</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Este documento não pode ser gravado: o que foi lido não fecha com o próprio
+                extrato. Corrija o arquivo ou abra o diagnóstico de importação.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {validacao?.problems.map((p) => <li key={p}>{p}</li>)}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3">
           <p className="text-xs text-muted-foreground">
