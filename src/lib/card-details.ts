@@ -305,3 +305,89 @@ export function composicaoUtilizado(input: {
     total: input.utilizadoParcelas + input.comprasSemParcela,
   };
 }
+
+// ---------- Faturas fechadas e ainda não pagas (fonte única do Dashboard) ----------
+
+export type FaturaFechadaAberta = {
+  invoiceId: string;
+  cardId: string;
+  competencia: string;
+  vencimento: string;
+  fechamento: string;
+  valorOficial: number;
+  pago: number;
+  restante: number;
+  oficial: boolean;
+  importId: string | null;
+};
+
+/**
+ * Fonte de verdade das pendências de fatura: apenas ciclos REAIS já fechados,
+ * ainda não pagos e com saldo restante > 0.
+ *
+ * Regras:
+ * - o ciclo precisa estar materializado: importação CONFIRMED do ciclo ou
+ *   fatura interna com status FECHADA. Estimativas montadas a partir de
+ *   parcelas (status ABERTA, sem documento oficial) nunca entram;
+ * - data de fechamento já passou (nada de projeção futura);
+ * - fatura PAGA ou saldo restante <= 0 fica de fora;
+ * - no máximo uma linha por cartão + ciclo.
+ */
+export function faturasFechadasEmAberto(input: {
+  invoices: {
+    id: string;
+    credit_card_id: string;
+    status: string;
+    data_fechamento: string;
+    data_vencimento: string;
+    valor_total: number | string;
+  }[];
+  imports: ImportacaoFatura[];
+  cardIds?: Set<string>;
+  /** Pagamentos confirmados por fatura (opcional). */
+  pagamentos?: Map<string, number>;
+  hoje?: Date;
+}): FaturaFechadaAberta[] {
+  const hoje = input.hoje ?? new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const porCiclo = new Map<string, FaturaFechadaAberta>();
+
+  for (const invoice of input.invoices) {
+    if (input.cardIds && !input.cardIds.has(invoice.credit_card_id)) continue;
+    if (invoice.status === "PAGA") continue;
+    if (invoice.data_fechamento > hojeIso) continue;
+
+    const oficial = importacaoOficialDoCiclo({
+      cardId: invoice.credit_card_id,
+      invoice,
+      imports: input.imports,
+    });
+    const materializada = !!oficial || invoice.status === "FECHADA";
+    if (!materializada) continue;
+
+    const valorOficial = oficial
+      ? Number(oficial.valor_total_fatura) || 0
+      : Number(invoice.valor_total) || 0;
+    const pago = input.pagamentos?.get(invoice.id) ?? 0;
+    const restante = Math.round((valorOficial - pago) * 100) / 100;
+    if (restante <= 0) continue;
+
+    const chave = `${invoice.credit_card_id}|${invoice.data_vencimento.slice(0, 7)}`;
+    const atual = porCiclo.get(chave);
+    if (atual && atual.restante >= restante) continue;
+    porCiclo.set(chave, {
+      invoiceId: invoice.id,
+      cardId: invoice.credit_card_id,
+      competencia: invoice.data_vencimento.slice(0, 7),
+      vencimento: invoice.data_vencimento,
+      fechamento: invoice.data_fechamento,
+      valorOficial,
+      pago,
+      restante,
+      oficial: !!oficial,
+      importId: oficial?.id ?? null,
+    });
+  }
+
+  return [...porCiclo.values()].sort((a, b) => (a.vencimento < b.vencimento ? -1 : 1));
+}

@@ -6,6 +6,8 @@ import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { useDocuments } from "@/hooks/useDocuments";
 import { filterByMember } from "@/components/member-filter";
 import { buildAttentionItems } from "@/lib/attention";
+import { useStatementImports } from "@/hooks/useCardStatements";
+import { faturasFechadasEmAberto } from "@/lib/card-details";
 
 /**
  * Reúne as pendências já existentes nas outras áreas, respeitando o filtro
@@ -18,6 +20,7 @@ export function useAttention(familyId?: string, memberId = "") {
   const { data: fixed } = useFixedExpenses(familyId);
   const { data: recurring } = useRecurringExpenses(familyId);
   const { data: documents } = useDocuments(familyId);
+  const { data: imports } = useStatementImports(familyId);
 
   const comprasDoEscopo = useMemo(
     () => filterByMember(purchases ?? [], memberId),
@@ -37,7 +40,11 @@ export function useAttention(familyId?: string, memberId = "") {
 
     const itens = buildAttentionItems({
       purchases: comprasDoEscopo,
-      invoices: (invoices ?? []).filter((f) => idsCartoes.has(f.credit_card_id)),
+      faturasFechadas: faturasFechadasEmAberto({
+        invoices: invoices ?? [],
+        imports: imports ?? [],
+        cardIds: idsCartoes,
+      }),
       cardName: nomeCartao,
       fixedExpenses: filterByMember(fixed ?? [], memberId),
       recurring: filterByMember(recurring ?? [], memberId),
@@ -53,5 +60,5 @@ export function useAttention(familyId?: string, memberId = "") {
       urgentes: itens.filter((i) => i.prioridade === "ALTA").length,
       comprasPendentes: comprasDoEscopo,
     };
-  }, [comprasDoEscopo, invoices, cards, fixed, recurring, itemCategorias, documents, memberId]);
+  }, [comprasDoEscopo, invoices, cards, fixed, recurring, itemCategorias, documents, imports, memberId]);
 }

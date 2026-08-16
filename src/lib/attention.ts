@@ -8,7 +8,7 @@
 
 import type { Tone } from "@/lib/status";
 import type { Purchase } from "@/lib/purchases";
-import type { CardInvoice } from "@/lib/card-invoices";
+import type { FaturaFechadaAberta } from "@/lib/card-details";
 import type { FixedExpense } from "@/lib/finance";
 import type { RecurringExpense } from "@/lib/recurring-expenses";
 
@@ -20,6 +20,8 @@ export type AttentionItem = {
   titulo: string;
   detalhe: string;
   valor?: number;
+  /** Peso extra de ordenação (menor primeiro) dentro da mesma prioridade. */
+  peso?: number;
   /** Ação sugerida: rota existente ou ação local (registrar pagamento). */
   acao: {
     label: string;
@@ -85,7 +87,8 @@ function iso(d: Date) {
 
 export type AttentionInput = {
   purchases: Purchase[];
-  invoices: CardInvoice[];
+  /** Somente faturas REAIS fechadas, não pagas e com saldo restante > 0. */
+  faturasFechadas: FaturaFechadaAberta[];
   cardName: (cardId: string) => string;
   fixedExpenses: FixedExpense[];
   recurring: RecurringExpense[];
@@ -120,20 +123,26 @@ export function buildAttentionItems(input: AttentionInput): AttentionItem[] {
     });
   }
 
-  // 2. Faturas de cartão em aberto perto do vencimento ou vencidas.
-  for (const f of input.invoices) {
-    if (f.status === "PAGA") continue;
-    if ((Number(f.valor_total) || 0) <= 0) continue;
-    const dias = diasAte(f.data_vencimento, hoje);
-    const prioridade = prioridadePorPrazo(dias);
-    if (!prioridade) continue;
+  // 2. Faturas de cartão REAIS já fechadas e ainda não pagas (uma por ciclo).
+  for (const f of input.faturasFechadas) {
+    const dias = diasAte(f.vencimento, hoje);
+    const prioridade: Prioridade = dias <= 2 ? "ALTA" : dias <= 7 ? "MEDIA" : "BAIXA";
+    const detalhe =
+      dias < 0
+        ? `Fatura vencida há ${Math.abs(dias)} ${Math.abs(dias) === 1 ? "dia" : "dias"}`
+        : dias === 0
+          ? "Fatura vence hoje"
+          : dias === 1
+            ? "Fatura vence amanhã"
+            : `Fatura vence em ${dias} dias`;
     itens.push({
-      id: `fatura-${f.id}`,
+      id: `fatura-${f.invoiceId}`,
       prioridade,
-      titulo: `Fatura do cartão ${input.cardName(f.credit_card_id)}`,
-      detalhe: `Fatura ${prazoTexto(dias)}`,
-      valor: Number(f.valor_total) || 0,
-      acao: { label: "Pagar fatura", to: "/cartoes/$cardId", params: { cardId: f.credit_card_id } },
+      peso: dias,
+      titulo: `Fatura do cartão ${input.cardName(f.cardId)}`,
+      detalhe,
+      valor: f.restante,
+      acao: { label: "Pagar fatura", to: "/cartoes/$cardId", params: { cardId: f.cardId } },
     });
   }
 
@@ -197,6 +206,8 @@ export function buildAttentionItems(input: AttentionInput): AttentionItem[] {
   return itens.sort((a, b) => {
     const ordem = ORDEM[a.prioridade] - ORDEM[b.prioridade];
     if (ordem !== 0) return ordem;
+    const peso = (a.peso ?? 999) - (b.peso ?? 999);
+    if (peso !== 0) return peso;
     return (b.valor ?? 0) - (a.valor ?? 0);
   });
 }
