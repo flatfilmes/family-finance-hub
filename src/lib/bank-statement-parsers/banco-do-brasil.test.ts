@@ -7,7 +7,11 @@
  * lançamentos futuros ou áreas comerciais.
  */
 import { describe, expect, it } from "vitest";
-import { isBancoDoBrasil, parseBancoDoBrasilLines } from "./banco-do-brasil";
+import {
+  isBancoDoBrasil,
+  parseBBStatementPeriod,
+  parseBancoDoBrasilLines,
+} from "./banco-do-brasil";
 import type { PdfLine } from "@/lib/pdf-extract";
 
 const linhas = (textos: string[]): PdfLine[] =>
@@ -235,5 +239,55 @@ describe("Banco do Brasil — histórico em duas linhas (RAW espacial)", () => {
     expect(r.futuros).toHaveLength(1);
     expect(r.futuros?.[0]?.valor).toBe(-110.28);
     expect(r.movimentos.some((m) => /simula/i.test(m.descricaoOriginal))).toBe(false);
+  });
+});
+
+/**
+ * REGRESSÃO DA IDENTIDADE TEMPORAL (bug do relatório auditoria-bb (10)).
+ * O PDF de janeiro diz "Período: 01 a 31/01/2026" e traz o Saldo Anterior
+ * datado de 29/12/2025 — essa data NUNCA pode virar o início do período.
+ */
+const JANEIRO = linhas([
+  "Extrato de Conta Corrente",
+  "Agência: 3540-8 Conta: 12211-4",
+  "Período: 01 a 31/01/2026",
+  "Lançamentos",
+  "29/12/2025 Saldo Anterior 100,00 (+)",
+  "05/01/2026 PIX RECEBIDO FULANO 200,00 (+)",
+  "Saldo do dia 300,00 (+)",
+  "20/01/2026 Pagamento de Boleto CELESC 316,09 (-)",
+  "Saldo do dia 16,09 (-)",
+  "S A L D O 16,09 (-)",
+]);
+
+describe("Banco do Brasil — período oficial do cabeçalho", () => {
+  const r = parseBancoDoBrasilLines(JANEIRO);
+
+  it("lê o cabeçalho abreviado 'Período: 01 a 31/01/2026'", () => {
+    expect(parseBBStatementPeriod("Período: 01 a 31/01/2026")).toEqual({
+      start: "2026-01-01",
+      end: "2026-01-31",
+    });
+    expect(r.periodoInicio).toBe("2026-01-01");
+    expect(r.periodoFim).toBe("2026-01-31");
+  });
+
+  it("mantém o Saldo Anterior fora do período, com data própria", () => {
+    expect(r.saldoInicial).toBe(100);
+    expect(r.saldoInicialData).toBe("2025-12-29");
+    expect(r.periodoInicio).not.toBe(r.saldoInicialData);
+  });
+
+  it("extrai os saldos do dia com a data do dia anterior lançado", () => {
+    expect(r.checkpoints?.map((c) => [c.data, c.saldo])).toEqual([
+      ["2026-01-05", 300],
+      ["2026-01-20", -16.09],
+    ]);
+  });
+
+  it("preserva saldo negativo e fecha a equação", () => {
+    expect(r.saldoFinal).toBe(-16.09);
+    const soma = r.movimentos.reduce((a, m) => a + m.valor, 0);
+    expect(Number((r.saldoInicial! + soma).toFixed(2))).toBe(-16.09);
   });
 });
