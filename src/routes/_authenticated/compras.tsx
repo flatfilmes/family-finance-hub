@@ -14,6 +14,7 @@ import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useExpenseCategories } from "@/hooks/useExpenses";
 import {
   useProducts,
+  usePurchaseInstallmentsByPurchases,
   usePurchaseItemCategories,
   usePurchases,
 } from "@/hooks/usePurchases";
@@ -34,6 +35,7 @@ import {
   createPurchase,
   deletePurchase,
   itemTotal,
+  parcelaDoPeriodo,
   purchaseTotal,
   usesBankAccount,
   type NewPurchaseItem,
