@@ -654,9 +654,9 @@ type InvoiceBase = {
 
 /** Contexto opcional para projetar recorrências dentro do ciclo. */
 type ContextoRecorrencias = {
-  card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null;
-  recorrencias?: RecurringExpense[];
-  parcelas?: ExpenseInstallment[];
+  card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null | undefined;
+  recorrencias?: RecurringExpense[] | undefined;
+  parcelas?: ExpenseInstallment[] | undefined;
 };
 
 /**
@@ -839,7 +839,7 @@ export function buildCardCycleComposition(input: {
     const linhas = linhasOficiaisDaFatura({
       items: input.itensOficiais!,
       vencimento: ciclo.invoice.data_vencimento,
-      compraPorId: input.compraPorId,
+      ...(input.compraPorId ? { compraPorId: input.compraPorId } : {}),
     });
     const resumo = resumoOficialDaFatura(linhas);
     return {
