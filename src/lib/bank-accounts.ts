@@ -88,3 +88,24 @@ export async function adjustBankAccountBalance(input: {
   if (error) throw error;
   return data as string;
 }
+
+/**
+ * Estabelece a posição da conta a partir do saldo informado pelo titular.
+ * Na primeira vez gera ABERTURA_SALDO; depois gera AJUSTE_SALDO com a diferença.
+ * Nunca é receita nem gasto: é apenas a posição patrimonial da conta.
+ */
+export async function setBankAccountBalance(input: {
+  accountId: string;
+  saldo: number;
+  data?: string;
+  motivo?: string;
+}) {
+  const { data, error } = await supabase.rpc("set_bank_account_balance", {
+    _account_id: input.accountId,
+    _saldo: input.saldo,
+    ...(input.data ? { _data: input.data } : {}),
+    ...(input.motivo ? { _motivo: input.motivo } : {}),
+  });
+  if (error) throw error;
+  return data as string;
+}
