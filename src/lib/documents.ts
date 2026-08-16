@@ -318,29 +318,42 @@ export async function processDocumentPdf(input: {
           arquivo: doc.nome_arquivo,
           confianca: lido.confianca,
           pagamento_descricao: lido.pagamento_descricao,
+          // Cópia dos produtos lidos: garante que a revisão sempre tenha o que mostrar,
+          // mesmo se a gravação dos itens falhar depois.
+          items: lido.items,
         },
-
       })
       .select()
       .single();
     if (error) throw error;
 
+    let itensGravados: DocumentExtractionItem[] = [];
     if (lido.items.length > 0) {
-      const { error: itemsError } = await supabase.from("document_extraction_items").insert(
-        lido.items.map((i) => ({
-          extraction_id: extraction.id,
-          descricao_produto: i.descricao_produto,
-          quantidade: i.quantidade,
-          unidade: i.unidade,
-          valor_unitario: i.valor_unitario,
-          valor_total: i.valor_total,
-        })),
-      );
+      const { data: inseridos, error: itemsError } = await supabase
+        .from("document_extraction_items")
+        .insert(
+          lido.items.map((i) => ({
+            extraction_id: extraction.id,
+            descricao_produto: i.descricao_produto,
+            quantidade: i.quantidade,
+            unidade: i.unidade || "UN",
+            valor_unitario: i.valor_unitario,
+            valor_total: i.valor_total,
+          })),
+        )
+        .select();
       if (itemsError) throw itemsError;
+      itensGravados = inseridos ?? [];
+      if (itensGravados.length !== lido.items.length) {
+        throw new Error(
+          `Os produtos lidos não foram salvos por completo (${itensGravados.length} de ${lido.items.length}).`,
+        );
+      }
     }
 
     await supabase.from("documents").update({ status: "PROCESSADO" }).eq("id", doc.id);
-    return { extraction, items: lido.items };
+    return { extraction, items: itensGravados, lidos: lido.items };
+
   } catch (e) {
     await supabase.from("documents").update({ status: "ERRO" }).eq("id", doc.id);
     throw e instanceof Error ? e : new Error("Não foi possível ler o PDF.");

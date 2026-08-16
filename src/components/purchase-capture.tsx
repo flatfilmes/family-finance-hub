@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Camera, Eye, FileText, ImagePlus, PencilLine, Plus, QrCode, ScanLine, Trash2, Upload } from "lucide-react";
@@ -197,6 +197,9 @@ function EnvioNotaFiscal({
       );
       setFile(null);
       void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["document-extraction"] });
+      void queryClient.invalidateQueries({ queryKey: ["document-extraction-items"] });
+
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -540,11 +543,42 @@ function RevisarDocumento({
       forma_pagamento?: Confianca;
       items?: Confianca;
     };
-
     pagamento_descricao?: string | null;
+    items?: {
+      descricao_produto?: string;
+      quantidade?: number;
+      unidade?: string;
+      valor_unitario?: number;
+      valor_total?: number;
+    }[];
   } | null;
   const confianca = brutos?.confianca ?? {};
   const pagamentoLido = brutos?.pagamento_descricao ?? null;
+  const valorLido = Number(extracao?.valor_total ?? 0);
+
+  // Produtos lidos: prioriza a tabela de itens; se ela estiver vazia, usa a
+  // cópia guardada no JSON da extração (nunca perde o que o parser encontrou).
+  const produtosLidos = useMemo<NewPurchaseItem[]>(() => {
+    const daTabela = (itensPdf ?? []).map((i) => ({
+      product_id: "",
+      descricao_produto: i.descricao_produto,
+      quantidade: String(Number(i.quantidade) || 1),
+      unidade: i.unidade || "UN",
+      valor_unitario: String(Number(i.valor_unitario) || 0),
+      categoria_id: i.categoria_sugerida ?? "",
+    }));
+    if (daTabela.length > 0) return daTabela;
+    return (brutos?.items ?? [])
+      .filter((i) => (i.descricao_produto ?? "").trim() !== "")
+      .map((i) => ({
+        product_id: "",
+        descricao_produto: i.descricao_produto!.trim(),
+        quantidade: String(Number(i.quantidade) || 1),
+        unidade: i.unidade || "UN",
+        valor_unitario: String(Number(i.valor_unitario) || 0),
+        categoria_id: "",
+      }));
+  }, [itensPdf, brutos]);
 
   useEffect(() => {
     if (!itensExtraidos || itensExtraidos.length === 0) return;
@@ -571,26 +605,37 @@ function RevisarDocumento({
     }
   }, [extracao]);
 
-
   useEffect(() => {
-    if (!itensPdf || itensPdf.length === 0) return;
-    setItems(
-      itensPdf.map((i) => ({
-        product_id: "",
-        descricao_produto: i.descricao_produto,
-        quantidade: String(Number(i.quantidade) || 1),
-        unidade: i.unidade,
-        valor_unitario: String(Number(i.valor_unitario) || 0),
-        categoria_id: i.categoria_sugerida ?? "",
-      })),
-    );
-  }, [itensPdf]);
+    if (produtosLidos.length > 0) {
+      setItems(produtosLidos);
+      return;
+    }
+    // Sem produtos identificados, mas com valor total lido: não deixa o formulário zerado.
+    if (extracao && valorLido > 0) {
+      setItems((prev) => {
+        const vazio = prev.every((i) => i.descricao_produto.trim() === "" && !i.valor_unitario);
+        if (!vazio) return prev;
+        return [
+          {
+            ...linhaVazia(),
+            descricao_produto: extracao.estabelecimento
+              ? `Compra em ${extracao.estabelecimento}`
+              : "Compra",
+            valor_unitario: String(valorLido),
+          },
+        ];
+      });
+    }
+  }, [produtosLidos, extracao, valorLido]);
 
-
-  const total = items.reduce(
+  const somaProdutos = items.reduce(
     (acc, i) => acc + (Number(i.quantidade) || 0) * (Number(i.valor_unitario) || 0),
     0,
   );
+  const total = somaProdutos > 0 ? somaProdutos : valorLido;
+  const confere = valorLido > 0 && Math.abs(somaProdutos - valorLido) < 0.02;
+  const divergente = valorLido > 0 && somaProdutos > 0 && !confere;
+
 
   const confirmar = useMutation({
     mutationFn: () =>
@@ -648,19 +693,31 @@ function RevisarDocumento({
       {extracao && (
         <div className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
           <p>
-            Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
-            {Number(extracao.valor_total) > 0
-              ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
+            Leitura automática do PDF: {produtosLidos.length} produto(s) encontrado(s)
+            {valorLido > 0
+              ? ` · valor lido de ${formatCurrency(valorLido)}`
               : " · valor total não identificado"}
-            {pagamentoLido ? ` · pagamento sugerido: ${pagamentoLido}` : ""}. Confira e ajuste o que
-            precisar antes de confirmar.
+            {pagamentoLido ? ` · bandeira identificada: ${pagamentoLido}` : ""}. Confira e ajuste o
+            que precisar antes de confirmar.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="font-semibold">Produtos:</span>
             <ConfiancaTag nivel={confianca.items} />
+            {confere && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                Valores conferidos
+              </span>
+            )}
+            {divergente && (
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-semibold text-destructive">
+                Divergência: soma dos produtos {formatCurrency(somaProdutos)} × nota{" "}
+                {formatCurrency(valorLido)}
+              </span>
+            )}
           </div>
         </div>
       )}
+
 
       <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
       <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -713,7 +770,7 @@ function RevisarDocumento({
               {extracao.forma_pagamento ? (
                 <>
                   <ConfiancaTag nivel={confianca.forma_pagamento} />
-                  {pagamentoLido ? <span>lido: {pagamentoLido}</span> : null}
+                  {pagamentoLido ? <span>Bandeira identificada: {pagamentoLido}</span> : null}
                 </>
               ) : (
                 NAO_IDENTIFICADO
@@ -841,10 +898,20 @@ function RevisarDocumento({
       </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="text-sm text-muted-foreground">
-          Valor total:{" "}
-          <span className="text-lg font-extrabold text-foreground">{formatCurrency(total)}</span>
-        </p>
+        <div className="text-sm text-muted-foreground">
+          <p>
+            Valor total:{" "}
+            <span className="text-lg font-extrabold text-foreground">{formatCurrency(total)}</span>
+          </p>
+          {confere && <p className="mt-1 text-xs font-semibold text-primary">Valores conferidos.</p>}
+          {divergente && (
+            <p className="mt-1 text-xs font-semibold text-destructive">
+              Soma dos produtos ({formatCurrency(somaProdutos)}) diferente do valor da nota (
+              {formatCurrency(valorLido)}). Confira os itens.
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
