@@ -483,7 +483,11 @@ export function buildBankAudit(input: {
 
   const meses: AuditMonth[] = [...mesesKeys].sort().map((key) => {
     const doMes = daConta.filter((t) => t.data_movimento.slice(0, 7) === key);
-    const importsDoMes = comPeriodo.filter((e) => e.inicio!.slice(0, 7) === key);
+    // Um extrato cobre o mês quando o período do documento o intersecta —
+    // não apenas quando começa nele.
+    const importsDoMes = comPeriodo.filter(
+      (e) => e.inicio!.slice(0, 7) <= key && (e.fim ?? e.inicio!).slice(0, 7) >= key,
+    );
     const abertura = importsDoMes[0]?.saldoInicial ?? null;
     const reported = importsDoMes[importsDoMes.length - 1]?.saldoFinal ?? null;
 
@@ -571,7 +575,7 @@ export function buildBankAudit(input: {
             : confere === false
               ? "DIVERGENCIA_FINAL"
               : checkpointsDoMes === 0
-                ? "SOURCE_FILE_MISSING"
+                ? "CHECKPOINTS_AUSENTES"
                 : mismatches.length
                   ? "DATAS_INCONSISTENTES"
                   : "VALIDADO";

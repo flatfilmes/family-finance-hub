@@ -157,3 +157,73 @@ export async function normalizeOpeningBalances(accountId: string) {
   const raw = data as unknown as { canceladas: number; saldo: number | string };
   return { canceladas: Number(raw.canceladas ?? 0), saldo: Number(raw.saldo ?? 0) };
 }
+
+/**
+ * METADADOS + CHECKPOINTS, SEM TOCAR NO LEDGER.
+ *
+ * Relê somente a informação de conferência já extraída do documento
+ * (período, saldo de abertura e saldo final) e regrava os checkpoints
+ * derivados dele. Nenhuma transaction é criada, alterada ou apagada.
+ */
+export type CheckpointsOnlyReport = {
+  importId: string;
+  arquivo: string;
+  periodoInicio: string | null;
+  periodoFim: string | null;
+  saldoInicial: number | null;
+  saldoFinal: number | null;
+  checkpointsCriados: number;
+  checkpointsDiariosPdf: number;
+  checkpointsTotal: number;
+  movimentosDocumento: number;
+  status: "VALIDADO" | "CHECKPOINTS_AUSENTES";
+};
+
+type RawCheckpointsOnly = {
+  import_id: string;
+  arquivo: string;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  saldo_inicial: number | string | null;
+  saldo_final: number | string | null;
+  checkpoints_criados: number;
+  checkpoints_diarios_pdf: number;
+  checkpoints_total: number;
+  movimentos_documento: number;
+  status: string;
+};
+
+function normalizarCheckpoints(raw: RawCheckpointsOnly): CheckpointsOnlyReport {
+  return {
+    importId: raw.import_id,
+    arquivo: raw.arquivo,
+    periodoInicio: raw.periodo_inicio,
+    periodoFim: raw.periodo_fim,
+    saldoInicial: raw.saldo_inicial === null ? null : Number(raw.saldo_inicial),
+    saldoFinal: raw.saldo_final === null ? null : Number(raw.saldo_final),
+    checkpointsCriados: Number(raw.checkpoints_criados ?? 0),
+    checkpointsDiariosPdf: Number(raw.checkpoints_diarios_pdf ?? 0),
+    checkpointsTotal: Number(raw.checkpoints_total ?? 0),
+    movimentosDocumento: Number(raw.movimentos_documento ?? 0),
+    status: raw.status === "VALIDADO" ? "VALIDADO" : "CHECKPOINTS_AUSENTES",
+  };
+}
+
+/** Reprocessa metadados e checkpoints de uma importação. */
+export async function reprocessCheckpointsOnly(importId: string) {
+  const { data, error } = await supabase.rpc("reprocess_bank_statement_checkpoints_only", {
+    _import_id: importId,
+  });
+  if (error) throw error;
+  return normalizarCheckpoints(data as unknown as RawCheckpointsOnly);
+}
+
+/** Roda a conferência em todos os extratos da conta, do mais antigo ao mais novo. */
+export async function reprocessAccountCheckpointsOnly(accountId: string) {
+  const { data, error } = await supabase.rpc("reprocess_account_checkpoints_only", {
+    _account_id: accountId,
+  });
+  if (error) throw error;
+  const raw = data as unknown as { relatorios: RawCheckpointsOnly[] };
+  return (raw.relatorios ?? []).map(normalizarCheckpoints);
+}

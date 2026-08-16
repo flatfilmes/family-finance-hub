@@ -15,6 +15,7 @@ import { useBankStatementImports, useBankStatementItems } from "@/hooks/useBankS
 import { useBankBalanceCheckpoints } from "@/hooks/useBankLedger";
 import { ReprocessCheckpointsDialog } from "@/components/bank/reprocess-checkpoints-dialog";
 import { RepairHistoryDialog } from "@/components/bank/repair-history-dialog";
+import { CheckpointsOnlyButton } from "@/components/bank/checkpoints-only-button";
 import {
   auditToCsv,
   buildBankAudit,
@@ -140,6 +141,7 @@ function AuditoriaContaPage() {
         actions={
           <div className="flex flex-wrap gap-2">
             <RepairHistoryDialog accountId={accountId} imports={imports ?? []} />
+            <CheckpointsOnlyButton accountId={accountId} />
             <ReprocessCheckpointsDialog accountId={accountId} familyId={family.id} />
             <button
               onClick={exportarCsv}

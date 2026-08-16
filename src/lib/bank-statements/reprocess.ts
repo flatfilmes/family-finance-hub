@@ -141,10 +141,11 @@ export async function reprocessStatementCheckpoints(input: {
     const { error: upError } = await supabase
       .from("bank_statement_imports")
       .update({
-        periodo_inicio: parsed.periodoInicio,
-        periodo_fim: parsed.periodoFim,
-        saldo_inicial: parsed.saldoInicial,
-        saldo_final: parsed.saldoFinal,
+        // Nunca apagar metadado bom com leitura vazia: só sobrescreve o que veio.
+        periodo_inicio: parsed.periodoInicio ?? alvo.periodo_inicio,
+        periodo_fim: parsed.periodoFim ?? alvo.periodo_fim,
+        ...(parsed.saldoInicial !== null ? { saldo_inicial: parsed.saldoInicial } : {}),
+        ...(parsed.saldoFinal !== null ? { saldo_final: parsed.saldoFinal } : {}),
         fingerprint: alvo.fingerprint ?? fingerprint,
         dados_brutos_json: {
           parser: parsed.parser,
