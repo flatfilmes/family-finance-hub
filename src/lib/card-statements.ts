@@ -430,6 +430,7 @@ export async function processStatementPdf(input: {
       fim: limites.length ? desloca(limites.slice().sort().at(-1)!, 10) : null,
     });
 
+    console.log('[debug-cand]', candidatos.purchases.length, candidatos.installments.length, candidatos.recurring.length, candidatos.purchases.map((x)=>x.estabelecimento));
     const usados = new Set<string>();
 
     const rows = parsed.entries.map((entry, index) => {
