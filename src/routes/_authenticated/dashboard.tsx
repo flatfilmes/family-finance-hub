@@ -140,8 +140,8 @@ function Dashboard() {
               <Link to="/contas-fixas" className="inline-flex items-center gap-1.5">
                 Cadastrar contas <ArrowRight className="size-4" />
               </Link>
-              <Link to="/despesas" className="inline-flex items-center gap-1.5">
-                Registrar despesas <ArrowRight className="size-4" />
+              <Link to="/compras" className="inline-flex items-center gap-1.5">
+                Registrar compras <ArrowRight className="size-4" />
               </Link>
             </div>
           </Card>
@@ -233,7 +233,7 @@ function Dashboard() {
                 label="Gastos realizados no mês"
                 value={formatCurrency(engine.gastosRealizados)}
                 hint={`Lançamentos de ${monthLabel(engine.month)}`}
-                to="/despesas"
+                to="/compras"
                 loading={engine.isLoading}
               />
               <StatCard
@@ -330,7 +330,7 @@ function Dashboard() {
           label="Total gasto no mês"
           value={formatCurrency(gastos.totalMes)}
           hint={`${gastos.count} lançamento(s) em ${monthLabel(gastos.month)}`}
-          to="/despesas"
+          to="/compras"
           loading={gastos.isLoading}
         />
         <StatCard
@@ -672,7 +672,7 @@ function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefin
           label="Minha liquidez"
           value={formatCurrency(saldo)}
           hint={`${contas.length} conta(s) bancária(s) ativa(s)`}
-          to="/contas-bancarias"
+          to="/bancos"
         />
         <StatCard
           icon={<CreditCard className="size-5" />}
@@ -757,7 +757,7 @@ function StatCard({
   label: string;
   value: string;
   hint: string;
-  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/despesas" | "/contas-bancarias";
+  to?: "/receitas" | "/contas-fixas" | "/cartoes" | "/compras" | "/bancos";
   loading?: boolean;
 }) {
   return (
