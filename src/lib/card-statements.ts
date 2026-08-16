@@ -1012,7 +1012,12 @@ export async function processStatementPdf(input: {
       return d.toISOString().slice(0, 10);
     };
     const limites = [parsed.periodo_inicio, parsed.periodo_fim, ...datas].filter(Boolean) as string[];
-    let candidatos: Awaited<ReturnType<typeof fetchMatchCandidates>> = [];
+    let candidatos: Candidatos = {
+      purchases: [],
+      installments: [],
+      recurring: [],
+      installmentPurchases: {},
+    };
     try {
       candidatos = await fetchMatchCandidates({
         familyId: input.familyId,
@@ -1024,7 +1029,8 @@ export async function processStatementPdf(input: {
       // A comparação é um conforto, não um requisito: seguimos sem candidatos.
       logStep("FETCH_CANDIDATES", "ERROR", e);
     }
-    logStep("FETCH_CANDIDATES", "SUCCESS", { candidatos: candidatos.length });
+    logStep("FETCH_CANDIDATES", "SUCCESS", { compras: candidatos.purchases.length });
+
 
     logStep("MATCHING", "START");
     const usados = new Set<string>();
