@@ -302,6 +302,8 @@ export type BankAudit = {
     movimentosLedger: number;
     faltantes: number;
     datasInconsistentes: number;
+    /** Comparações descartadas por usarem a data do saldo anterior. */
+    datasIgnoradasAbertura: number;
     associacoesInvalidas: number;
     semAssociacao: number;
     semCategoria: number;
