@@ -273,7 +273,8 @@ function CartaoDetalhePage() {
         </div>
       </Card>
 
-      <Card className="mt-4" id="compras-do-ciclo">
+      <div id="compras-do-ciclo" />
+      <Card className="mt-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionTitle
             title="Compras deste ciclo"
