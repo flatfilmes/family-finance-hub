@@ -457,22 +457,40 @@ function CartaoDetalhePage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
-              <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
-              <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
-              {usarOficial && (
-                <>
-                  <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
-                  <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
-                </>
-              )}
-              <Metric
-                label={usarOficial ? "Total oficial da fatura" : "Total do ciclo"}
-                value={formatCurrency(totalCiclo)}
-                big
-              />
-            </div>
+            {projetado ? (
+              <>
+                <div className="mt-3 rounded-2xl bg-muted/50 p-4">
+                  <p className="text-sm font-bold">Projeção</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Valor estimado com base nas parcelas e recorrências já conhecidas. Este ciclo
+                    ainda não é uma fatura fechada e não pode ser pago.
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <Metric label="Parcelas" value={formatCurrency(parcelasDoCiclo)} />
+                  <Metric label="Recorrências" value={formatCurrency(recorrenciasProjetadas)} />
+                  <Metric label="Valor previsto" value={formatCurrency(totalCiclo)} big />
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
+                <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
+                <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
+                {usarOficial && (
+                  <>
+                    <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
+                    <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
+                  </>
+                )}
+                <Metric
+                  label={usarOficial ? "Total oficial da fatura" : "Total do ciclo"}
+                  value={formatCurrency(totalCiclo)}
+                  big
+                />
+              </div>
+            )}
+
             {usarOficial && (
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Resumo montado a partir dos {itensDoCiclo.length} lançamentos da fatura importada e
