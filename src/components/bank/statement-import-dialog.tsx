@@ -40,6 +40,11 @@ import {
   type StatementDraftRow,
 } from "@/lib/bank-statements";
 import { saveStatementDraft } from "@/lib/bank-statements/draft";
+import {
+  parseStatementFilesIndependently,
+  sortBatchFiles,
+} from "@/lib/bank-statements/batch";
+import { saveStatementBatchDraft } from "@/lib/bank-statements/batch-draft";
 import type { BankAccount } from "@/lib/bank-accounts";
 
 type Modo = "PDF" | "IMAGEM";
