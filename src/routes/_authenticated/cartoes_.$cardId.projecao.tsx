@@ -13,7 +13,7 @@ import { recurringForecast } from "@/lib/card-recurrences";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
 
-export const Route = createFileRoute("/_authenticated/cartoes/$cardId/projecao")({
+export const Route = createFileRoute("/_authenticated/cartoes_/$cardId/projecao")({
   head: () => ({
     meta: [
       { title: "Projeção do cartão — Família Finance AI" },
