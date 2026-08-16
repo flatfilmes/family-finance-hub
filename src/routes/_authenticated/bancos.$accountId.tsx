@@ -151,7 +151,10 @@ function ContaDetalhePage() {
   const temPosicao =
     Number(conta.saldo_atual) !== 0 ||
     movimentosDaConta.some((t) => t.tipo === "ABERTURA_SALDO");
-  const semMovimento = movimentosDaConta.length === 0;
+  // Onboarding só para conta nunca inicializada: sem qualquer transação (inclusive
+  // abertura/ajuste/canceladas, que provam que já houve evento financeiro) e sem saldo.
+  const contaNuncaInicializada = movimentosDaConta.length === 0 && Number(conta.saldo_atual) === 0;
+
   const podeOperar =
     perms.isAdmin || (perms.podeLancar && conta.member_id === perms.myMemberId);
 
