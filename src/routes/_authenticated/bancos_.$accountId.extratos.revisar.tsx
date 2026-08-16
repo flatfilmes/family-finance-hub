@@ -301,57 +301,51 @@ function RevisarExtrato() {
         </p>
       )}
 
-      {/* Resumo financeiro + conferência */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card>
-          <h2 className="text-base font-bold">Resumo do extrato</h2>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:flex lg:items-center lg:gap-2">
-            <Passo label="Saldo anterior" valor={formatCurrency(resumo.saldoInicial ?? 0)} />
-            <Seta sinal="+" />
-            <Passo
-              label="Entradas"
-              valor={`+ ${formatCurrency(entradas)}`}
-              tone="ok"
-            />
-            <Seta sinal="−" />
-            <Passo label="Saídas" valor={`- ${formatCurrency(saidas)}`} tone="danger" />
-            <Seta sinal="=" />
-            <Passo label="Saldo final" valor={formatCurrency(resumo.saldoFinal ?? 0)} destaque />
-          </div>
-        </Card>
+      {/* Resumo do extrato: equação única + conferência no mesmo bloco */}
+      <Card>
+        <h2 className="text-base font-bold">Resumo do extrato</h2>
 
-        <Card>
-          <h2 className="text-base font-bold">Conferência de saldo</h2>
-          <dl className="mt-4 space-y-2 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-muted-foreground">Saldo calculado</dt>
-              <dd className="font-bold">{calculado === null ? "—" : formatCurrency(calculado)}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
+        <div className="mt-4 flex flex-col gap-1 lg:flex-row lg:flex-wrap lg:items-end lg:gap-4">
+          <Termo label="Saldo anterior" valor={formatCurrency(resumo.saldoInicial ?? 0)} />
+          <Operador sinal="+" />
+          <Termo label="Entradas" valor={formatCurrency(entradas)} tone="ok" />
+          <Operador sinal="−" />
+          <Termo label="Saídas" valor={formatCurrency(saidas)} tone="danger" />
+          <Operador sinal="=" />
+          <Termo label="Saldo final" valor={formatCurrency(resumo.saldoFinal ?? 0)} destaque />
+        </div>
+
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Conferência com o banco
+          </p>
+          <dl className="mt-2 space-y-1.5 text-sm">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">Saldo informado pelo banco</dt>
-              <dd className="font-bold">
+              <dd className="font-bold tabular-nums">
                 {resumo.saldoFinal === null ? "—" : formatCurrency(resumo.saldoFinal)}
               </dd>
             </div>
-            <div className="flex items-center justify-between gap-3 border-t border-border pt-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               <dt className="text-muted-foreground">Diferença</dt>
-              <dd className={`font-bold ${saldoOk ? "" : "text-destructive"}`}>
+              <dd className={`font-bold tabular-nums ${saldoOk ? "" : "text-destructive"}`}>
                 {diferenca === null ? "—" : formatCurrency(Math.abs(diferenca))}
               </dd>
             </div>
           </dl>
           <p
-            className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
+            className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${
               saldoOk
                 ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                 : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
             }`}
           >
             {saldoOk ? <Check className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
-            {saldoOk ? "Saldo confere" : "Saldo a conferir"}
+            {saldoOk ? "Saldo confere" : "Saldo não confere"}
           </p>
-        </Card>
-      </div>
+        </div>
+      </Card>
+
 
       {/* Resumo dos lançamentos + filtros */}
       <p className="mt-6 text-sm font-semibold text-muted-foreground">{resumoLinha.join(" · ")}</p>
