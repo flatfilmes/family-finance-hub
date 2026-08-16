@@ -52,7 +52,8 @@ export const Route = createFileRoute("/_authenticated/bancos_/$accountId/extrato
       { property: "og:title", content: "Revisar extrato bancário — Família Finance AI" },
       {
         property: "og:description",
-        content: "Revisão completa do extrato: entradas, saídas, associações e lançamentos futuros.",
+        content:
+          "Revisão completa do extrato: entradas, saídas, associações e lançamentos futuros.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -208,7 +209,9 @@ function RevisarExtrato() {
   const entradas = rows.filter((l) => l.valor > 0).reduce((a, l) => a + l.valor, 0);
   const saidas = rows.filter((l) => l.valor < 0).reduce((a, l) => a + Math.abs(l.valor), 0);
   const calculado =
-    resumo.saldoInicial === null ? null : Number((resumo.saldoInicial + entradas - saidas).toFixed(2));
+    resumo.saldoInicial === null
+      ? null
+      : Number((resumo.saldoInicial + entradas - saidas).toFixed(2));
   const diferenca =
     calculado === null || resumo.saldoFinal === null
       ? null
@@ -285,7 +288,6 @@ function RevisarExtrato() {
     d.itens.some(({ i }) => visiveis.some((v) => v.i === i)),
   );
 
-
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 pb-36 pt-6">
       <DetailHeader
@@ -349,7 +351,6 @@ function RevisarExtrato() {
           </p>
         </div>
       </Card>
-
 
       {/* Resumo dos lançamentos + filtros */}
       <p className="mt-6 text-sm font-semibold text-muted-foreground">{resumoLinha.join(" · ")}</p>
@@ -449,8 +450,7 @@ function RevisarExtrato() {
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
-                        <TriangleAlert className="size-3" /> Banco{" "}
-                        {formatCurrency(dia.banco)}
+                        <TriangleAlert className="size-3" /> Banco {formatCurrency(dia.banco)}
                       </span>
                     ))}
                 </span>
@@ -467,7 +467,6 @@ function RevisarExtrato() {
           </p>
         )}
       </div>
-
 
       {futuros.length > 0 && (
         <Card className="mt-6">
@@ -570,7 +569,20 @@ function associacaoLegivel(l: StatementDraftRow) {
 /** "03 AGO" — cabeçalho de dia no estilo extrato bancário. */
 function formatDiaCurto(iso: string) {
   const [, mes, dia] = iso.split("-");
-  const meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+  const meses = [
+    "JAN",
+    "FEV",
+    "MAR",
+    "ABR",
+    "MAI",
+    "JUN",
+    "JUL",
+    "AGO",
+    "SET",
+    "OUT",
+    "NOV",
+    "DEZ",
+  ];
   return `${dia} ${meses[Number(mes) - 1] ?? ""}`.trim();
 }
 
@@ -597,7 +609,9 @@ function agruparPorDia(
     if (atual) atual.push(item);
     else mapa.set(chave, [item]);
   }
-  const chaves = [...mapa.keys()].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
+  const chaves = [...mapa.keys()].sort((a, b) =>
+    a === "" ? 1 : b === "" ? -1 : a.localeCompare(b),
+  );
 
   let corrente = saldoInicial;
   return chaves.map((chave) => {
@@ -665,7 +679,6 @@ function Operador({ sinal }: { sinal: string }) {
     </span>
   );
 }
-
 
 /** Ação principal contextual + menu com as demais opções. */
 function MenuAcao({
