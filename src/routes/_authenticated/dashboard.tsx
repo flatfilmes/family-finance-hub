@@ -3,13 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MemberFilter } from "@/components/member-filter";
 import {
   ArrowRight,
-  Users,
   Wallet,
   Brain,
   TrendingUp,
   Receipt,
   CreditCard,
-  Gauge,
   ShoppingCart,
   PieChart,
   ArrowUpDown,
@@ -17,8 +15,8 @@ import {
   HeartPulse,
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
-import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
-import { useFinancialSummary, useCreditCards } from "@/hooks/useFinanceData";
+import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
+import { useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
@@ -39,7 +37,7 @@ import {
   TRANSACTION_TYPE_LABELS,
   type Transaction,
 } from "@/lib/transactions";
-import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
+import { isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
 
 
