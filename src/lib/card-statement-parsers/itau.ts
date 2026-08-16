@@ -576,8 +576,34 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     }
 
 
+    // IOF real dos lançamentos internacionais: cobrança da fatura atual.
+    const ultimoInternacional = () => {
+      for (let i = entries.length - 1; i >= 0; i -= 1) {
+        const e = entries[i]!;
+        if (e.tipo_sugerido === "COMPRA") return e.estabelecimento_sugerido ?? e.descricao_normalizada;
+      }
+      return null;
+    };
+    if (ehRepasseIof(linha)) {
+      limpaPendente();
+      if (valorInicial) {
+        entries.push(montarIof(valorInicial.valor, cardLast4, ultimoInternacional()));
+        iofPendente = false;
+      } else {
+        iofPendente = true;
+      }
+      continue;
+    }
+    if (iofPendente && !comDataInicial && valorInicial && !valorInicial.resto) {
+      entries.push(montarIof(valorInicial.valor, cardLast4, ultimoInternacional()));
+      iofPendente = false;
+      continue;
+    }
+    if (iofPendente && (comDataInicial || secaoDaLinha(linha))) iofPendente = false;
+
     // blindagem: limites, simulações e ofertas nunca viram lançamento nem trocam de cartão
     if (ehProibido(linha)) {
+
       limpaPendente();
       rejeitar("simulation");
       continue;
