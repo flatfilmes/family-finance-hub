@@ -691,7 +691,10 @@ function CartaoDetalhePage() {
         </Card>
 
         <Card>
-          <SectionTitle title="Parcelamentos ativos" />
+          <SectionTitle
+            title="Parcelamentos ativos"
+            hint="Cada compra parcelada continua sendo uma única compra — as parcelas é que mudam de ciclo."
+          />
           {parcelamentos.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
           ) : (
@@ -701,7 +704,13 @@ function CartaoDetalhePage() {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold">{p.descricao}</span>
                     <span className="block text-xs text-muted-foreground">
-                      Parcela {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
+                      Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
+                      {p.proximaCobranca
+                        ? ` · próxima cobrança ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
+                        : ""}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
                     </span>
                   </span>
                   <span className="text-right">
@@ -714,6 +723,7 @@ function CartaoDetalhePage() {
               ))}
             </ul>
           )}
+
         </Card>
       </div>
 
