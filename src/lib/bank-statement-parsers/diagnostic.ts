@@ -76,22 +76,36 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
   const naoSelecionado = bank === "UNKNOWN" || (bank === "GENERICO" && !counts.transactions);
 
   const statement = d.statement;
-  const trace = d.rows
-    .filter((r) => ehLinhaDeSaldoDoDia(`${r.raw} ${r.description}`))
-    .map((r) => {
-      const checkpoint =
-        r.balance !== null
-          ? statement.checkpoints?.find((c) => Math.abs(c.amount - (r.balance as number)) < 0.005)
-          : statement.checkpoints?.find((c) => c.date === r.date);
+  // FONTE ÚNICA: o rastro é derivado dos checkpoints criados pelo parser.
+  const usadas = new Set<number>();
+  const trace = [
+    ...(statement.checkpoints ?? []).map((c) => {
+      const idx = d.rows.findIndex(
+        (r, i) => !usadas.has(i) && r.balance !== null && Math.abs(c.amount - r.balance) < 0.005,
+      );
+      if (idx >= 0) usadas.add(idx);
+      const row = idx >= 0 ? d.rows[idx] : undefined;
       return {
+        row: row?.raw ?? c.label ?? "Saldo",
+        page: row?.page ?? null,
+        status: "PARSED_CHECKPOINT",
+        date: c.date,
+        balance: c.amount,
+        reason: c.type,
+      };
+    }),
+    ...d.rows
+      .filter((r, i) => !usadas.has(i) && ehLinhaDeSaldoDoDia(`${r.raw} ${r.description}`))
+      .map((r) => ({
         row: r.raw,
         page: r.page,
-        status: checkpoint ? "PARSED_CHECKPOINT" : r.status === "ERROR" ? "ERROR" : "IGNORED",
-        date: checkpoint?.date ?? r.date,
-        balance: checkpoint?.amount ?? r.balance,
-        reason: checkpoint ? checkpoint.type : r.reason,
-      };
-    });
+        status: r.status === "ERROR" ? "ERROR" : "IGNORED",
+        date: r.date,
+        balance: r.balance,
+        reason: r.reason,
+      })),
+  ];
+
 
   const parserOutput = {
     status: naoSelecionado ? "PARSER_NOT_SELECTED" : "OK",
