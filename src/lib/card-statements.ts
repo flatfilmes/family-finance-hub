@@ -1139,6 +1139,15 @@ export async function processStatementPdf(input: {
     logStep("MATCHING", "START");
     const usados = new Set<string>();
 
+    // Regras aprendidas em revisões anteriores: apenas sugerem o tipo,
+    // nada é criado sem a confirmação humana.
+    let regrasTipo: Awaited<ReturnType<typeof fetchStatementTypeRules>> = [];
+    try {
+      regrasTipo = await fetchStatementTypeRules(input.familyId);
+    } catch (e) {
+      logStep("MATCHING", "ERROR", e);
+    }
+
     const rows = parsed.entries.map((entry, index) => {
       // Um erro de comparação em um lançamento não pode derrubar os outros 93.
       let resultado: ReturnType<typeof matchEntry>;
@@ -1148,6 +1157,7 @@ export async function processStatementPdf(input: {
         logStep("MATCHING", "ERROR", { index, descricao: entry.descricao_original, e });
         resultado = { match_status: "UNMATCHED" } as ReturnType<typeof matchEntry>;
       }
+      const tipoRegra = tipoPorRegra(entry.descricao_original, input.card.id, regrasTipo);
       return {
         import_id: importacao.id,
         family_id: input.familyId,
@@ -1160,6 +1170,8 @@ export async function processStatementPdf(input: {
         parcela_atual: entry.parcela_atual,
         total_parcelas: entry.total_parcelas,
         tipo_sugerido: entry.tipo_sugerido,
+        tipo_revisado: tipoRegra,
+        tipo_regra_origem: tipoRegra ? "REGRA" : null,
         card_last4: entry.card_last4 ?? null,
         categoria_sugerida_id:
           entry.tipo_sugerido === "COMPRA"
@@ -1170,6 +1182,7 @@ export async function processStatementPdf(input: {
         ...resultado,
       };
     });
+
     logStep("MATCHING", "SUCCESS", { itens: rows.length });
 
     logStep("CREATE_ITEMS", "START", { itens: rows.length });
