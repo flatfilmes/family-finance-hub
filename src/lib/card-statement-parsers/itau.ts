@@ -36,7 +36,8 @@ const plano = (s: string) => semAcento(s).toLowerCase().replace(/\s+/g, " ").tri
 
 const VALOR_FIM = /(-?)\s*R?\$?\s*(-?)\s*(\d{1,3}(?:\.\d{3})*,\d{2})\s*$/;
 const DATA_CURTA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/;
-const PARCELA_FIM = /\s(\d{1,2})\s*\/\s*(\d{1,2})\s*$/;
+/** Código de parcela no fim da descrição — com ou sem espaço antes (ex.: "LOJA09/12"). */
+const PARCELA_FIM = /(\d{1,2})\s*\/\s*(\d{1,2})\s*$/;
 
 function iso(ano: number, mes: number, dia: number) {
   if (!ano || !mes || !dia) return null;
@@ -198,6 +199,51 @@ function ehProibido(texto: string) {
   return TERMOS_PROIBIDOS.some((t) => p.includes(t));
 }
 
+/**
+ * Linhas que existem apenas para conferência (subtotais, totais, cotação de
+ * câmbio, projeções, pagamento da fatura anterior). Viram metadata e NUNCA
+ * podem virar `card_statement_item`.
+ */
+const TERMOS_METADATA = [
+  "pagamento efetuado",
+  "pagamentos efetuados",
+  "dolar de conversao",
+  "dolar conversao",
+  "cotacao do dolar",
+  "total transacoes inter",
+  "total lancamentos inter",
+  "total transacoes internacionais",
+  "total lancamentos internacionais",
+  "total dos lancamentos atuais",
+  "total de lancamentos atuais",
+  "total dos lancamentos",
+  "total desta fatura",
+  "total da fatura anterior",
+  "lancamentos atuais",
+  "proxima fatura",
+  "proximas faturas",
+  "demais faturas",
+  "total para proximas faturas",
+  "subtotal",
+  "lancamentos no cartao",
+  "limite total",
+  "limite disponivel",
+  "limite utilizado",
+  "limite de saque",
+  "limite para saque",
+];
+
+/** Moedas estrangeiras: a linha "MOUNTAIN VIEW 26,40 USD" é detalhe, não cobrança. */
+const MOEDA_ESTRANGEIRA = /\b(usd|eur|gbp|us\$|dolar|euro)\b/;
+
+export function ehMetadataItau(texto: string) {
+  const p = plano(texto);
+  if (TERMOS_METADATA.some((t) => p.includes(t))) return true;
+  if (MOEDA_ESTRANGEIRA.test(p)) return true;
+  return false;
+}
+
+
 
 // ------------------------------------------------------------------ categorias do banco
 
@@ -281,8 +327,8 @@ function montar(
 ): StatementEntry | null {
   let descricao = descricaoBruta.replace(/\s+/g, " ").trim();
   if (!descricao || ehRuido(descricao) || ehProibido(descricao)) return null;
+  if (ehMetadataItau(descricao)) return null;
   if (!/[A-Za-zÀ-ÿ]{3}/.test(descricao)) return null;
-
 
   let parcelaAtual: number | null = null;
   let totalParcelas: number | null = null;
@@ -290,12 +336,15 @@ function montar(
   if (p) {
     const a = Number(p[1]);
     const b = Number(p[2]);
-    if (a >= 1 && b >= 2 && a <= b) {
+    // exige estabelecimento antes do código e um total de parcelas plausível
+    const antes = descricao.slice(0, descricao.length - p[0].length);
+    if (a >= 1 && b >= 2 && b <= 48 && a <= b && /[A-Za-zÀ-ÿ]{3}/.test(antes)) {
       parcelaAtual = a;
       totalParcelas = b;
-      descricao = descricao.slice(0, descricao.length - p[0].length).trim();
+      descricao = antes.trim();
     }
   }
+
 
   let data: string | null = null;
   if (dataTexto) {
@@ -351,11 +400,22 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     lancamentosAtuais ??
     acharValorRotulado(textos, ["total a pagar", "valor a pagar"], ["anterior", "minimo", "financiado"]);
 
+  const dataPagamentoAnterior = acharDataRotulada(
+    textos.filter((l) => plano(l).includes("pagamento efetuado")),
+    ["pagamento efetuado"],
+  );
+
   const metadata: StatementMetadata = {
     data_emissao: emissao,
     total_fatura_anterior: totalAnterior,
     pagamento_anterior: pagamentoAnterior === null ? null : -Math.abs(pagamentoAnterior),
+    previous_invoice_payment:
+      pagamentoAnterior === null
+        ? null
+        : { data: dataPagamentoAnterior, valor: -Math.abs(pagamentoAnterior) },
     lancamentos_atuais: lancamentosAtuais,
+    expected_invoice_total: totalFatura,
+    dolar_conversao: acharValorRotulado(textos, ["dolar de conversao", "dolar conversao"]),
     limite_credito: acharValorRotulado(textos, ["limite total de credito", "limite de credito"]),
     limite_disponivel: acharValorRotulado(textos, ["limite disponivel"]),
     limite_utilizado: acharValorRotulado(textos, ["limite utilizado"]),
@@ -363,6 +423,7 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     future_invoices_amount: acharValorRotulado(textos, ["demais faturas"]),
     future_commitments_total: acharValorRotulado(textos, ["total para proximas faturas"]),
   };
+
 
   const finalPrincipal =
     textos.map((l) => l.match(/final\s*(\d{4})/i)?.[1]).find(Boolean) ?? null;
@@ -442,8 +503,8 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
 
     if (secao === "IGNORADA") continue;
 
-    // pagamento da fatura anterior (informativo)
-    if (p.startsWith("pagamento efetuado")) {
+    // subtotais, totais, cotação de câmbio e pagamento anterior: só metadata
+    if (ehMetadataItau(linha)) {
       limpaPendente();
       continue;
     }
@@ -452,6 +513,7 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       limpaPendente();
       continue;
     }
+
 
     const alvo = secao === "FUTURAS" ? futuras : entries;
     const comData = linha.match(DATA_CURTA);
@@ -499,25 +561,9 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     }
   }
 
-  // pagamento anterior entra como item informativo (nunca vira compra)
-  if (metadata.pagamento_anterior) {
-    entries.unshift({
-      data_lancamento:
-        acharDataRotulada(
-          textos.filter((l) => plano(l).includes("pagamento efetuado")),
-          ["pagamento efetuado"],
-        ) ?? null,
-      descricao_original: "Pagamento efetuado da fatura anterior",
-      descricao_normalizada: "PAGAMENTO EFETUADO FATURA ANTERIOR",
-      estabelecimento_sugerido: null,
-      valor: metadata.pagamento_anterior,
-      parcela_atual: null,
-      total_parcelas: null,
-      tipo_sugerido: "PAGAMENTO",
-      card_last4: finalPrincipal,
-      categoria_banco: null,
-    });
-  }
+  // O pagamento da fatura anterior é histórico: fica apenas em
+  // metadata.previous_invoice_payment e nunca vira lançamento.
+
 
   // telemetria de desenvolvimento (nunca exibida ao usuário)
   if (import.meta.env?.DEV) {

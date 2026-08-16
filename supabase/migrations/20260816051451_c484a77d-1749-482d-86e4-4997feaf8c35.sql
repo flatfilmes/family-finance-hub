@@ -1,0 +1,2 @@
+DELETE FROM public.card_statement_items WHERE import_id IN (SELECT id FROM public.card_statement_imports WHERE status = 'READY_FOR_REVIEW');
+UPDATE public.card_statement_imports SET status = 'CANCELLED', quantidade_lancamentos = 0, total_extraido = 0, updated_at = now() WHERE status = 'READY_FOR_REVIEW';
