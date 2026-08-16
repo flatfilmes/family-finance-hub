@@ -28,6 +28,7 @@ import { Route as AuthenticatedBancosAccountIdRouteImport } from './routes/_auth
 import { Route as AuthenticatedBancosDiagnosticoImportacaoRouteImport } from './routes/_authenticated/bancos_.diagnostico-importacao'
 import { Route as AuthenticatedCartoesIndexRouteImport } from './routes/_authenticated/cartoes.index'
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes.$cardId'
+import { Route as AuthenticatedDevBankParserDiagnosticsRouteImport } from './routes/_authenticated/dev.bank-parser-diagnostics'
 import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authenticated/historico.index'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 import { Route as AuthenticatedBancosAccountIdAuditoriaRouteImport } from './routes/_authenticated/bancos_.$accountId.auditoria'
@@ -142,6 +143,12 @@ const AuthenticatedCartoesCardIdRoute =
     path: '/cartoes/$cardId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDevBankParserDiagnosticsRoute =
+  AuthenticatedDevBankParserDiagnosticsRouteImport.update({
+    id: '/dev/bank-parser-diagnostics',
+    path: '/dev/bank-parser-diagnostics',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedHistoricoIndexRoute =
   AuthenticatedHistoricoIndexRouteImport.update({
     id: '/historico/',
@@ -214,6 +221,7 @@ export interface FileRoutesByFullPath {
   '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/bancos/diagnostico-importacao': typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
+  '/dev/bank-parser-diagnostics': typeof AuthenticatedDevBankParserDiagnosticsRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos/': typeof AuthenticatedBancosIndexRoute
   '/cartoes/': typeof AuthenticatedCartoesIndexRoute
@@ -243,6 +251,7 @@ export interface FileRoutesByTo {
   '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/bancos/diagnostico-importacao': typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
+  '/dev/bank-parser-diagnostics': typeof AuthenticatedDevBankParserDiagnosticsRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos': typeof AuthenticatedBancosIndexRoute
   '/cartoes': typeof AuthenticatedCartoesIndexRoute
@@ -274,6 +283,7 @@ export interface FileRoutesById {
   '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/_authenticated/bancos_/diagnostico-importacao': typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   '/_authenticated/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
+  '/_authenticated/dev/bank-parser-diagnostics': typeof AuthenticatedDevBankParserDiagnosticsRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
   '/_authenticated/cartoes/': typeof AuthenticatedCartoesIndexRoute
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/bancos/$accountId'
     | '/bancos/diagnostico-importacao'
     | '/cartoes/$cardId'
+    | '/dev/bank-parser-diagnostics'
     | '/membro/$memberId'
     | '/bancos/'
     | '/cartoes/'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/bancos/$accountId'
     | '/bancos/diagnostico-importacao'
     | '/cartoes/$cardId'
+    | '/dev/bank-parser-diagnostics'
     | '/membro/$memberId'
     | '/bancos'
     | '/cartoes'
@@ -364,6 +376,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bancos/$accountId'
     | '/_authenticated/bancos_/diagnostico-importacao'
     | '/_authenticated/cartoes/$cardId'
+    | '/_authenticated/dev/bank-parser-diagnostics'
     | '/_authenticated/membro/$memberId'
     | '/_authenticated/bancos/'
     | '/_authenticated/cartoes/'
@@ -519,6 +532,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCartoesCardIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/dev/bank-parser-diagnostics': {
+      id: '/_authenticated/dev/bank-parser-diagnostics'
+      path: '/dev/bank-parser-diagnostics'
+      fullPath: '/dev/bank-parser-diagnostics'
+      preLoaderRoute: typeof AuthenticatedDevBankParserDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/historico/': {
       id: '/_authenticated/historico/'
       path: '/historico'
@@ -599,6 +619,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRoute
   AuthenticatedBancosDiagnosticoImportacaoRoute: typeof AuthenticatedBancosDiagnosticoImportacaoRoute
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
+  AuthenticatedDevBankParserDiagnosticsRoute: typeof AuthenticatedDevBankParserDiagnosticsRoute
   AuthenticatedMembroMemberIdRoute: typeof AuthenticatedMembroMemberIdRoute
   AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
   AuthenticatedCartoesIndexRoute: typeof AuthenticatedCartoesIndexRoute
@@ -627,6 +648,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBancosDiagnosticoImportacaoRoute:
     AuthenticatedBancosDiagnosticoImportacaoRoute,
   AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
+  AuthenticatedDevBankParserDiagnosticsRoute:
+    AuthenticatedDevBankParserDiagnosticsRoute,
   AuthenticatedMembroMemberIdRoute: AuthenticatedMembroMemberIdRoute,
   AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,
   AuthenticatedCartoesIndexRoute: AuthenticatedCartoesIndexRoute,
