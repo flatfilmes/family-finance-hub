@@ -190,7 +190,12 @@ export type AuditMonth = {
   datasInconsistentes: DateMismatch[];
   /** Subconjunto acima da tolerância — precisa ser desfeito no reprocessamento. */
   associacoesInvalidas: DateMismatch[];
+  /** Checkpoints persistidos neste mês. */
   checkpoints: number;
+  /** "Saldo do dia" encontrados no PDF deste mês (evidência do documento). */
+  checkpointsPdf: number;
+  /** Checkpoints persistidos que batem com o saldo calculado. */
+  checkpointsConferem: number;
   /** Primeiro dia com checkpoint em que calculado ≠ informado. */
   primeiraDivergencia: {
     date: string;
