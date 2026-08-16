@@ -188,9 +188,32 @@ function AuditoriaContaPage() {
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Extratos importados" value={String(r.extratos)} />
         <Metric
+          label="Meses validados"
+          value={`${r.mesesValidados} / ${r.totalMeses}`}
+          hint="Documento, ledger e saldos batem"
+          {...(r.mesesValidados === r.totalMeses && r.totalMeses ? { tone: "ok" as const } : {})}
+        />
+        <Metric
           label="Meses com continuidade"
           value={`${r.mesesComContinuidade} / ${r.totalTransicoes}`}
           hint="Transições entre extratos consecutivos"
+        />
+        <Metric
+          label="Meses sem checkpoint"
+          value={String(r.mesesSemCheckpoint)}
+          hint="Reprocesse o PDF para conferir dia a dia"
+        />
+        <Metric
+          label="Movimentos PDF × ledger"
+          value={`${r.movimentosPdf} / ${r.movimentosLedger}`}
+          hint={r.faltantes ? `${r.faltantes} faltando no ledger` : "Nenhum faltando"}
+          {...(r.faltantes ? { tone: "danger" as const } : {})}
+        />
+        <Metric
+          label="Datas inconsistentes"
+          value={String(r.datasInconsistentes)}
+          hint="Ledger diferente da data do extrato"
+          {...(r.datasInconsistentes ? { tone: "warn" as const } : {})}
         />
         <Metric
           label="Meses com divergência"
@@ -207,32 +230,32 @@ function AuditoriaContaPage() {
         <Metric
           label="Lacunas de período"
           value={String(r.lacunas)}
-          hint={r.sobreposicoes ? `${r.sobreposicoes} sobreposição(ões)` : undefined}
+          hint={r.sobreposicoes ? `${r.sobreposicoes} sobreposição(ões)` : "Cobertura pelo período do extrato"}
         />
         <Metric label="Duplicidades" value={String(r.duplicidades)} />
       </div>
 
       {/* ---------- linha do tempo ---------- */}
       <Card className="mb-5">
-        <SectionTitle title="Linha do tempo" hint="Situação do saldo mês a mês." />
+        <SectionTitle
+          title="Linha do tempo"
+          hint="Situação específica de cada mês — nunca um alerta genérico."
+        />
         <div className="flex flex-wrap gap-2">
-          {audit.meses.map((m) => {
-            const tone = m.confere === false ? "danger" : m.confere ? "ok" : "muted";
-            return (
-              <button
-                key={m.key}
-                onClick={() => setMesAberto(mesAberto === m.key ? null : m.key)}
-                className="rounded-2xl border border-border px-3 py-2 text-left transition-colors hover:bg-muted"
-              >
-                <p className="text-[11px] font-semibold uppercase text-muted-foreground">
-                  {monthLabel(m.key)}
-                </p>
-                <StatusBadge tone={tone} className="mt-1">
-                  {m.confere === false ? "Divergência" : m.confere ? "Confere" : "Sem saldo"}
-                </StatusBadge>
-              </button>
-            );
-          })}
+          {audit.meses.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setMesAberto(mesAberto === m.key ? null : m.key)}
+              className="rounded-2xl border border-border px-3 py-2 text-left transition-colors hover:bg-muted"
+            >
+              <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                {monthLabel(m.key)}
+              </p>
+              <StatusBadge tone={MONTH_STATUS_TONES[m.status]} className="mt-1">
+                {MONTH_STATUS_LABELS[m.status]}
+              </StatusBadge>
+            </button>
+          ))}
         </div>
       </Card>
 
