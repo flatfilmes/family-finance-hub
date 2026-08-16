@@ -186,10 +186,15 @@ const HISTORICO_Y_MAX = 16;
 function recuperarHistoricos(
   linhas: PdfLine[],
   descricaoDaLinha: Array<string | null>,
-): Map<number, string> {
-  const financeirasSemTexto = linhas
+): Map<number, { acima: string[]; abaixo: string[] }> {
+  // EVENT ASSEMBLER: toda linha financeira (menos as de saldo) pode ter o
+  // Histórico impresso em linhas vizinhas — acima e/ou abaixo do valor.
+  const financeiras = linhas
     .map((linha, index) => ({ linha, index }))
-    .filter(({ index }) => descricaoDaLinha[index] === "");
+    .filter(
+      ({ index }) =>
+        descricaoDaLinha[index] !== null && !ehSaldoMetadata(descricaoDaLinha[index] ?? ""),
+    );
 
   // Linhas candidatas: texto puro na coluna do histórico, sem data e sem valor.
   const candidatas = linhas
@@ -211,19 +216,19 @@ function recuperarHistoricos(
     });
 
   const usadas = new Set<number>();
-  const resultado = new Map<number, string>();
+  const resultado = new Map<number, { acima: string[]; abaixo: string[] }>();
 
-  for (const { linha, index } of financeirasSemTexto) {
+  for (const { linha, index } of financeiras) {
     const proximas = candidatas
       .filter(({ linha: c, index: ci }) => {
         if (usadas.has(ci)) return false;
         if ((c.page ?? 1) !== (linha.page ?? 1)) return false;
         return Math.abs(c.y - linha.y) <= HISTORICO_Y_MAX;
       })
-      // Não roubar histórico de outra movimentação: só o que está mais perto
-      // desta linha financeira do que de qualquer outra.
+      // Não anexar texto do próximo lançamento: só o que está mais perto desta
+      // linha financeira do que de qualquer outra.
       .filter(({ linha: c }) =>
-        financeirasSemTexto.every(
+        financeiras.every(
           ({ linha: outra, index: oi }) =>
             oi === index || Math.abs(c.y - linha.y) <= Math.abs(c.y - outra.y),
         ),
@@ -232,10 +237,12 @@ function recuperarHistoricos(
 
     if (!proximas.length) continue;
     for (const p of proximas) usadas.add(p.index);
-    resultado.set(
-      index,
-      proximas.map((p) => p.linha.text.replace(/\s+/g, " ").trim()).join(" "),
-    );
+    const texto = (p: (typeof proximas)[number]) => p.linha.text.replace(/\s+/g, " ").trim();
+    resultado.set(index, {
+      // Ordem documental: o que está acima do valor vem antes.
+      acima: proximas.filter((p) => p.linha.y > linha.y).map(texto),
+      abaixo: proximas.filter((p) => p.linha.y <= linha.y).map(texto),
+    });
   }
 
   return resultado;
