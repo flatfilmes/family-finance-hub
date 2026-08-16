@@ -199,6 +199,9 @@ export type StatementItemInput = {
   review_action?: string | null;
   transaction_id_criada?: string | null;
   transaction_id_matched?: string | null;
+  /** Compras criadas/associadas pelo extrato: o ledger nasce delas por gatilho. */
+  purchase_id_criada?: string | null;
+  purchase_id_matched?: string | null;
 };
 
 export type BankAudit = {
