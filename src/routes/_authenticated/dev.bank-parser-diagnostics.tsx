@@ -188,7 +188,39 @@ function BankParserDiagnosticsPage() {
         />
       ) : (
         <>
+          {(!!d.errors.length || !!d.parserInternalStages.length || d.parserExecutionInput) && (
+            <Card className="space-y-3">
+              <h2 className="text-sm font-extrabold">Execução do parser</h2>
+              {d.parserExecutionInput && (
+                <pre className="overflow-auto rounded-2xl bg-muted/40 p-3 text-[11px]">
+                  {JSON.stringify(d.parserExecutionInput, null, 2)}
+                </pre>
+              )}
+              {d.parserInternalStages.map((s) => (
+                <p key={s.stage} className="text-xs">
+                  <span className={s.status === "PASS" ? "text-primary" : "text-destructive"}>
+                    {s.status === "PASS" ? "✓" : "✕"} {s.stage}
+                  </span>{" "}
+                  <span className="text-muted-foreground">{s.reason}</span>
+                </p>
+              ))}
+              {d.errors.map((e, i) => (
+                <div key={i} className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3">
+                  <p className="text-xs font-bold text-destructive">
+                    {e.stage} · {e.name}
+                  </p>
+                  <p className="text-xs font-semibold">{e.message}</p>
+                  {e.stack && (
+                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-[10px] text-muted-foreground">
+                      {e.stack}
+                    </pre>
+                  )}
+                </div>
+              ))}
+            </Card>
+          )}
           <Card className="space-y-4">
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Metric label="Arquivo" value={d.file} />
               <Metric label="Banco detectado" value={d.detection.detectedBank} />
