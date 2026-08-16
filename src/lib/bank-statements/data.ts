@@ -156,6 +156,24 @@ export async function fetchBankStatementImports(accountId: string) {
   return data ?? [];
 }
 
+/** Lançamentos lidos dos extratos da conta — evidência do PDF para auditoria. */
+export async function fetchBankStatementItemsByAccount(accountId: string) {
+  const { data, error } = await supabase
+    .from("bank_statement_items")
+    .select(
+      "id, import_id, data_movimento, descricao_original, valor, tipo_sugerido, incluir, review_action, match_status, transaction_id_criada, transaction_id_matched, purchase_id_criada, purchase_id_matched, ordem",
+    )
+    .eq("bank_account_id", accountId)
+    .order("data_movimento", { ascending: true })
+    .order("ordem", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export type BankStatementItemRow = Awaited<
+  ReturnType<typeof fetchBankStatementItemsByAccount>
+>[number];
+
 /** Descarta uma importação ainda não confirmada. */
 export async function deleteBankStatementImport(importId: string) {
   const { error } = await supabase
