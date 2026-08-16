@@ -72,3 +72,60 @@ export const ITAU_001_ESPERADO = {
 export function itau001PdfLines(): PdfLine[] {
   return ITAU_001_LINHAS.map((text, i) => ({ y: i, text, cells: [{ x: 0, text }] }));
 }
+
+/**
+ * CASO DE REGRESSÃO ITAU #002 — "Página de lançamentos em DUAS COLUNAS".
+ *
+ * Reproduz a geometria real da página: lançamentos à esquerda e à direita,
+ * com linhas de categoria/cidade abaixo de cada um. Nenhum lançamento de
+ * lados diferentes pode sair concatenado.
+ */
+export type ItauColunaCaso = { texto: string; x: number; y: number; width: number };
+
+export const ITAU_002_PAGE_WIDTH = 595;
+
+const ESQUERDA: string[][] = [
+  ["20/05 VEICULOS BENONI AUTO MECANI 03/06 410,85", ".TUBARAO"],
+  ["26/05 DESPACHANTE TONON 03/12 265,61", ".TUBARAO"],
+  ["27/05 VESTUARIO LOJAS RENNER FL 930 03/03 143,24", ".TUBARAO"],
+  ["08/07 ACADEMIA AD3 TUBAR 02/12 134,85", ".TUBARAO"],
+];
+
+const DIREITA: string[][] = [
+  ["12/07 29 GASTROPUB 25,00", ".TUBARAO"],
+  ["13/07 CONVENIENCIA PLAY 15,75", ".TUBARAO"],
+  ["14/07 DROP 7 99,90", ".TUBARAO"],
+  ["14/07 APPLE.COM/BILL 5,90", ".SAO PAULO"],
+];
+
+/** Itens posicionados da página de lançamentos em duas colunas. */
+export function itau002PageItems(): ItauColunaCaso[] {
+  const itens: ItauColunaCaso[] = [
+    { texto: "Lançamentos: compras e saques", x: 30, y: 800, width: 200 },
+    { texto: "Lançamentos no cartão (final 8294) 5.332,18", x: 30, y: 780, width: 220 },
+  ];
+  const empilha = (blocos: string[][], x: number) => {
+    let y = 760;
+    for (const bloco of blocos) {
+      for (const texto of bloco) {
+        itens.push({ texto, x, y, width: Math.min(230, texto.length * 4.2) });
+        y -= 12;
+      }
+      y -= 6;
+    }
+  };
+  empilha(ESQUERDA, 30);
+  empilha(DIREITA, 320);
+  return itens;
+}
+
+export const ITAU_002_ESPERADO = [
+  { data: "2026-05-20", desc: "BENONI AUTO MECANI", parcela: [3, 6], valor: 410.85 },
+  { data: "2026-05-26", desc: "DESPACHANTE TONON", parcela: [3, 12], valor: 265.61 },
+  { data: "2026-05-27", desc: "LOJAS RENNER FL 930", parcela: [3, 3], valor: 143.24 },
+  { data: "2026-07-08", desc: "ACADEMIA AD3 TUBAR", parcela: [2, 12], valor: 134.85 },
+  { data: "2026-07-12", desc: "29 GASTROPUB", parcela: null, valor: 25.0 },
+  { data: "2026-07-13", desc: "CONVENIENCIA PLAY", parcela: null, valor: 15.75 },
+  { data: "2026-07-14", desc: "DROP 7", parcela: null, valor: 99.9 },
+  { data: "2026-07-14", desc: "APPLE.COM/BILL", parcela: null, valor: 5.9 },
+] as const;

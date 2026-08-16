@@ -32,6 +32,8 @@ export type StatementEntry = {
   card_last4?: string | null;
   /** Categoria impressa pelo próprio banco na fatura (apenas sugestão). */
   categoria_banco?: string | null;
+  /** Registro possivelmente mesclado de duas colunas — exige revisão manual. */
+  ambiguo?: boolean;
 };
 
 export type StatementHeader = {
