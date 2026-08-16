@@ -223,6 +223,11 @@ export function StatementImportDialog({
         )}
 
         {erro && <p className="mt-3 text-sm font-semibold text-destructive">{erro}</p>}
+        {detalheTecnico && (
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-2xl bg-muted/60 p-3 text-[11px] text-muted-foreground">
+            {detalheTecnico}
+          </pre>
+        )}
 
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
           <PdfDiagnosticButton
