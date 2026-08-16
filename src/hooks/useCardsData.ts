@@ -102,6 +102,8 @@ export function useCardsData(familyId?: string) {
           parcelas: parcelasDoCartao(cardId),
         }),
       ),
+    /** Parcelas já contratadas projetadas no ciclo, a partir da fatura oficial. */
+    projecaoParcelasDe,
     /**
      * Composição do ciclo — função única usada pela régua, pelo resumo, pelos
      * lançamentos, pelos compromissos futuros e pelo planejamento.
@@ -114,17 +116,21 @@ export function useCardsData(familyId?: string) {
       buildCardCycleComposition({
         ciclo,
         itensOficiais: itensOficiais ?? null,
-        linhasInternas: linhasDaFatura({
-          invoice: (ciclo?.invoice as CardInvoice | undefined) ?? null,
-          parcelas: parcelas.data ?? [],
-          comprasDoCartao: comprasDoCartao(cardId),
-          comprasComParcelas,
-          despesaPorId,
-          compraPorId,
-          card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
-        }).map((l) => ({ ...l, itemId: l.id })),
+        linhasInternas: mesclarParcelasProjetadas(
+          linhasDaFatura({
+            invoice: (ciclo?.invoice as CardInvoice | undefined) ?? null,
+            parcelas: parcelas.data ?? [],
+            comprasDoCartao: comprasDoCartao(cardId),
+            comprasComParcelas,
+            despesaPorId,
+            compraPorId,
+            card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
+          }).map((l) => ({ ...l, itemId: l.id })),
+          projecaoParcelasDe(cardId, ciclo),
+        ),
         compraPorId,
       }),
+
     recorrenciasDoCartao,
     parcelasDoCartao,
     /**
