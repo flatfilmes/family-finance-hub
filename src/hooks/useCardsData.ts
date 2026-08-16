@@ -109,20 +109,29 @@ export function useCardsData(familyId?: string) {
     /** Uma obrigação aberta por cartão, oficial quando houver importação confirmada. */
     obrigacaoAbertaDe,
     /** Composição auditável do limite utilizado. */
-    composicaoDe: (cardId: string) =>
-      composicaoUtilizado({
+    composicaoDe: (cardId: string) => {
+      const obrigacao = obrigacaoAbertaDe(cardId);
+      return composicaoUtilizado({
         utilizadoParcelas: info(cardId)?.utilizado ?? 0,
         faturaAtual: info(cardId)?.valorFaturaAtual ?? 0,
+        faturaOficial: obrigacao.oficial ? obrigacao.valor : null,
         parcelasFuturas: info(cardId)?.parcelasFuturas ?? 0,
         comprasSemParcela: comprasSemParcelaDe(cardId),
-      }),
-    utilizadoDe: (cardId: string) =>
-      utilizadoDoCartao({
+      });
+    },
+    utilizadoDe: (cardId: string) => {
+      const obrigacao = obrigacaoAbertaDe(cardId);
+      const base = utilizadoDoCartao({
         utilizadoParcelas: info(cardId)?.utilizado ?? 0,
         comprasDoCartao: comprasDoCartao(cardId),
         comprasComParcelas,
-
-      }),
+      });
+      // Documento oficial substitui a estimativa do ciclo (sem somar as duas).
+      const ajuste = obrigacao.oficial
+        ? obrigacao.valor - (info(cardId)?.valorFaturaAtual ?? 0)
+        : 0;
+      return Math.round((base + ajuste) * 100) / 100;
+    },
     linhasDe: (cardId: string, invoice: CardInvoice | null) =>
       linhasDaFatura({
         invoice,

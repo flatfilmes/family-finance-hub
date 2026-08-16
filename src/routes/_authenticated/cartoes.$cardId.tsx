@@ -250,7 +250,7 @@ function CartaoDetalhePage() {
         <Metric
           label="Limite disponível"
           value={formatCurrency(disponivel)}
-          hint={`Utilizado ${formatCurrency(utilizado)} de ${formatCurrency(limite)} · fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
+          hint={`Utilizado ${formatCurrency(utilizado)} de ${formatCurrency(limite)} · ${composicao.oficial ? "fatura oficial do ciclo" : "fatura estimada do ciclo"} ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
           tone={disponivel < 0 ? "danger" : "ok"}
           big
         />

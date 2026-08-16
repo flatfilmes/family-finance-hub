@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { isStatementConfirmed } from "@/lib/card-statements";
 import {
   agruparCiclos,
+  composicaoUtilizado,
   classificarCiclosDoCartao,
   faturasFechadasEmAberto,
   obrigacaoAbertaDoCartao,
@@ -185,5 +186,31 @@ describe("progressoParcelamento", () => {
 
   it("marca como quitada só quando todas as parcelas foram pagas", () => {
     expect(progressoParcelamento(parcelas(8))!.estado).toBe("QUITADA");
+  });
+});
+
+describe("composicaoUtilizado com fatura oficial", () => {
+  it("substitui a estimativa pelo documento oficial sem somar as duas", () => {
+    const c = composicaoUtilizado({
+      utilizadoParcelas: 6000,
+      faturaAtual: 5800.89,
+      faturaOficial: 6577.67,
+      parcelasFuturas: 199.11,
+      comprasSemParcela: 0,
+    });
+    expect(c.faturaAtual).toBe(6577.67);
+    expect(c.oficial).toBe(true);
+    expect(c.total).toBe(6776.78);
+  });
+
+  it("sem documento oficial mantém a estimativa interna", () => {
+    const c = composicaoUtilizado({
+      utilizadoParcelas: 1000,
+      faturaAtual: 800,
+      parcelasFuturas: 200,
+      comprasSemParcela: 50,
+    });
+    expect(c.faturaAtual).toBe(800);
+    expect(c.total).toBe(1050);
   });
 });

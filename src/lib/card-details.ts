@@ -322,18 +322,31 @@ export function obrigacaoAbertaDoCartao(input: {
  */
 export function composicaoUtilizado(input: {
   utilizadoParcelas: number;
+  /** Estimativa interna do ciclo (soma das parcelas ligadas à fatura). */
   faturaAtual: number;
+  /** Valor oficial do ciclo quando existe importação CONFIRMED. */
+  faturaOficial?: number | null;
   parcelasFuturas: number;
   comprasSemParcela: number;
 }) {
   const outros =
     input.utilizadoParcelas - input.faturaAtual - input.parcelasFuturas;
+  const oficial = input.faturaOficial != null;
+  const faturaConsiderada = oficial ? input.faturaOficial! : input.faturaAtual;
+  // A diferença entre documento oficial e estimativa entra uma única vez.
+  const ajusteOficial = Math.round((faturaConsiderada - input.faturaAtual) * 100) / 100;
   return {
-    faturaAtual: input.faturaAtual,
+    faturaAtual: faturaConsiderada,
+    faturaInterna: input.faturaAtual,
+    oficial,
+    ajusteOficial,
     parcelasFuturas: input.parcelasFuturas,
     comprasSemParcela: input.comprasSemParcela,
     outros: Math.round(outros * 100) / 100,
-    total: input.utilizadoParcelas + input.comprasSemParcela,
+    total:
+      Math.round(
+        (input.utilizadoParcelas + input.comprasSemParcela + ajusteOficial) * 100,
+      ) / 100,
   };
 }
 
