@@ -219,6 +219,96 @@ function MembroPage() {
   const myAccounts = mine(accounts);
   const myCards = mine(cards);
 
+  const incomeActions = (i: Income): RecordAction[] => [
+    { label: "Editar", onSelect: () => setEditIncome(i), disabled: !podeGerenciar },
+    {
+      label: i.ativo ? "Arquivar" : "Reativar",
+      disabled: !podeGerenciar,
+      onSelect: () =>
+        setConfirmacao({
+          title: i.ativo ? "Arquivar receita" : "Reativar receita",
+          description: i.ativo
+            ? "A receita deixa de entrar nos cálculos, mas o histórico é mantido."
+            : "A receita volta a entrar nos cálculos do mês.",
+          confirmLabel: i.ativo ? "Arquivar" : "Reativar",
+          run: () => toggleIncome(i.id, !i.ativo),
+        }),
+    },
+    {
+      label: "Excluir",
+      destructive: true,
+      disabled: !isAdmin,
+      onSelect: () =>
+        setConfirmacao({
+          title: "Excluir receita",
+          description: "A receita será removida definitivamente. Prefira arquivar para manter o histórico.",
+          confirmLabel: "Excluir",
+          run: () => deleteIncome(i.id),
+        }),
+    },
+  ];
+
+  const accountActions = (a: BankAccount): RecordAction[] => [
+    { label: "Editar", onSelect: () => setEditAccount(a), disabled: !podeGerenciar },
+    { label: "Ajustar saldo", onSelect: () => setAjusteConta(a), disabled: !podeGerenciar },
+    {
+      label: a.ativo ? "Arquivar" : "Reativar",
+      disabled: !podeGerenciar,
+      onSelect: () =>
+        setConfirmacao({
+          title: a.ativo ? "Arquivar conta" : "Reativar conta",
+          description: a.ativo
+            ? "A conta some das seleções de pagamento, mas o extrato continua disponível."
+            : "A conta volta a ficar disponível para novos lançamentos.",
+          confirmLabel: a.ativo ? "Arquivar" : "Reativar",
+          run: () => archiveBankAccount(a.id, !a.ativo),
+        }),
+    },
+    {
+      label: "Excluir",
+      destructive: true,
+      disabled: !isAdmin,
+      onSelect: () =>
+        setConfirmacao({
+          title: "Excluir conta bancária",
+          description:
+            "A conta só pode ser excluída se não tiver nenhuma movimentação vinculada. Caso contrário, arquive-a.",
+          confirmLabel: "Excluir",
+          run: () => deleteBankAccountIfUnused(a.id),
+        }),
+    },
+  ];
+
+  const cardActions = (c: CreditCard): RecordAction[] => [
+    { label: "Editar", onSelect: () => setEditCard(c), disabled: !podeGerenciar },
+    {
+      label: c.ativo ? "Arquivar" : "Reativar",
+      disabled: !podeGerenciar,
+      onSelect: () =>
+        setConfirmacao({
+          title: c.ativo ? "Arquivar cartão" : "Reativar cartão",
+          description: c.ativo
+            ? "O cartão some das novas compras, mas as faturas e parcelas continuam ativas."
+            : "O cartão volta a ficar disponível para novas compras.",
+          confirmLabel: c.ativo ? "Arquivar" : "Reativar",
+          run: () => archiveCreditCard(c.id, !c.ativo),
+        }),
+    },
+    {
+      label: "Excluir",
+      destructive: true,
+      disabled: !isAdmin,
+      onSelect: () =>
+        setConfirmacao({
+          title: "Excluir cartão",
+          description:
+            "O cartão só pode ser excluído se não tiver faturas, compras ou parcelas vinculadas. Caso contrário, arquive-o.",
+          confirmLabel: "Excluir",
+          run: () => deleteCreditCardIfUnused(c.id),
+        }),
+    },
+  ];
+
   const fixas = myIncomes.filter((i) => i.tipo === "FIXA");
   const variaveis = myIncomes.filter((i) => i.tipo !== "FIXA");
 
@@ -379,6 +469,7 @@ function MembroPage() {
                     title={i.descricao}
                     subtitle={`Fixa · ${i.frequencia === "MENSAL" && i.dia_recebimento ? `todo dia ${i.dia_recebimento}` : i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
                     value={formatCurrency(Number(i.valor))}
+                    actions={incomeActions(i)}
                   />
                 ))}
               </ul>
@@ -409,6 +500,7 @@ function MembroPage() {
                     title={i.descricao}
                     subtitle={`Média · ${i.frequencia === "MENSAL" && i.dia_recebimento ? `todo dia ${i.dia_recebimento}` : i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
                     value={formatCurrency(Number(i.valor))}
+                    actions={incomeActions(i)}
                   />
                 ))}
               </ul>
@@ -463,6 +555,7 @@ function MembroPage() {
                     title={`${a.banco} · ${a.nome_conta}`}
                     subtitle={`${BANK_ACCOUNT_TYPE_LABELS[a.tipo_conta]}${a.ativo ? "" : " · inativa"}`}
                     value={formatCurrency(Number(a.saldo_atual))}
+                    actions={accountActions(a)}
                   />
                 ))}
               </ul>
@@ -520,6 +613,7 @@ function MembroPage() {
                     title={`${c.banco} · ${c.nome_cartao}`}
                     subtitle={`Fecha dia ${c.dia_fechamento} · vence dia ${c.dia_vencimento}${c.ativo ? "" : " · inativo"}`}
                     value={formatCurrency(Number(c.limite))}
+                    actions={cardActions(c)}
                   />
                 ))}
               </ul>
@@ -536,6 +630,82 @@ function MembroPage() {
           </Card>
         </>
       )}
+
+      <FormDialog
+        open={!!editIncome}
+        onOpenChange={(open) => {
+          if (!open) setEditIncome(null);
+        }}
+        title="Editar receita"
+        description="Altere valor, tipo ou dia do recebimento."
+      >
+        {editIncome && (
+          <IncomeForm
+            familyId={family.id}
+            memberId={member.id}
+            income={editIncome}
+            onSaved={() => setEditIncome(null)}
+            onCancel={() => setEditIncome(null)}
+          />
+        )}
+      </FormDialog>
+
+      <FormDialog
+        open={!!editAccount}
+        onOpenChange={(open) => {
+          if (!open) setEditAccount(null);
+        }}
+        title="Editar conta bancária"
+        description="O saldo é corrigido pela ação Ajustar saldo."
+      >
+        {editAccount && (
+          <BankAccountForm
+            familyId={family.id}
+            memberId={member.id}
+            account={editAccount}
+            onSaved={() => setEditAccount(null)}
+            onCancel={() => setEditAccount(null)}
+          />
+        )}
+      </FormDialog>
+
+      <FormDialog
+        open={!!editCard}
+        onOpenChange={(open) => {
+          if (!open) setEditCard(null);
+        }}
+        title="Editar cartão"
+        description="Alterações valem para os ciclos atuais e futuros."
+      >
+        {editCard && (
+          <CreditCardForm
+            familyId={family.id}
+            memberId={member.id}
+            card={editCard}
+            onSaved={() => setEditCard(null)}
+            onCancel={() => setEditCard(null)}
+          />
+        )}
+      </FormDialog>
+
+      <AdjustBalanceDialog
+        account={ajusteConta}
+        familyId={family.id}
+        onClose={() => setAjusteConta(null)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmacao}
+        onOpenChange={(open) => {
+          if (!open) setConfirmacao(null);
+        }}
+        title={confirmacao?.title ?? ""}
+        description={confirmacao?.description ?? ""}
+        {...(confirmacao?.confirmLabel ? { confirmLabel: confirmacao.confirmLabel } : {})}
+        {...(confirmacao?.blocked ? { blocked: true } : {})}
+        pending={executarAcao.isPending}
+        onConfirm={() => executarAcao.mutate()}
+      />
     </div>
   );
 }
