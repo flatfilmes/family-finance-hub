@@ -111,7 +111,7 @@ function DiagnosticoImportacao() {
     <div className="space-y-6">
       <PageHeader
         title="Diagnóstico de importação"
-        description="PDF → parser → validação. Leitura em memória: nada é gravado, nenhum saldo é alterado."
+        subtitle="PDF → parser → validação. Leitura em memória: nada é gravado, nenhum saldo é alterado."
       />
 
       <Card className="space-y-4">
