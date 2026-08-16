@@ -727,10 +727,11 @@ export function diagnosticsFromParsedStatement(
       : null,
     error: null,
     parser: { status: "FOUND", requestedBank: detectedBank, name: statement.parser },
-    parserOutput: {
     parserExecutionInput: null,
-    parserInternalStages: [],
+    parserInternalStages: inspectParsedStatement(parsed),
+    parserOutput: {
       periodStart: statement.periodStart,
+
       periodEnd: statement.periodEnd,
       openingBalance: statement.openingBalance,
       closingBalance: statement.closingBalance,
