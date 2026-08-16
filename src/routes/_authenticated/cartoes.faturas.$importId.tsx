@@ -73,6 +73,8 @@ function RevisarFaturaPage() {
   const confirmar = useConfirmStatementImport(family?.id);
 
   const [filtro, setFiltro] = useState<"" | MatchStatus>("");
+  const [filtroCartao, setFiltroCartao] = useState<string>("");
+
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [resultado, setResultado] = useState<string>("");
   const [erro, setErro] = useState("");
