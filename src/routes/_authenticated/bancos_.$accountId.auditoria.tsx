@@ -14,9 +14,11 @@ import { useCardInvoices } from "@/hooks/useCardInvoices";
 import { useBankStatementImports, useBankStatementItems } from "@/hooks/useBankStatements";
 import { useBankBalanceCheckpoints } from "@/hooks/useBankLedger";
 import { ReprocessCheckpointsDialog } from "@/components/bank/reprocess-checkpoints-dialog";
+import { RepairHistoryDialog } from "@/components/bank/repair-history-dialog";
 import {
   auditToCsv,
   buildBankAudit,
+  ISSUE_CATEGORY_LABELS,
   MONTH_STATUS_LABELS,
   MONTH_STATUS_TONES,
   SEVERITY_LABELS,
@@ -137,6 +139,7 @@ function AuditoriaContaPage() {
         badges={<StatusBadge tone="muted">Somente leitura — nada é alterado</StatusBadge>}
         actions={
           <div className="flex flex-wrap gap-2">
+            <RepairHistoryDialog accountId={accountId} imports={imports ?? []} />
             <ReprocessCheckpointsDialog accountId={accountId} familyId={family.id} />
             <button
               onClick={exportarCsv}
@@ -149,40 +152,52 @@ function AuditoriaContaPage() {
       />
 
       {/* ---------- problemas encontrados ---------- */}
-      <Card className="mb-5">
-        <SectionTitle
-          title="Problemas encontrados"
-          hint="Ordenados por severidade. A auditoria apenas identifica — nunca corrige sozinha."
-        />
-        {audit.problemas.length === 0 ? (
-          <p className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
-            <Check className="size-4" /> Nenhum problema de saldo encontrado.
-          </p>
-        ) : (
-          <ol className="space-y-2">
-            {[...audit.problemas]
-              .sort(
-                (a, b) =>
-                  ordemSeveridade(a.severity) - ordemSeveridade(b.severity) ||
-                  a.titulo.localeCompare(b.titulo),
-              )
-              .map((p) => (
-                <li
-                  key={p.id}
-                  className="flex flex-wrap items-start gap-3 rounded-2xl border border-border px-4 py-3"
-                >
-                  <StatusBadge tone={SEVERITY_TONES[p.severity]}>
-                    {SEVERITY_LABELS[p.severity]}
-                  </StatusBadge>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">{p.titulo}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{p.detalhe}</p>
-                  </div>
-                </li>
-              ))}
-          </ol>
-        )}
-      </Card>
+      {(["FINANCEIRA", "DADOS"] as const).map((categoria) => {
+        const lista = audit.problemas
+          .filter((p) => p.categoria === categoria)
+          .sort(
+            (a, b) =>
+              ordemSeveridade(a.severity) - ordemSeveridade(b.severity) ||
+              a.titulo.localeCompare(b.titulo),
+          );
+        return (
+          <Card key={categoria} className="mb-5">
+            <SectionTitle
+              title={ISSUE_CATEGORY_LABELS[categoria]}
+              hint={
+                categoria === "FINANCEIRA"
+                  ? "Movimentos, checkpoints, saldo e continuidade — é isso que valida ou invalida um mês."
+                  : "Associação, categoria e identificação de origem. São pendências operacionais: não invalidam o saldo."
+              }
+            />
+            {lista.length === 0 ? (
+              <p className="flex items-center gap-2 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                <Check className="size-4" />{" "}
+                {categoria === "FINANCEIRA"
+                  ? "Nenhum problema de saldo encontrado."
+                  : "Nenhuma pendência de qualidade de dados."}
+              </p>
+            ) : (
+              <ol className="space-y-2">
+                {lista.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex flex-wrap items-start gap-3 rounded-2xl border border-border px-4 py-3"
+                  >
+                    <StatusBadge tone={SEVERITY_TONES[p.severity]}>
+                      {SEVERITY_LABELS[p.severity]}
+                    </StatusBadge>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold">{p.titulo}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{p.detalhe}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Card>
+        );
+      })}
 
       {/* ---------- resumo geral ---------- */}
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -213,7 +228,13 @@ function AuditoriaContaPage() {
           label="Datas inconsistentes"
           value={String(r.datasInconsistentes)}
           hint="Ledger diferente da data do extrato"
-          {...(r.datasInconsistentes ? { tone: "danger" as const } : {})}
+          {...(r.datasInconsistentes ? { tone: "warn" as const } : {})}
+        />
+        <Metric
+          label="Associações inválidas"
+          value={String(r.associacoesInvalidas)}
+          hint="Vínculos com movimentação de outro mês"
+          {...(r.associacoesInvalidas ? { tone: "danger" as const } : {})}
         />
         <Metric
           label="Meses com divergência"
