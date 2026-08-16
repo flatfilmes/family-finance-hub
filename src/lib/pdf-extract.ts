@@ -735,7 +735,10 @@ function acharProdutosSimples(linhas: PdfLine[]): ExtractedItem[] {
 }
 
 /** Interpreta as linhas do PDF e devolve a sugestão de compra. */
-export function parseNotaFiscal(entrada: string[] | PdfLine[]): ExtractedNota {
+export function parseNotaFiscal(
+  entrada: string[] | PdfLine[],
+  produtosEspaciais?: { items: ExtractedItem[]; tabelaEncontrada: boolean; status: string; rejeitados: number },
+): ExtractedNota {
   const linhas: PdfLine[] =
     entrada.length > 0 && typeof entrada[0] === "string"
       ? (entrada as string[]).map((text, i) => ({ y: -i, text, cells: [{ x: 0, text }] }))
@@ -746,9 +749,26 @@ export function parseNotaFiscal(entrada: string[] | PdfLine[]): ExtractedNota {
   const total = acharValorTotal(linhas);
   const pagamento = acharPagamento(linhas);
 
-  const danfe = acharProdutosDanfe(linhas);
-  const items = danfe.length > 0 ? danfe : acharProdutosSimples(linhas);
-  const somaItens = items.reduce((acc, i) => acc + i.valor_total, 0);
+  // Prioridade absoluta: geometria real da tabela DANFE.
+  // Quando a tabela existe, NUNCA cair no fallback genérico (que criaria um
+  // "produto" com o valor total da nota).
+  const espacial = produtosEspaciais;
+  let items: ExtractedItem[];
+  let origem: "ESPACIAL" | "DANFE_TEXTO" | "SIMPLES" | "NENHUM";
+  if (espacial?.tabelaEncontrada) {
+    items = espacial.items;
+    origem = items.length ? "ESPACIAL" : "NENHUM";
+  } else {
+    const danfe = acharProdutosDanfe(linhas);
+    if (danfe.length > 0) {
+      items = danfe;
+      origem = "DANFE_TEXTO";
+    } else {
+      items = acharProdutosSimples(linhas);
+      origem = items.length ? "SIMPLES" : "NENHUM";
+    }
+  }
+  const somaItens = Number(items.reduce((acc, i) => acc + i.valor_total, 0).toFixed(2));
 
   let valorTotal = total.valor;
   let confiancaValor = total.confianca;
@@ -757,12 +777,20 @@ export function parseNotaFiscal(entrada: string[] | PdfLine[]): ExtractedNota {
     confiancaValor = "MEDIA";
   }
 
-  let confiancaItens: Confianca = items.length === 0 ? "BAIXA" : danfe.length > 0 ? "ALTA" : "MEDIA";
+  let confiancaItens: Confianca =
+    items.length === 0 ? "BAIXA" : origem === "SIMPLES" ? "MEDIA" : "ALTA";
   if (items.length > 0 && valorTotal > 0) {
     const bate = Math.abs(somaItens - valorTotal) <= Math.max(0.05, valorTotal * 0.01);
     if (!bate && confiancaItens === "ALTA") confiancaItens = "MEDIA";
     if (bate && confiancaItens === "MEDIA") confiancaItens = "ALTA";
   }
+
+  const status =
+    espacial?.tabelaEncontrada
+      ? espacial.status
+      : items.length
+        ? "PRODUCTS_FROM_TEXT_HEURISTIC"
+        : "PRODUCT_TABLE_NOT_FOUND";
 
   return {
     estabelecimento: estab.valor,
@@ -772,6 +800,14 @@ export function parseNotaFiscal(entrada: string[] | PdfLine[]): ExtractedNota {
     pagamento_descricao: pagamento.descricao,
     items,
     linhas: linhas.map((l) => l.text),
+    tabela_produtos: {
+      origem,
+      status,
+      soma_produtos: somaItens,
+      total_nota: valorTotal,
+      diferenca: Number((somaItens - valorTotal).toFixed(2)),
+      rejeitados: espacial?.rejeitados ?? 0,
+    },
     confianca: {
       estabelecimento: estab.valor ? estab.confianca : "BAIXA",
       data_compra: data.valor ? data.confianca : "BAIXA",
@@ -782,8 +818,30 @@ export function parseNotaFiscal(entrada: string[] | PdfLine[]): ExtractedNota {
   };
 }
 
+/** Interpreta o PDF usando a geometria real das páginas (recomendado). */
+export function parseNotaFiscalLayout(pages: PdfPageLayout[]): ExtractedNota {
+  const linhas: PdfLine[] = [];
+  for (const layout of pages) {
+    linhas.push(...layoutPageLines(layout.items, layout.width, layout.page));
+  }
+  const tabela = parseDanfeProductTables(pages);
+  return parseNotaFiscal(linhas, {
+    tabelaEncontrada: tabela.tableFound,
+    status: tabela.status,
+    rejeitados: tabela.rejected.length,
+    items: tabela.products.map((p) => ({
+      descricao_produto: p.description.slice(0, 200),
+      quantidade: p.quantity,
+      unidade: p.unit,
+      valor_unitario: p.unitPrice,
+      valor_total: p.total,
+    })),
+  });
+}
+
 /** Lê o PDF e devolve a sugestão de compra pronta para revisão. */
 export async function readNotaFiscalPdf(file: Blob): Promise<ExtractedNota> {
-  const linhas = await extractPdfLines(file);
-  return parseNotaFiscal(linhas);
+  const pages = await extractPdfPageLayouts(file);
+  return parseNotaFiscalLayout(pages);
 }
+
