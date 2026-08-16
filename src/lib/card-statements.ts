@@ -122,6 +122,20 @@ export function diasEntre(a: string | null, b: string | null) {
 
 const centavos = (v: number) => Math.round(Math.abs(v) * 100);
 
+const semAcentoBaixo = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+/** Converte o nome de categoria sugerido pelo banco no id da categoria interna. */
+export function categoriaPorNome(
+  nome: string | null | undefined,
+  categorias: { id: string; nome: string }[],
+) {
+  if (!nome) return null;
+  const alvo = semAcentoBaixo(nome);
+  return categorias.find((c) => semAcentoBaixo(c.nome) === alvo)?.id ?? null;
+}
+
+
 // ------------------------------------------------------------------ motor de correspondência
 
 type Candidatos = {
