@@ -25,6 +25,7 @@ import {
 } from "@/lib/bank-statement-parsers/itau";
 import {
   describeParserError,
+  inspectParsedStatement,
   runObservableBankStatementParser,
   type BankParserExecutionInput,
   type ParserInternalStage,
