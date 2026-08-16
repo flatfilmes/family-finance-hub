@@ -575,12 +575,20 @@ function MesCard({
             </div>
           )}
 
-          {mes.checkpoints === 0 && mes.imports.length > 0 && (
+          {mes.imports.length > 0 && mes.checkpoints === 0 && (
             <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
               Este mês não tem "Saldo do dia" registrado. Use "Reprocessar checkpoints" para reler o
               PDF — nenhuma movimentação será alterada.
             </p>
           )}
+
+          {mes.imports.length > 0 && mes.checkpoints > 0 && (
+            <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Saldos diários: {mes.checkpointsConferem} de {mes.checkpoints} conferidos
+              {mes.checkpointsPdf ? ` · ${mes.checkpointsPdf} encontrados no PDF` : ""}.
+            </p>
+          )}
+
 
           {mes.faltantes.length > 0 && (
             <div className="mt-3">
