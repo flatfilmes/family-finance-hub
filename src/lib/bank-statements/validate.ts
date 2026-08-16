@@ -55,6 +55,18 @@ export function validateStatement(statement: CanonicalStatement): StatementValid
   if (!statement.transactions.length) problems.push("Nenhuma movimentação lida no documento.");
   if (statement.transactions.some((t) => !t.postingDate))
     problems.push("Há movimentação sem data contábil (coluna 'Dia').");
+  // O saldo anterior é anterior ao período: se coincidir com o início, o
+  // parser confundiu abertura com período (regressão conhecida do BB).
+  if (
+    statement.openingBalance.date &&
+    statement.periodStart &&
+    statement.openingBalance.date >= statement.periodStart
+  )
+    problems.push(
+      "Data do saldo anterior não é anterior ao início do período — período provavelmente lido do saldo anterior.",
+    );
+  if (!statement.checkpoints.some((c) => c.type === "DAILY" || c.type === "CLOSING"))
+    problems.push("Nenhum saldo do dia (checkpoint) foi lido do documento.");
   if (difference !== null && difference !== 0)
     problems.push(
       `Equação do extrato não fecha: diferença de ${difference.toFixed(2)} (abertura ${opening} + entradas ${inflows} − saídas ${outflows} ≠ ${declared}).`,
