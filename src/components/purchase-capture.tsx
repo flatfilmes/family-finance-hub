@@ -33,6 +33,33 @@ import {
   type FinancialDocument,
   type PurchaseImport,
 } from "@/lib/documents";
+import type { Confianca } from "@/lib/pdf-extract";
+
+const CONFIANCA_LABELS: Record<Confianca, string> = {
+  ALTA: "Confiança alta",
+  MEDIA: "Confiança média",
+  BAIXA: "Confiança baixa",
+};
+
+const CONFIANCA_CLASSES: Record<Confianca, string> = {
+  ALTA: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  MEDIA: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  BAIXA: "bg-muted text-muted-foreground",
+};
+
+function ConfiancaTag({ nivel }: { nivel?: Confianca | undefined }) {
+  if (!nivel) return null;
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${CONFIANCA_CLASSES[nivel]}`}
+    >
+      {CONFIANCA_LABELS[nivel]}
+    </span>
+  );
+}
+
+const NAO_IDENTIFICADO = "Não foi possível identificar este campo.";
+
 
 type Origem = "manual" | "nota" | "qrcode";
 
@@ -500,10 +527,24 @@ function RevisarDocumento({
   const [dataCompra, setDataCompra] = useState(
     draft?.data_compra ?? doc.created_at.slice(0, 10),
   );
-  const [formaPagamento, setFormaPagamento] = useState<PaymentMethod>("PIX");
+  const [formaPagamento, setFormaPagamento] = useState<PaymentMethod | "">("");
   const [cartaoId, setCartaoId] = useState("");
   const [contaId, setContaId] = useState("");
   const [items, setItems] = useState<NewPurchaseItem[]>([linhaVazia()]);
+
+  const brutos = (extracao?.dados_brutos_json ?? null) as {
+    confianca?: {
+      estabelecimento?: Confianca;
+      data_compra?: Confianca;
+      valor_total?: Confianca;
+      forma_pagamento?: Confianca;
+      items?: Confianca;
+    };
+
+    pagamento_descricao?: string | null;
+  } | null;
+  const confianca = brutos?.confianca ?? {};
+  const pagamentoLido = brutos?.pagamento_descricao ?? null;
 
   useEffect(() => {
     if (!itensExtraidos || itensExtraidos.length === 0) return;
@@ -519,7 +560,7 @@ function RevisarDocumento({
     );
   }, [itensExtraidos]);
 
-  // Preenchimento automático com o que foi lido do PDF.
+  // Preenchimento automático com o que foi lido do PDF (só o que foi identificado).
   useEffect(() => {
     if (!extracao) return;
     if (extracao.estabelecimento) setEstabelecimento((v) => v || extracao.estabelecimento!);
@@ -529,6 +570,7 @@ function RevisarDocumento({
       setFormaPagamento(extracao.forma_pagamento);
     }
   }, [extracao]);
+
 
   useEffect(() => {
     if (!itensPdf || itensPdf.length === 0) return;
@@ -562,9 +604,10 @@ function RevisarDocumento({
           estabelecimento: estabelecimento.trim(),
           data_compra: dataCompra,
           tipo_compra: "COMPRA_NORMAL",
-          forma_pagamento: formaPagamento,
+          forma_pagamento: (formaPagamento || "PIX") as PaymentMethod,
           credit_card_id: formaPagamento === "CREDITO" ? cartaoId || null : null,
-          bank_account_id: usesBankAccount(formaPagamento) ? contaId || null : null,
+          bank_account_id: formaPagamento && usesBankAccount(formaPagamento) ? contaId || null : null,
+
         },
         items,
         cards: cards ?? [],
@@ -603,13 +646,20 @@ function RevisarDocumento({
       </div>
 
       {extracao && (
-        <p className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-          Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
-          {Number(extracao.valor_total) > 0
-            ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
-            : ""}
-          . Confira e ajuste o que precisar antes de confirmar.
-        </p>
+        <div className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          <p>
+            Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
+            {Number(extracao.valor_total) > 0
+              ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
+              : " · valor total não identificado"}
+            {pagamentoLido ? ` · pagamento sugerido: ${pagamentoLido}` : ""}. Confira e ajuste o que
+            precisar antes de confirmar.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-semibold">Produtos:</span>
+            <ConfiancaTag nivel={confianca.items} />
+          </div>
+        </div>
       )}
 
       <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
@@ -621,6 +671,15 @@ function RevisarDocumento({
             placeholder="Ex.: Mercado Silva"
             className={inputClass}
           />
+          {extracao && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {extracao.estabelecimento ? (
+                <ConfiancaTag nivel={confianca.estabelecimento} />
+              ) : (
+                NAO_IDENTIFICADO
+              )}
+            </p>
+          )}
         </Field>
         <Field label="Data">
           <input
@@ -629,20 +688,38 @@ function RevisarDocumento({
             onChange={(e) => setDataCompra(e.target.value)}
             className={inputClass}
           />
+          {extracao && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {extracao.data_compra ? <ConfiancaTag nivel={confianca.data_compra} /> : NAO_IDENTIFICADO}
+            </p>
+          )}
         </Field>
         <MemberSelect familyId={familyId} value={responsavel} onChange={setResponsavel} />
         <Field label="Forma de pagamento">
           <select
             value={formaPagamento}
-            onChange={(e) => setFormaPagamento(e.target.value as PaymentMethod)}
+            onChange={(e) => setFormaPagamento(e.target.value as PaymentMethod | "")}
             className={inputClass}
           >
+            <option value="">Selecione</option>
             {FORMAS_REVISAO.map((m) => (
               <option key={m} value={m}>
                 {PAYMENT_METHOD_LABELS[m]}
               </option>
             ))}
           </select>
+          {extracao && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {extracao.forma_pagamento ? (
+                <>
+                  <ConfiancaTag nivel={confianca.forma_pagamento} />
+                  {pagamentoLido ? <span>lido: {pagamentoLido}</span> : null}
+                </>
+              ) : (
+                NAO_IDENTIFICADO
+              )}
+            </p>
+          )}
         </Field>
         {formaPagamento === "CREDITO" ? (
           <Field label="Cartão">
@@ -655,7 +732,7 @@ function RevisarDocumento({
               ))}
             </select>
           </Field>
-        ) : usesBankAccount(formaPagamento) ? (
+        ) : formaPagamento && usesBankAccount(formaPagamento) ? (
           <Field label="Conta bancária">
             <select value={contaId} onChange={(e) => setContaId(e.target.value)} className={inputClass}>
               <option value="">Selecione</option>
@@ -670,6 +747,7 @@ function RevisarDocumento({
           </Field>
         ) : null}
       </div>
+
 
       <div className="mt-5 flex items-center justify-between">
         <h3 className="text-sm font-bold">Produtos</h3>
@@ -802,6 +880,10 @@ function RevisarDocumento({
                 toast.error("O valor total precisa ser maior que zero.");
                 return;
               }
+              if (!formaPagamento) {
+                toast.error("Selecione a forma de pagamento.");
+                return;
+              }
               if (formaPagamento === "CREDITO" && !cartaoId) {
                 toast.error("Selecione o cartão usado na compra.");
                 return;
@@ -810,6 +892,7 @@ function RevisarDocumento({
                 toast.error("Selecione a conta bancária usada no pagamento.");
                 return;
               }
+
               confirmar.mutate();
             }}
           >
