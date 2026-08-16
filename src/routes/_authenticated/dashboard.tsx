@@ -32,6 +32,7 @@ import { monthLabel, formatDate, currentMonth, previousMonth } from "@/lib/expen
 import { useTransactions } from "@/hooks/useTransactions";
 import { useFutureCommitments } from "@/hooks/useFutureCommitments";
 import { useMonthlySpending } from "@/hooks/useMonthlySpending";
+import { AttentionCenter } from "@/components/attention-center";
 import { useFreeCash } from "@/hooks/useFreeCash";
 import { FREE_CASH_CLASSES, FREE_CASH_MESSAGES } from "@/lib/free-cash";
 import { useMonthlySnapshots } from "@/hooks/useMonthlySnapshots";
