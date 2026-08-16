@@ -264,6 +264,18 @@ export function BankStatementDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Seleção de arquivos: um PDF segue o fluxo individual, vários viram lote. */
+  function selecionar(files: File[]) {
+    setLote(files);
+    const primeiro = files[0] ?? null;
+    setArquivo(primeiro);
+    setResumo(null);
+    setLinhas([]);
+    setDuplicado(false);
+    setFingerprint(null);
+    if (primeiro && modo === "IMAGEM") ler.mutate(primeiro);
+  }
+
   const totais = resumoDoExtrato(linhas);
   const comEfeito = linhas.filter((l) => !ACOES_SEM_EFEITO.includes(l.acao));
 
