@@ -9,14 +9,19 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { FileSearch, Download, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, PageHeader } from "@/components/page-header";
-import { extractPdfLines, type PdfLine } from "@/lib/pdf-extract";
+import {
+  extractPdfPageLayouts,
+  layoutPageLines,
+  type PdfLine,
+} from "@/lib/pdf-extract";
 import {
   isBancoDoBrasil,
   parseBancoDoBrasilLines,
 } from "@/lib/bank-statement-parsers/banco-do-brasil";
 import {
-  isItauBankStatement,
-  parseItauBankStatementLines,
+  detectItauBankStatement,
+  parseItauBankStatementLayouts,
+  type ItauPipelineDiagnostics,
 } from "@/lib/bank-statement-parsers/itau";
 import { parseBankStatementLines } from "@/lib/bank-statements/parse";
 import { toCanonicalStatement, type CanonicalStatement } from "@/lib/bank-statements/canonical";
