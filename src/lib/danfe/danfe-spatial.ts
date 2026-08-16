@@ -76,6 +76,20 @@ const COL = {
 const dentro = (x: number, w: number, faixa: readonly [number, number] | number[]) =>
   x >= (faixa[0] as number) * w && x < (faixa[1] as number) * w;
 
+/** Rótulos do cabeçalho da tabela — nunca fazem parte de uma descrição. */
+const CABECALHOS = [
+  "DESCRICAO DOS PRODUTOS",
+  "DESCRICAO DO PRODUTO",
+  "COD.PROD",
+  "CODIGO",
+  "DADOS DO PRODUTO",
+  "NCM/SH",
+  "QUANT",
+  "VALOR UNITARIO",
+  "VALOR TOTAL",
+  "ALIQUOTAS",
+];
+
 const INICIO_TABELA = ["DADOS DO PRODUTO", "DADOS DOS PRODUTOS"];
 const FIM_TABELA = [
   "CALCULO DO ISSQN",
@@ -171,9 +185,11 @@ export function parseDanfeProductTable(
     }
 
     const un = partes.find((p) => dentro(p.x, w, COL.unit) && !ehNumerico(p.text));
-    const cod = partes.find((p) => dentro(p.x, w, COL.code));
-    const ean = partes.find((p) => dentro(p.x, w, COL.ean) && /^\d{8,14}$/.test(p.text.trim()));
-    const ncm = partes.find((p) => dentro(p.x, w, COL.ncm) && /^\d{6,8}$/.test(p.text.trim()));
+    // Código / EAN / NCM podem estar levemente deslocados no eixo Y.
+    const perto = regiao.filter((p) => Math.abs(p.y - y) <= 5);
+    const cod = perto.find((p) => dentro(p.x, w, COL.code) && p.text.trim().length >= 3);
+    const ean = perto.find((p) => dentro(p.x, w, COL.ean) && /^\d{8,14}$/.test(p.text.trim()));
+    const ncm = perto.find((p) => dentro(p.x, w, COL.ncm) && /^\d{6,8}$/.test(p.text.trim()));
 
     bases.push({
       y,
@@ -199,7 +215,12 @@ export function parseDanfeProductTable(
 
   // 5) Descrição multilinha por proximidade vertical (até a próxima linha base).
   const descricoes = regiao
-    .filter((i) => dentro(i.x, w, COL.description) && !ehNumerico(i.text))
+    .filter(
+      (i) =>
+        dentro(i.x, w, COL.description) &&
+        !ehNumerico(i.text) &&
+        !CABECALHOS.some((h) => plano(i.text).includes(h)),
+    )
     .sort((a, b) => b.y - a.y);
 
   const products: DanfeProduct[] = bases.map((b, idx) => {
