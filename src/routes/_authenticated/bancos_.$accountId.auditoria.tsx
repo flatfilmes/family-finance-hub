@@ -510,9 +510,12 @@ function MesCard({
           {monthLabel(mes.key)}
         </span>
         <span className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            PDF {mes.movimentosPdf} · ledger {mes.movimentosLedger}
+          </span>
           <span className="text-sm font-bold">{formatCurrency(mes.calculated)}</span>
-          <StatusBadge tone={tone}>
-            {mes.confere === false ? "Divergência" : mes.confere ? "Confere" : "Sem saldo informado"}
+          <StatusBadge tone={MONTH_STATUS_TONES[mes.status]}>
+            {MONTH_STATUS_LABELS[mes.status]}
           </StatusBadge>
         </span>
       </button>
