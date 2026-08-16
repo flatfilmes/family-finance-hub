@@ -6,6 +6,7 @@ import {
   faturasFechadasEmAberto,
   obrigacaoAbertaDoCartao,
 } from "@/lib/card-details";
+import { progressoParcelamento } from "@/lib/purchases";
 
 const invoice = {
   id: "invoice-aug",
