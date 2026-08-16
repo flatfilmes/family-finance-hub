@@ -381,6 +381,11 @@ function ConferirCompra({
           ? "Lemos os dados da nota. Confira rapidamente e confirme."
           : "Não conseguimos ler esta nota automaticamente. Preencha os dados abaixo para criar a compra."}
       </p>
+      {extracao && tipoDetectado && tipoDetectado.seguro === false && (
+        <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          Tipo de documento não identificado com segurança.
+        </p>
+      )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Estabelecimento">
