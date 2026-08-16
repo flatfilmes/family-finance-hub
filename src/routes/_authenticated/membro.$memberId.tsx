@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
 import { Card, Field, inputClass, PageHeader, PrimaryButton } from "@/components/page-header";
+import { AddButton, FormDialog } from "@/components/form-dialog";
+import { EmptyState } from "@/components/empty-state";
 import { useFamily, useMembers } from "@/hooks/useFamilyData";
 import { useMemberProfiles } from "@/hooks/useMemberProfiles";
 import { useIncomes, useCreditCards } from "@/hooks/useFinanceData";
@@ -47,9 +49,6 @@ const TABS = ["Dados pessoais", "Receitas", "Contas bancárias", "Cartões"] as 
 type Tab = (typeof TABS)[number];
 const PERMISSOES: FamilyPermission[] = ["ADMIN", "MEMBER", "VIEWER"];
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="mt-4 text-sm text-muted-foreground">{children}</p>;
-}
 
 function Row({ title, subtitle, value }: { title: string; subtitle: string; value: string }) {
   return (
@@ -76,6 +75,7 @@ function MembroPage() {
   const { data: cards } = useCreditCards(family?.id);
 
   const [tab, setTab] = useState<Tab>("Dados pessoais");
+  const [cadastro, setCadastro] = useState<"receita" | "conta" | "cartao" | null>(null);
   const [nome, setNome] = useState("");
   const [relacionamento, setRelacionamento] = useState("");
 
@@ -278,12 +278,30 @@ function MembroPage() {
       {tab === "Receitas" && (
         <>
           <Card>
-            <h2 className="text-base font-bold">Nova receita de {member.nome}</h2>
-            <p className="mb-4 mt-1 text-xs text-muted-foreground">
-              Salário como receita fixa, comissão como variável.
-            </p>
-            <IncomeForm familyId={family.id} memberId={member.id} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold">Receitas de {member.nome}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Salário como receita fixa, comissão como variável.
+                </p>
+              </div>
+              <AddButton onClick={() => setCadastro("receita")}>Nova receita</AddButton>
+            </div>
           </Card>
+
+          <FormDialog
+            open={cadastro === "receita"}
+            onOpenChange={(open) => setCadastro(open ? "receita" : null)}
+            title={`Nova receita de ${member.nome}`}
+            description="Salário como receita fixa, comissão como variável."
+          >
+            <IncomeForm
+              familyId={family.id}
+              memberId={member.id}
+              onSaved={() => setCadastro(null)}
+              onCancel={() => setCadastro(null)}
+            />
+          </FormDialog>
 
           <Card className="mt-4">
             <h2 className="text-base font-bold">Receita fixa</h2>
@@ -300,7 +318,11 @@ function MembroPage() {
                 ))}
               </ul>
             ) : (
-              <Empty>Nenhuma receita fixa cadastrada.</Empty>
+              <EmptyState
+                title="Nenhuma receita fixa cadastrada"
+                description="Cadastre o salário ou outra renda garantida para os cálculos do Dashboard."
+                action={<AddButton onClick={() => setCadastro("receita")}>Nova receita</AddButton>}
+              />
             )}
           </Card>
 
@@ -326,7 +348,11 @@ function MembroPage() {
                 ))}
               </ul>
             ) : (
-              <Empty>Nenhuma receita variável cadastrada.</Empty>
+              <EmptyState
+                title="Nenhuma receita variável cadastrada"
+                description="Comissões e rendas eventuais entram aqui como média estimada."
+                action={<AddButton onClick={() => setCadastro("receita")}>Nova receita</AddButton>}
+              />
             )}
           </Card>
         </>
@@ -335,12 +361,30 @@ function MembroPage() {
       {tab === "Contas bancárias" && (
         <>
           <Card>
-            <h2 className="text-base font-bold">Nova conta bancária</h2>
-            <p className="mb-4 mt-1 text-xs text-muted-foreground">
-              A conta fica registrada com {member.nome} como titular.
-            </p>
-            <BankAccountForm familyId={family.id} memberId={member.id} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold">Contas bancárias</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  A conta fica registrada com {member.nome} como titular.
+                </p>
+              </div>
+              <AddButton onClick={() => setCadastro("conta")}>Nova conta</AddButton>
+            </div>
           </Card>
+
+          <FormDialog
+            open={cadastro === "conta"}
+            onOpenChange={(open) => setCadastro(open ? "conta" : null)}
+            title="Nova conta bancária"
+            description={`A conta fica registrada com ${member.nome} como titular.`}
+          >
+            <BankAccountForm
+              familyId={family.id}
+              memberId={member.id}
+              onSaved={() => setCadastro(null)}
+              onCancel={() => setCadastro(null)}
+            />
+          </FormDialog>
           <Card className="mt-4">
             <h2 className="text-base font-bold">Contas de {member.nome}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -358,7 +402,11 @@ function MembroPage() {
                 ))}
               </ul>
             ) : (
-              <Empty>Nenhuma conta bancária cadastrada para {member.nome}.</Empty>
+              <EmptyState
+                title="Nenhuma conta bancária cadastrada"
+                description={`Cadastre a conta de ${member.nome} para acompanhar saldo e extrato.`}
+                action={<AddButton onClick={() => setCadastro("conta")}>Nova conta</AddButton>}
+              />
             )}
             <Link to="/bancos" className="mt-4 inline-block text-sm font-semibold text-primary">
               Ver movimentações em Bancos
@@ -370,12 +418,30 @@ function MembroPage() {
       {tab === "Cartões" && (
         <>
           <Card>
-            <h2 className="text-base font-bold">Novo cartão</h2>
-            <p className="mb-4 mt-1 text-xs text-muted-foreground">
-              O cartão fica vinculado a {member.nome}.
-            </p>
-            <CreditCardForm familyId={family.id} memberId={member.id} />
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-base font-bold">Cartões</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  O cartão fica vinculado a {member.nome}.
+                </p>
+              </div>
+              <AddButton onClick={() => setCadastro("cartao")}>Novo cartão</AddButton>
+            </div>
           </Card>
+
+          <FormDialog
+            open={cadastro === "cartao"}
+            onOpenChange={(open) => setCadastro(open ? "cartao" : null)}
+            title="Novo cartão de crédito"
+            description={`O cartão fica vinculado a ${member.nome}.`}
+          >
+            <CreditCardForm
+              familyId={family.id}
+              memberId={member.id}
+              onSaved={() => setCadastro(null)}
+              onCancel={() => setCadastro(null)}
+            />
+          </FormDialog>
           <Card className="mt-4">
             <h2 className="text-base font-bold">Cartões de {member.nome}</h2>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -393,7 +459,11 @@ function MembroPage() {
                 ))}
               </ul>
             ) : (
-              <Empty>Nenhum cartão vinculado a {member.nome}.</Empty>
+              <EmptyState
+                title="Nenhum cartão cadastrado"
+                description={`Cadastre o cartão de ${member.nome} para acompanhar fatura e limite.`}
+                action={<AddButton onClick={() => setCadastro("cartao")}>Novo cartão</AddButton>}
+              />
             )}
             <Link to="/cartoes" className="mt-4 inline-block text-sm font-semibold text-primary">
               Ver faturas em Cartões

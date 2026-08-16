@@ -1,8 +1,13 @@
 import { useState } from "react";
+import { SearchInput, matchesSearch } from "@/components/search-input";
+import { StatusBadge } from "@/components/status-badge";
+import { EmptyState } from "@/components/empty-state";
+import { AddButton } from "@/components/form-dialog";
+import { PAYMENT_STATUS_TONES } from "@/lib/status";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ChevronRight, Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useViewMode } from "@/components/view-mode";
@@ -31,7 +36,6 @@ import {
   PAYMENT_FILTER_LABELS,
   PAYMENT_METHOD_SHORT,
   PAYMENT_STATUS_LABELS,
-  PAYMENT_STATUS_CLASSES,
   PAYMENT_STATUS_SHORT,
   PURCHASE_KINDS,
   PURCHASE_KIND_HINTS,
@@ -126,6 +130,7 @@ function Compras() {
   const view = useViewMode();
   const membroResponsavel = view.isAdmin ? memberId : view.myMemberId;
 
+  const [busca, setBusca] = useState("");
   const [filtroMembro, setFiltroMembro] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [filtroPagamento, setFiltroPagamento] = useState("");
@@ -143,7 +148,8 @@ function Compras() {
       (!filtroPagamento || p.forma_pagamento === filtroPagamento) &&
       matchesPaymentFilter(p, filtroStatus) &&
       (!filtroTipo || p.tipo_compra === filtroTipo) &&
-      (!filtroMes || p.data_compra.slice(0, 7) === filtroMes),
+      (!filtroMes || p.data_compra.slice(0, 7) === filtroMes) &&
+      matchesSearch(busca, p.estabelecimento, p.observacao),
   );
   const itemCategorias = usePurchaseItemCategories(porEscopo.map((p) => p.id));
   const lista = filtroCategoria
@@ -162,6 +168,18 @@ function Compras() {
       filtroMes,
     );
     return parcela && parcela.total_parcelas > 1 ? parcela : null;
+  };
+  const temFiltro = Boolean(
+    busca || filtroMembro || filtroCategoria || filtroPagamento || filtroTipo || filtroMes || filtroStatus,
+  );
+  const limparFiltros = () => {
+    setBusca("");
+    setFiltroMembro("");
+    setFiltroCategoria("");
+    setFiltroPagamento("");
+    setFiltroTipo("");
+    setFiltroMes("");
+    setFiltroStatus("");
   };
   const totalListado = lista.reduce((acc, p) => {
     const parcela = parcelaDaCompra(p.id);
@@ -589,7 +607,26 @@ function Compras() {
       )}
 
       <Card className="mt-4">
-        <h2 className="text-base font-bold">Filtros</h2>
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="text-base font-bold">Buscar e filtrar</h2>
+          {temFiltro && (
+            <button
+              type="button"
+              onClick={limparFiltros}
+              className="text-xs font-semibold text-primary"
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+        <div className="mt-3">
+          <SearchInput
+            value={busca}
+            onChange={setBusca}
+            label="Buscar compra"
+            placeholder="Estabelecimento ou observação"
+          />
+        </div>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {view.isAdmin && (
             <MemberFilter
@@ -686,10 +723,30 @@ function Compras() {
         {isLoading ? (
           <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
         ) : lista.length === 0 ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            Nenhuma compra encontrada com os filtros atuais. Toda movimentação financeira começa por
-            uma compra — registre a primeira.
-          </p>
+          <div className="mt-4">
+            <EmptyState
+              icon={<ShoppingBag className="size-5" />}
+              title={temFiltro ? "Nenhuma compra com esses filtros" : "Nenhuma compra registrada"}
+              description={
+                temFiltro
+                  ? "Ajuste a busca, o período ou os filtros para encontrar o que procura."
+                  : "Toda movimentação financeira começa por uma compra. Registre a primeira para o Dashboard começar a fazer sentido."
+              }
+              action={
+                temFiltro ? (
+                  <button
+                    type="button"
+                    onClick={limparFiltros}
+                    className="min-h-11 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    Limpar filtros
+                  </button>
+                ) : view.podeLancar ? (
+                  <AddButton onClick={() => setShowOptions(true)}>Nova compra</AddButton>
+                ) : null
+              }
+            />
+          </div>
         ) : (
           <ul className="mt-4 divide-y divide-border">
             {lista.map((p) => {
@@ -724,12 +781,12 @@ function Compras() {
                       </span>
                     </span>
                   </button>
-                  <span
-                    className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${PAYMENT_STATUS_CLASSES[p.status_pagamento]}`}
+                  <StatusBadge
+                    tone={PAYMENT_STATUS_TONES[p.status_pagamento]}
                     title={PAYMENT_STATUS_LABELS[p.status_pagamento]}
                   >
                     {PAYMENT_STATUS_SHORT[p.status_pagamento]}
-                  </span>
+                  </StatusBadge>
                   <span className="text-right">
                     <span className="block text-sm font-bold">
                       {formatCurrency(parcela ? parcela.valor_parcela : Number(p.valor_total))}

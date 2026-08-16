@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
+import { FormActions } from "@/components/form-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
   BANK_ACCOUNT_TYPES,
@@ -12,7 +13,19 @@ import {
 } from "@/lib/bank-accounts";
 
 /** Cadastro de conta bancária dentro do perfil financeiro de um membro. */
-export function BankAccountForm({ familyId, memberId }: { familyId: string; memberId: string }) {
+export function BankAccountForm({
+  familyId,
+  memberId,
+  onSaved,
+  onCancel,
+}: {
+  familyId: string;
+  memberId: string;
+  /** Chamado após salvar — usado para fechar o diálogo de cadastro. */
+  onSaved?: () => void;
+  /** Quando informado, o formulário usa o rodapé padrão Salvar / Cancelar. */
+  onCancel?: () => void;
+}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [banco, setBanco] = useState("");
@@ -36,6 +49,7 @@ export function BankAccountForm({ familyId, memberId }: { familyId: string; memb
       setNomeConta("");
       setSaldo("");
       toast.success("Conta bancária cadastrada.");
+      onSaved?.();
       queryClient.invalidateQueries({ queryKey: ["bank-accounts", familyId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -91,14 +105,20 @@ export function BankAccountForm({ familyId, memberId }: { familyId: string; memb
           placeholder="0,00"
         />
       </Field>
-      <div className="flex items-end">
-        <PrimaryButton type="submit" disabled={create.isPending}>
-          <span className="inline-flex items-center gap-1.5">
-            <Plus className="size-4" />
-            {create.isPending ? "Salvando..." : "Adicionar conta"}
-          </span>
-        </PrimaryButton>
-      </div>
+      {onCancel ? (
+        <div className="sm:col-span-2">
+          <FormActions onCancel={onCancel} saving={create.isPending} saveLabel="Salvar conta" />
+        </div>
+      ) : (
+        <div className="flex items-end">
+          <PrimaryButton type="submit" disabled={create.isPending}>
+            <span className="inline-flex items-center gap-1.5">
+              <Plus className="size-4" />
+              {create.isPending ? "Salvando..." : "Adicionar conta"}
+            </span>
+          </PrimaryButton>
+        </div>
+      )}
     </form>
   );
 }

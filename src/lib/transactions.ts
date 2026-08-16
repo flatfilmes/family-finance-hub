@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { TONE_CLASSES, TRANSACTION_STATUS_TONES } from "@/lib/status";
 
 export type Transaction = Database["public"]["Tables"]["transactions"]["Row"];
 export type TransactionInsert = Database["public"]["Tables"]["transactions"]["Insert"];
@@ -19,11 +20,13 @@ export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
   CANCELADA: "Cancelada",
 };
 
-export const TRANSACTION_STATUS_CLASSES: Record<TransactionStatus, string> = {
-  CONFIRMADA: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  PENDENTE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  CANCELADA: "bg-muted text-muted-foreground",
-};
+/** Cores derivadas da linguagem única de status (src/lib/status.ts). */
+export const TRANSACTION_STATUS_CLASSES: Record<TransactionStatus, string> = Object.fromEntries(
+  (Object.keys(TRANSACTION_STATUS_TONES) as TransactionStatus[]).map((s) => [
+    s,
+    TONE_CLASSES[TRANSACTION_STATUS_TONES[s]],
+  ]),
+) as Record<TransactionStatus, string>;
 
 export async function fetchTransactions(familyId: string) {
   const { data, error } = await supabase

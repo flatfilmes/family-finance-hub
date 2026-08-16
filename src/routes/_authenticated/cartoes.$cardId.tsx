@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { Receipt } from "lucide-react";
+import { SearchInput, matchesSearch } from "@/components/search-input";
+import { EmptyState } from "@/components/empty-state";
+import { TONE_DOTS, usageTone } from "@/lib/status";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Field, inputClass } from "@/components/page-header";
 import { Badge, DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
@@ -53,6 +57,7 @@ function CartaoDetalhePage() {
   const [faturaId, setFaturaId] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
+  const [busca, setBusca] = useState("");
   const [pagando, setPagando] = useState(false);
   const [conta, setConta] = useState("");
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().slice(0, 10));
@@ -90,7 +95,8 @@ function CartaoDetalhePage() {
   const filtradas = linhas.filter(
     (l) =>
       (!filtroTipo || l.kind === filtroTipo) &&
-      (!filtroCategoria || l.categoriaId === filtroCategoria),
+      (!filtroCategoria || l.categoriaId === filtroCategoria) &&
+      matchesSearch(busca, l.estabelecimento),
   );
   const soma = (kind: Kind) =>
     filtradas.filter((l) => l.kind === kind).reduce((acc, l) => acc + l.valor, 0);
@@ -181,7 +187,7 @@ function CartaoDetalhePage() {
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={`h-full rounded-full ${uso >= 100 ? "bg-red-500" : uso >= 80 ? "bg-amber-500" : "bg-primary"}`}
+          className={`h-full rounded-full ${TONE_DOTS[usageTone(uso)]}`}
           style={{ width: `${uso}%` }}
         />
       </div>
@@ -211,6 +217,14 @@ function CartaoDetalhePage() {
           {fatura && <Badge tone={fatura.status === "PAGA" ? "ok" : "warn"}>{INVOICE_STATUS_LABELS[fatura.status]}</Badge>}
         </div>
 
+        <div className="mb-3">
+          <SearchInput
+            value={busca}
+            onChange={setBusca}
+            label="Buscar lançamento"
+            placeholder="Estabelecimento ou descrição"
+          />
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Competência">
             <select
@@ -355,9 +369,11 @@ function CartaoDetalhePage() {
       <Card className="mt-4">
         <SectionTitle title="Lançamentos da fatura" />
         {filtradas.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Nenhum lançamento nesta fatura com os filtros atuais.
-          </p>
+          <EmptyState
+            icon={<Receipt className="size-5" />}
+            title="Nenhum lançamento nesta fatura"
+            description="Compras no cartão, parcelas e recorrências deste ciclo aparecem aqui assim que forem registradas."
+          />
         ) : (
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm">

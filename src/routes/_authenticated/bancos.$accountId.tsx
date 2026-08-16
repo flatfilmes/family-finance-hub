@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { Receipt } from "lucide-react";
+import { SearchInput, matchesSearch } from "@/components/search-input";
+import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Field, inputClass } from "@/components/page-header";
 import { Badge, DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
@@ -128,7 +131,7 @@ function ContaDetalhePage() {
   const filtrados = doPeriodo.filter(
     (t) =>
       (!filtroOrigem || origemDe(t) === filtroOrigem) &&
-      (!busca || t.descricao.toLowerCase().includes(busca.toLowerCase())),
+      matchesSearch(busca, t.descricao),
   );
 
   const somaPorOrigem = (origem: string, tipos: Transaction["tipo"][]) =>
@@ -209,23 +212,23 @@ function ContaDetalhePage() {
               ))}
             </select>
           </Field>
-          <Field label="Buscar descrição">
-            <input
-              className={inputClass}
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Ex.: mercado, fatura, salário"
-            />
-          </Field>
+          <SearchInput
+            value={busca}
+            onChange={setBusca}
+            label="Buscar descrição"
+            placeholder="Ex.: mercado, fatura, salário"
+          />
         </div>
       </Card>
 
       <Card className="mt-4">
         <SectionTitle title="Movimentações" />
         {filtrados.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Nenhuma movimentação no período com os filtros atuais.
-          </p>
+          <EmptyState
+            icon={<Receipt className="size-5" />}
+            title="Nenhuma movimentação no período"
+            description="Entradas, compras no PIX/débito e pagamentos de fatura desta conta aparecem aqui."
+          />
         ) : (
           <div className="-mx-2 overflow-x-auto">
             <table className="w-full min-w-[620px] text-left text-sm">
