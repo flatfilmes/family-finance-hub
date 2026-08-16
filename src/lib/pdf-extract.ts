@@ -396,6 +396,10 @@ const LINHA_IGNORADA = [
 
 function limparDescricao(raw: string): string {
   return raw
+    .replace(/\s+(?:CÁLCULO|CALCULO)\s+DO\s+ISSQN.*$/i, "")
+    .replace(/\s+c\s+(?=\d+\s+Pares\b)/i, " c/ ")
+    .replace(/(?<!-)\s+(?=(?:Preto|Branco|Bege|Azul|Laranja)(?:\+|$))/i, " - ")
+    .replace(/(?:\s*-){2,}\s*/g, " - ")
     .replace(/\s{2,}/g, " ")
     .replace(/^[\s\-–:.]+/, "").replace(/[\s\-–:]+$/, "")
     .slice(0, 120)
@@ -426,24 +430,30 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
 
   const items: ExtractedItem[] = [];
   const unidades = UNIDADES_CONHECIDAS.join("|");
+  const linhaProdutoCompleta = new RegExp(
+    `^\\s*(\\S+)\\s+(.+?)\\s+(\\d{8,14})\\s+\\d{8}\\s+\\d{3}\\s+\\d{4}\\s+(${unidades})\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)(?:\\s+[\\d.,]+){5}(?:\\s+(.+))?$`,
+    "i",
+  );
   const linhaProduto = new RegExp(
     `^\\s*(\\S+)\\s+(.+?)\\s+(\\d{8})\\s+.*?\\b(${unidades})\\b\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)`,
     "i",
   );
 
-  for (const texto of textos.slice(inicio + 1, fim)) {
+  const adicionarProduto = (texto: string) => {
     const l = semAcento(texto);
-    if (LINHA_IGNORADA.some((t) => l.startsWith(t))) continue;
-    const m = texto.match(linhaProduto);
-    if (!m) continue;
+    if (LINHA_IGNORADA.some((t) => l.startsWith(t))) return;
+    const completo = texto.match(linhaProdutoCompleta);
+    const m = completo ?? texto.match(linhaProduto);
+    if (!m) return;
 
-    const descricao = limparDescricao(m[2] ?? "");
-    if (descricao.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) continue;
+    const complemento = completo ? limparDescricao(completo[9] ?? "") : "";
+    const descricao = limparDescricao(`${m[2] ?? ""}${complemento ? ` ${complemento}` : ""}`);
+    if (descricao.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) return;
 
     const quantidade = parseValorBr(m[5] ?? "") || 1;
     const unitario = parseValorBr(m[6] ?? "");
     const totalItem = parseValorBr(m[7] ?? "");
-    if (totalItem <= 0 && unitario <= 0) continue;
+    if (totalItem <= 0 && unitario <= 0) return;
 
     items.push({
       descricao_produto: descricao,
@@ -452,6 +462,27 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
       valor_unitario: unitario > 0 ? unitario : totalItem / (quantidade || 1),
       valor_total: totalItem > 0 ? totalItem : unitario * quantidade,
     });
+  };
+
+  // Inclui a própria linha do cabeçalho porque alguns PDFs entregam cabeçalho
+  // e todos os produtos no mesmo bloco textual.
+  const trechoTabela = textos.slice(inicio, fim).join(" ");
+  const inicioProduto = /(?:^|\s)([A-Z0-9]{2,}(?:-[A-Z0-9]+){2,})\s+/g;
+  const marcadores = [...trechoTabela.matchAll(inicioProduto)];
+
+  // Alguns DANFEs chegam do pdf.js com toda a tabela em uma única linha.
+  // Nesse caso, separa cada produto pelo código antes de aplicar o mesmo parser.
+  if (marcadores.length > 0) {
+    for (let i = 0; i < marcadores.length; i++) {
+      const atual = marcadores[i];
+      if (!atual || atual.index === undefined) continue;
+      const proximo = marcadores[i + 1];
+      const inicioTrecho = atual.index + (atual[0].startsWith(" ") ? 1 : 0);
+      const fimTrecho = proximo?.index ?? trechoTabela.length;
+      adicionarProduto(trechoTabela.slice(inicioTrecho, fimTrecho).trim());
+    }
+  } else {
+    for (const texto of textos.slice(inicio + 1, fim)) adicionarProduto(texto);
   }
 
   return items;
