@@ -252,6 +252,101 @@ export function importacaoOficialDoCiclo(input: {
   return candidatas[0] ?? null;
 }
 
+// ---------- Fatura fechada oficial: evidência do cartão, não das purchases ----------
+
+/** Naturezas do resumo oficial: as três do sistema + taxas e créditos da fatura. */
+export type KindOficial = Kind | "taxas" | "creditos";
+
+export const KIND_OFICIAL_LABELS: Record<KindOficial, string> = {
+  ...KIND_LABELS,
+  taxas: "Taxa/serviço",
+  creditos: "Crédito/estorno",
+};
+
+/** Lançamento da fatura importada (só o que o resumo oficial precisa ler). */
+export type LancamentoOficial = {
+  id: string;
+  data_lancamento: string | null;
+  descricao_original: string;
+  estabelecimento_sugerido: string | null;
+  valor: number | string;
+  tipo_sugerido: string;
+  parcela_atual: number | null;
+  total_parcelas: number | null;
+  categoria_sugerida_id: string | null;
+  purchase_id_criada: string | null;
+  purchase_id_matched: string | null;
+  recurring_expense_id_matched: string | null;
+};
+
+export type LinhaOficial = LinhaFatura & { kind: KindOficial; itemId: string };
+
+/**
+ * Linhas da fatura fechada a partir dos lançamentos oficiais.
+ *
+ * Regra: a fatura é a evidência do cartão. Um lançamento nunca some do resumo
+ * porque a `purchase` correspondente ficou em outro ciclo (parcela do meio de
+ * uma série, compra anterior ao ciclo etc.). As purchases entram apenas para
+ * enriquecer categoria e responsável.
+ */
+export function linhasOficiaisDaFatura(input: {
+  items: LancamentoOficial[];
+  vencimento?: string | null;
+  compraPorId?: Map<string, Purchase>;
+}): LinhaOficial[] {
+  return input.items.map((item) => {
+    const valor = Number(item.valor) || 0;
+    const purchaseId = item.purchase_id_criada ?? item.purchase_id_matched ?? null;
+    const compra = purchaseId ? (input.compraPorId?.get(purchaseId) ?? null) : null;
+    const kind: KindOficial =
+      item.tipo_sugerido === "TAXA" || item.tipo_sugerido === "JUROS"
+        ? "taxas"
+        : item.tipo_sugerido === "ESTORNO" || valor < 0
+          ? "creditos"
+          : item.recurring_expense_id_matched
+            ? "recorrentes"
+            : (item.total_parcelas ?? 1) > 1
+              ? "parceladas"
+              : "normais";
+    return {
+      id: item.id,
+      itemId: item.id,
+      data: item.data_lancamento ?? input.vencimento ?? "",
+      estabelecimento: item.estabelecimento_sugerido || item.descricao_original,
+      memberId: compra?.member_id ?? null,
+      categoriaId: compra?.categoria_id ?? item.categoria_sugerida_id ?? null,
+      kind,
+      parcela:
+        item.parcela_atual && item.total_parcelas
+          ? `${item.parcela_atual}/${item.total_parcelas}`
+          : "—",
+      valor,
+      purchaseId,
+    };
+  });
+}
+
+/** Resumo por natureza que precisa fechar exatamente no total oficial da fatura. */
+export function resumoOficialDaFatura(linhas: LinhaOficial[]) {
+  const soma = (k: KindOficial) =>
+    Math.round(
+      linhas.filter((l) => l.kind === k).reduce((acc, l) => acc + l.valor, 0) * 100,
+    ) / 100;
+  const normais = soma("normais");
+  const parceladas = soma("parceladas");
+  const recorrentes = soma("recorrentes");
+  const taxas = soma("taxas");
+  const creditos = soma("creditos");
+  return {
+    normais,
+    parceladas,
+    recorrentes,
+    taxas,
+    creditos,
+    total: Math.round((normais + parceladas + recorrentes + taxas + creditos) * 100) / 100,
+  };
+}
+
 /**
  * Hierarquia: fatura oficial importada confirmada > cálculo interno.
  * Quando não existe documento oficial do ciclo, o valor é uma estimativa e o
