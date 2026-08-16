@@ -9,6 +9,7 @@ import {
   composicaoUtilizado,
   faturaDoCiclo,
   linhasDaFatura,
+  obrigacaoAbertaDoCartao,
   parcelamentosAtivos,
   proximasObrigacoes,
   utilizadoDoCartao,
@@ -73,6 +74,15 @@ export function useCardsData(familyId?: string) {
       .filter((p) => p.status_pagamento === "COMPROMETIDO" && !comprasComParcelas.has(p.id))
       .reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
 
+  const obrigacaoAbertaDe = (cardId: string) => {
+    const invoice = info(cardId)?.faturaAtual ?? null;
+    return obrigacaoAbertaDoCartao({
+      cardId,
+      invoice,
+      imports: importacoes.data ?? [],
+    });
+  };
+
   return {
     isLoading: cards.isLoading,
     cards: cards.data ?? [],
@@ -86,6 +96,8 @@ export function useCardsData(familyId?: string) {
      */
     faturaDe: (cardId: string, invoice: CardInvoice | null) =>
       faturaDoCiclo({ cardId, invoice, imports: importacoes.data ?? [] }),
+    /** Uma obrigação aberta por cartão, oficial quando houver importação confirmada. */
+    obrigacaoAbertaDe,
     /** Composição auditável do limite utilizado. */
     composicaoDe: (cardId: string) =>
       composicaoUtilizado({

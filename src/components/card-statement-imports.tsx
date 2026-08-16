@@ -16,6 +16,7 @@ import {
 } from "@/hooks/useCardStatements";
 import {
   IMPORT_STATUS_LABELS,
+  isStatementConfirmed,
   podeDesfazerImportacao,
   podeExcluirImportacao,
   type StatementImport,
@@ -34,7 +35,7 @@ const FILTROS: { id: Filtro; label: string }[] = [
 ];
 
 function tone(status: StatementImport["status"]) {
-  if (status === "CONFIRMED") return "ok" as const;
+  if (isStatementConfirmed({ status })) return "ok" as const;
   if (status === "CANCELLED" || status === "UNDONE") return "muted" as const;
   if (status === "ERROR") return "danger" as const;
   return "warn" as const;
@@ -48,9 +49,9 @@ export function competenciaImportacao(imp: StatementImport) {
 
 function combina(filtro: Filtro, status: StatementImport["status"]) {
   if (filtro === "todos") return true;
-  if (filtro === "confirmadas") return status === "CONFIRMED";
+  if (filtro === "confirmadas") return isStatementConfirmed({ status });
   if (filtro === "canceladas") return status === "CANCELLED" || status === "UNDONE";
-  return status !== "CONFIRMED" && status !== "CANCELLED" && status !== "UNDONE";
+  return !isStatementConfirmed({ status }) && status !== "CANCELLED" && status !== "UNDONE";
 }
 
 /**
@@ -363,7 +364,7 @@ export function CardStatementImports({
                   params={{ importId: imp.id }}
                   className="text-xs font-semibold text-primary hover:underline"
                 >
-                  {imp.status === "CONFIRMED" ? "Ver detalhes" : "Revisar"}
+                  {isStatementConfirmed(imp) ? "Ver detalhes" : "Revisar"}
                 </Link>
                 {perms.isAdmin && (
                   <div className="relative">

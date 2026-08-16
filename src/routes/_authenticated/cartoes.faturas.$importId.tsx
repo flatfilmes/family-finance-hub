@@ -219,7 +219,7 @@ function RevisarFaturaPage() {
     }
   }
 
-  const jaConfirmada = importacao.status === "CONFIRMED";
+  const jaConfirmada = isStatementConfirmed(importacao);
 
   return (
     <div>
