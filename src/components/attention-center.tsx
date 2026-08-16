@@ -23,8 +23,7 @@ export function AttentionCenter({
   memberId?: string;
   podeAgir?: boolean;
 }) {
-  const { itens, urgentes } = useAttention(familyId, memberId);
-  const { comprasPendentes } = useAttention(familyId, memberId);
+  const { itens, urgentes, comprasPendentes } = useAttention(familyId, memberId);
   const [pagandoId, setPagandoId] = useState("");
   const [verTodos, setVerTodos] = useState(false);
 
