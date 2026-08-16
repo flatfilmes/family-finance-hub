@@ -620,5 +620,47 @@ export function agruparCiclos<T extends InvoiceBase>(ciclos: CicloClassificado<T
   // ciclos antigos não pagos continuam no histórico marcados como vencidos.
   const atual = reais[reais.length - 1] ?? null;
   const historico = reais.filter((c) => c.invoice.id !== atual?.invoice.id).reverse();
-  return { atual, emFormacao, historico, projecoes, reais };
+  return { atual, emFormacao, historico, projecoes, reais, todos: ciclos };
 }
+
+/**
+ * Janela da régua de ciclos: pouco passado, ciclo atual e o futuro comprometido.
+ * O futuro só vai até o último mês com obrigação conhecida (parcela/recorrência),
+ * evitando dezenas de meses vazios — e o histórico antigo fica sob demanda.
+ */
+export function janelaDeCiclos<T>(
+  ciclos: CicloClassificado<T>[],
+  opts?: { passado?: number; futuro?: number; verHistorico?: boolean },
+) {
+  const passado = opts?.passado ?? 2;
+  const futuro = opts?.futuro ?? 9;
+
+  if (ciclos.length === 0) {
+    return { visiveis: [], ancora: null, ocultosPassado: 0, ocultosFuturo: 0 };
+  }
+
+  const emFormacaoIdx = ciclos.findIndex((c) => c.estado === "EM_FORMACAO");
+  let ancoraIdx = emFormacaoIdx;
+  if (ancoraIdx < 0) {
+    for (let i = 0; i < ciclos.length; i++) {
+      if (ciclos[i]!.estado !== "PROJETADA") ancoraIdx = i;
+    }
+  }
+  if (ancoraIdx < 0) ancoraIdx = 0;
+
+  // Último mês futuro com compromisso real conhecido.
+  let ultimoRelevante = ancoraIdx;
+  for (let i = ancoraIdx + 1; i < ciclos.length; i++) {
+    if (ciclos[i]!.valor > 0) ultimoRelevante = i;
+  }
+  const fim = Math.min(ultimoRelevante, ancoraIdx + futuro) + 1;
+  const inicio = opts?.verHistorico ? 0 : Math.max(0, ancoraIdx - passado);
+
+  return {
+    visiveis: ciclos.slice(inicio, fim),
+    ancora: ciclos[ancoraIdx] ?? null,
+    ocultosPassado: inicio,
+    ocultosFuturo: Math.max(0, ciclos.length - fim),
+  };
+}
+
