@@ -2855,6 +2855,10 @@ export type Database = {
         }
         Returns: string
       }
+      repair_bank_transaction_posting_dates: {
+        Args: { _account_id: string; _dry_run?: boolean }
+        Returns: Json
+      }
       reprocess_account_checkpoints_only: {
         Args: { _account_id: string }
         Returns: Json
