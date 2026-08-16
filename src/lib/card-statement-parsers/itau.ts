@@ -36,7 +36,8 @@ const plano = (s: string) => semAcento(s).toLowerCase().replace(/\s+/g, " ").tri
 
 const VALOR_FIM = /(-?)\s*R?\$?\s*(-?)\s*(\d{1,3}(?:\.\d{3})*,\d{2})\s*$/;
 const DATA_CURTA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/;
-const PARCELA_FIM = /\s(\d{1,2})\s*\/\s*(\d{1,2})\s*$/;
+/** Código de parcela no fim da descrição — com ou sem espaço antes (ex.: "LOJA09/12"). */
+const PARCELA_FIM = /(\d{1,2})\s*\/\s*(\d{1,2})\s*$/;
 
 function iso(ano: number, mes: number, dia: number) {
   if (!ano || !mes || !dia) return null;
