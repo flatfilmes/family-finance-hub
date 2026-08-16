@@ -16,6 +16,7 @@ import {
   useStatementImport,
   useStatementItems,
   useStatementItemActions,
+  useStatementTypeRuleActions,
 } from "@/hooks/useCardStatements";
 import {
   ACTION_BADGES,
@@ -33,6 +34,13 @@ import {
   type ReviewAction,
   type StatementItem,
 } from "@/lib/card-statements";
+import {
+  REVIEW_TYPES,
+  REVIEW_TYPE_LABELS,
+  REVIEW_TYPE_TONES,
+  resolveReviewType,
+  type ReviewType,
+} from "@/lib/statement-types";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
@@ -64,6 +72,7 @@ const FILTROS: { valor: Filtro; label: string }[] = [
   { valor: "", label: "Todos" },
   { valor: "ATENCAO", label: "Precisa de atenção" },
   { valor: "CREATE_PURCHASE", label: "Novas compras" },
+  { valor: "CREATE_RECURRING", label: "Novas recorrências" },
   { valor: "ASSOCIATE_EXISTING", label: "Associados" },
   { valor: "POSSIBLE_MATCH", label: "Possíveis correspondências" },
   { valor: "REGISTER_FEE", label: "Taxas" },
@@ -82,12 +91,14 @@ function RevisarFaturaPage() {
   const perms = usePermissions();
   const recorrencias = useRecurringExpenses(family?.id);
   const acoes = useStatementItemActions(importId);
+  const regrasTipo = useStatementTypeRuleActions(family?.id);
   const confirmar = useConfirmStatementImport(family?.id);
 
   const [filtro, setFiltro] = useState<Filtro>("");
   const [filtroCartao, setFiltroCartao] = useState<string>("");
 
   const [selecionados, setSelecionados] = useState<string[]>([]);
+  const [tipoLote, setTipoLote] = useState<ReviewType | "">("");
   const [resultado, setResultado] = useState<string>("");
   const [erro, setErro] = useState("");
 
@@ -191,6 +202,39 @@ function RevisarFaturaPage() {
       if (item) definirAcao(item, acao);
     }
     setSelecionados([]);
+  };
+
+  /**
+   * Corrige o tipo do lançamento. A leitura do PDF continua intacta:
+   * guardamos apenas a decisão da pessoa em `tipo_revisado`.
+   */
+  const definirTipo = (item: StatementItem, tipo: ReviewType) => {
+    setStatus(item, {
+      tipo_revisado: tipo,
+      tipo_regra_origem: "MANUAL",
+      decisao: null,
+      ...(item.match_status === "IGNORED" && tipo !== "IGNORAR"
+        ? { match_status: "UNMATCHED" as const }
+        : {}),
+    });
+  };
+
+  const aplicarTipoEmLote = (tipo: ReviewType) => {
+    for (const id of selecionados) {
+      const item = lista.find((i) => i.id === id);
+      if (item) definirTipo(item, tipo);
+    }
+    setSelecionados([]);
+    setTipoLote("");
+  };
+
+  /** "Reconhecer semelhantes no futuro": guarda a regra para as próximas faturas. */
+  const criarRegra = (item: StatementItem, tipo: ReviewType) => {
+    regrasTipo.save.mutate({
+      descricao: item.descricao_original,
+      tipo,
+      cardId: importacao?.credit_card_id ?? null,
+    });
   };
 
   async function confirmarRevisao() {
@@ -382,8 +426,9 @@ function RevisarFaturaPage() {
           {resumo.total} lançamento(s) encontrados. Tudo entra por padrão — só fica de fora o que
           você marcar como ignorado.
         </p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-7">
           <Metric label="Novas compras" value={String(resumo.CREATE_PURCHASE)} />
+          <Metric label="Novas recorrências" value={String(resumo.CREATE_RECURRING)} />
           <Metric label="Associadas" value={String(resumo.ASSOCIATE_EXISTING)} />
           <Metric label="Possíveis correspondências" value={String(resumo.POSSIBLE_MATCH)} />
           <Metric label="Taxas" value={String(resumo.REGISTER_FEE)} />
@@ -447,6 +492,23 @@ function RevisarFaturaPage() {
                   <AcaoBotao onClick={() => aplicarEmLote(null)}>
                     Restaurar selecionados
                   </AcaoBotao>
+                  <select
+                    className="rounded-full border border-input bg-background px-3 py-1.5 text-xs font-semibold"
+                    value={tipoLote}
+                    aria-label="Definir tipo dos selecionados"
+                    onChange={(e) => {
+                      const tipo = e.target.value as ReviewType | "";
+                      setTipoLote(tipo);
+                      if (tipo) aplicarTipoEmLote(tipo);
+                    }}
+                  >
+                    <option value="">Definir tipo dos selecionados…</option>
+                    {REVIEW_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {REVIEW_TYPE_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
                 </>
               )}
             </div>
@@ -490,6 +552,9 @@ function RevisarFaturaPage() {
                         )}
                         <p className="truncate text-sm font-bold">{item.descricao_original}</p>
                         <StatusBadge tone={ACTION_TONES[acao]}>{ACTION_BADGES[acao]}</StatusBadge>
+                        <StatusBadge tone={REVIEW_TYPE_TONES[resolveReviewType(item)]}>
+                          {REVIEW_TYPE_LABELS[resolveReviewType(item)]}
+                        </StatusBadge>
                         {item.tipo_sugerido !== "COMPRA" && (
                           <StatusBadge tone="muted">{KIND_LABELS[item.tipo_sugerido]}</StatusBadge>
                         )}
@@ -573,6 +638,85 @@ function RevisarFaturaPage() {
                       </p>
                     </div>
                   </div>
+
+                  {!jaConfirmada && item.user_action !== "CONCLUIDO" && (
+                    <div className="mt-3 grid gap-2 rounded-2xl bg-muted/40 p-3 sm:grid-cols-[auto_1fr] sm:items-center">
+                      <label className="text-xs font-bold" htmlFor={`tipo-${item.id}`}>
+                        Tipo do lançamento
+                      </label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          id={`tipo-${item.id}`}
+                          className="rounded-full border border-input bg-background px-3 py-1.5 text-xs font-semibold"
+                          value={resolveReviewType(item)}
+                          onChange={(e) => definirTipo(item, e.target.value as ReviewType)}
+                        >
+                          {REVIEW_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {REVIEW_TYPE_LABELS[t]}
+                            </option>
+                          ))}
+                        </select>
+
+                        {resolveReviewType(item) === "RECORRENTE" && (
+                          <select
+                            className="rounded-full border border-input bg-background px-3 py-1.5 text-xs"
+                            value={item.recurring_expense_id_matched ?? ""}
+                            aria-label="Recorrência vinculada"
+                            onChange={(e) =>
+                              setStatus(item, {
+                                recurring_expense_id_matched: e.target.value || null,
+                                match_status: e.target.value ? "MATCHED" : "UNMATCHED",
+                                decisao: null,
+                              })
+                            }
+                          >
+                            <option value="">Criar nova recorrência</option>
+                            {(recorrencias.data ?? []).map((r) => (
+                              <option key={r.id} value={r.id}>
+                                Vincular a {r.nome} · {formatCurrency(Number(r.valor))}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+
+                        {resolveReviewType(item) === "PARCELADA" && (
+                          <span className="inline-flex items-center gap-1 text-xs">
+                            Parcela
+                            <input
+                              type="number"
+                              min={1}
+                              className="w-16 rounded-full border border-input bg-background px-2 py-1 text-xs"
+                              aria-label="Parcela atual"
+                              value={item.parcela_atual ?? 1}
+                              onChange={(e) =>
+                                setStatus(item, {
+                                  parcela_atual: Math.max(1, Number(e.target.value) || 1),
+                                })
+                              }
+                            />
+                            de
+                            <input
+                              type="number"
+                              min={1}
+                              className="w-16 rounded-full border border-input bg-background px-2 py-1 text-xs"
+                              aria-label="Total de parcelas"
+                              value={item.total_parcelas ?? 1}
+                              onChange={(e) =>
+                                setStatus(item, {
+                                  total_parcelas: Math.max(1, Number(e.target.value) || 1),
+                                })
+                              }
+                            />
+                          </span>
+                        )}
+
+                        <AcaoBotao onClick={() => criarRegra(item, resolveReviewType(item))}>
+                          Reconhecer semelhantes no futuro
+                        </AcaoBotao>
+                      </div>
+                    </div>
+                  )}
 
                   {!jaConfirmada && item.user_action !== "CONCLUIDO" && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -661,6 +805,7 @@ function RevisarFaturaPage() {
           <p className="text-sm font-bold">Ao confirmar</p>
           <ul className="mt-2 grid gap-1 text-sm text-muted-foreground">
             <li>{resumo.CREATE_PURCHASE} nova(s) compra(s) serão criadas</li>
+            <li>{resumo.CREATE_RECURRING} nova(s) recorrência(s) serão criadas</li>
             <li>{resumo.ASSOCIATE_EXISTING} compra(s) existente(s) serão associadas</li>
             <li>
               {resumo.POSSIBLE_MATCH} possível(is) correspondência(s) — sem escolha, viram compras

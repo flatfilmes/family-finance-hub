@@ -14,6 +14,8 @@ import { cycleForDate, generateInstallments } from "@/lib/card-invoices";
 import { suggestCategoryId } from "@/lib/category-suggest";
 import type { CreditCard } from "@/lib/finance";
 import { normalizeDescricao, type ParsedStatement, type StatementEntry } from "@/lib/card-statement-parsers";
+import { resolveReviewType } from "@/lib/statement-types";
+import { fetchStatementTypeRules, tipoPorRegra } from "@/lib/statement-type-rules";
 import type { Tone } from "@/lib/status";
 
 export type StatementImport = Database["public"]["Tables"]["card_statement_imports"]["Row"];
@@ -586,6 +588,7 @@ export type ReviewAction =
   | "ASSOCIATE_EXISTING"
   | "POSSIBLE_MATCH"
   | "CREATE_PURCHASE"
+  | "CREATE_RECURRING"
   | "REGISTER_FEE"
   | "REGISTER_CREDIT"
   | "IGNORE";
@@ -594,6 +597,7 @@ const REVIEW_ACTIONS: ReviewAction[] = [
   "ASSOCIATE_EXISTING",
   "POSSIBLE_MATCH",
   "CREATE_PURCHASE",
+  "CREATE_RECURRING",
   "REGISTER_FEE",
   "REGISTER_CREDIT",
   "IGNORE",
@@ -603,6 +607,7 @@ export const ACTION_BADGES: Record<ReviewAction, string> = {
   ASSOCIATE_EXISTING: "Compra encontrada",
   POSSIBLE_MATCH: "Possível correspondência",
   CREATE_PURCHASE: "Nova compra",
+  CREATE_RECURRING: "Nova recorrência",
   REGISTER_FEE: "Taxa",
   REGISTER_CREDIT: "Crédito/estorno",
   IGNORE: "Ignorado",
@@ -612,6 +617,7 @@ export const ACTION_TONES: Record<ReviewAction, Tone> = {
   ASSOCIATE_EXISTING: "ok",
   POSSIBLE_MATCH: "warn",
   CREATE_PURCHASE: "info",
+  CREATE_RECURRING: "ok",
   REGISTER_FEE: "muted",
   REGISTER_CREDIT: "muted",
   IGNORE: "muted",
@@ -621,6 +627,8 @@ export const ACTION_HELP: Record<ReviewAction, string> = {
   ASSOCIATE_EXISTING: "Compra existente — será associada ao confirmar.",
   POSSIBLE_MATCH: "Encontramos uma possível correspondência. Revise antes de confirmar.",
   CREATE_PURCHASE: "Nova compra — será criada ao confirmar.",
+  CREATE_RECURRING:
+    "Nova recorrência — a cobrança do mês será criada e a assinatura passa a ser reconhecida nas próximas faturas.",
   REGISTER_FEE: "Taxa da fatura — será registrada como encargo ao confirmar.",
   REGISTER_CREDIT: "Crédito/estorno — será registrado com valor negativo ao confirmar.",
   IGNORE: "Ignorado — não será importado.",
@@ -630,8 +638,11 @@ type ReviewItemLike = Pick<
   StatementItem,
   | "match_status"
   | "tipo_sugerido"
+  | "tipo_revisado"
   | "valor"
   | "decisao"
+  | "parcela_atual"
+  | "total_parcelas"
   | "installment_id_matched"
   | "recurring_expense_id_matched"
   | "purchase_id_matched"
@@ -645,29 +656,32 @@ export function userChoice(item: Pick<StatementItem, "decisao">): ReviewAction |
     : null;
 }
 
-/** Ação vigente do lançamento: escolha do usuário ou o padrão inteligente. */
+/**
+ * Ação vigente do lançamento.
+ *
+ * Ordem de decisão: escolha explícita de ação > tipo corrigido pela pessoa >
+ * padrão inteligente vindo da leitura do PDF e da conciliação.
+ */
 export function resolveReviewAction(item: ReviewItemLike): ReviewAction {
   const escolha = userChoice(item);
   if (escolha) return escolha;
-  if (item.match_status === "IGNORED") return "IGNORE";
 
-  const valor = Number(item.valor) || 0;
-  if (item.tipo_sugerido === "PAGAMENTO") return "IGNORE";
-  if (item.tipo_sugerido === "ESTORNO" || valor < 0) return "REGISTER_CREDIT";
-  if (
-    item.tipo_sugerido === "TAXA" ||
-    item.tipo_sugerido === "JUROS" ||
-    item.tipo_sugerido === "AJUSTE"
-  ) {
-    return "REGISTER_FEE";
+  const tipo = resolveReviewType(item);
+  if (tipo === "IGNORAR") return "IGNORE";
+  if (tipo === "TAXA") return "REGISTER_FEE";
+  if (tipo === "CREDITO") return "REGISTER_CREDIT";
+  if (tipo === "RECORRENTE") {
+    return item.recurring_expense_id_matched ? "ASSOCIATE_EXISTING" : "CREATE_RECURRING";
   }
 
+  if (item.match_status === "IGNORED") return "IGNORE";
   if (item.match_status === "MATCHED") return "ASSOCIATE_EXISTING";
   if (item.match_status === "POSSIBLE_MATCH" || item.match_status === "DIVERGENT") {
     return "POSSIBLE_MATCH";
   }
   return "CREATE_PURCHASE";
 }
+
 
 /**
  * Precisa de atenção = ambiguidade real.
@@ -703,6 +717,7 @@ export function reviewSummary(
     ASSOCIATE_EXISTING: 0,
     POSSIBLE_MATCH: 0,
     CREATE_PURCHASE: 0,
+    CREATE_RECURRING: 0,
     REGISTER_FEE: 0,
     REGISTER_CREDIT: 0,
     IGNORE: 0,
@@ -1124,6 +1139,15 @@ export async function processStatementPdf(input: {
     logStep("MATCHING", "START");
     const usados = new Set<string>();
 
+    // Regras aprendidas em revisões anteriores: apenas sugerem o tipo,
+    // nada é criado sem a confirmação humana.
+    let regrasTipo: Awaited<ReturnType<typeof fetchStatementTypeRules>> = [];
+    try {
+      regrasTipo = await fetchStatementTypeRules(input.familyId);
+    } catch (e) {
+      logStep("MATCHING", "ERROR", e);
+    }
+
     const rows = parsed.entries.map((entry, index) => {
       // Um erro de comparação em um lançamento não pode derrubar os outros 93.
       let resultado: ReturnType<typeof matchEntry>;
@@ -1133,6 +1157,7 @@ export async function processStatementPdf(input: {
         logStep("MATCHING", "ERROR", { index, descricao: entry.descricao_original, e });
         resultado = { match_status: "UNMATCHED" } as ReturnType<typeof matchEntry>;
       }
+      const tipoRegra = tipoPorRegra(entry.descricao_original, input.card.id, regrasTipo);
       return {
         import_id: importacao.id,
         family_id: input.familyId,
@@ -1145,6 +1170,8 @@ export async function processStatementPdf(input: {
         parcela_atual: entry.parcela_atual,
         total_parcelas: entry.total_parcelas,
         tipo_sugerido: entry.tipo_sugerido,
+        tipo_revisado: tipoRegra,
+        tipo_regra_origem: tipoRegra ? "REGRA" : null,
         card_last4: entry.card_last4 ?? null,
         categoria_sugerida_id:
           entry.tipo_sugerido === "COMPRA"
@@ -1155,6 +1182,7 @@ export async function processStatementPdf(input: {
         ...resultado,
       };
     });
+
     logStep("MATCHING", "SUCCESS", { itens: rows.length });
 
     logStep("CREATE_ITEMS", "START", { itens: rows.length });
@@ -1335,6 +1363,7 @@ async function enriquecerCompraComCobranca(input: {
 export type ConfirmResult = {
   conciliados: number;
   criados: number;
+  recorrentes: number;
   taxas: number;
   creditos: number;
   ignorados: number;
@@ -1374,6 +1403,7 @@ export async function confirmStatementImport(input: {
   const resultado: ConfirmResult = {
     conciliados: 0,
     criados: 0,
+    recorrentes: 0,
     taxas: 0,
     creditos: 0,
     ignorados: 0,
@@ -1397,7 +1427,7 @@ export async function confirmStatementImport(input: {
        */
       const criarCompra = async (opcoes: {
         valorItem: number;
-        natureza: "COMPRA" | "TAXA" | "CREDITO";
+        natureza: "COMPRA" | "TAXA" | "CREDITO" | "RECORRENTE";
       }) => {
         const parcelado =
           opcoes.natureza === "COMPRA" &&
@@ -1416,9 +1446,11 @@ export async function confirmStatementImport(input: {
             ? " Encargo/taxa lançado pela fatura — não é consumo."
             : opcoes.natureza === "CREDITO"
               ? " Crédito/estorno lançado pela fatura."
-              : parcelado
-                ? ` Parcelamento reconhecido a partir da parcela ${item.parcela_atual}/${item.total_parcelas} (parcelas anteriores são históricas).`
-                : "";
+              : opcoes.natureza === "RECORRENTE"
+                ? " Assinatura reconhecida na revisão: a cobrança se repete nas próximas faturas."
+                : parcelado
+                  ? ` Parcelamento reconhecido a partir da parcela ${item.parcela_atual}/${item.total_parcelas} (parcelas anteriores são históricas).`
+                  : "";
 
         const itens: NewPurchaseItem[] = [
           {
@@ -1446,7 +1478,12 @@ export async function confirmStatementImport(input: {
               new Date().toISOString().slice(0, 10),
             forma_pagamento: "CREDITO",
             credit_card_id: card.id,
-            tipo_compra: parcelado ? "COMPRA_PARCELADA" : "COMPRA_NORMAL",
+            tipo_compra:
+              opcoes.natureza === "RECORRENTE"
+                ? "COMPRA_RECORRENTE"
+                : parcelado
+                  ? "COMPRA_PARCELADA"
+                  : "COMPRA_NORMAL",
             observacao: `Criada a partir da fatura importada (${importacao.nome_arquivo}).${nota}`,
           },
           items: itens,
@@ -1460,6 +1497,7 @@ export async function confirmStatementImport(input: {
             : {}),
         });
       };
+
 
       const associar = async () => {
         const alvo = item.installment_id_matched
@@ -1494,7 +1532,7 @@ export async function confirmStatementImport(input: {
       };
 
       const criarEConciliar = async (
-        natureza: "COMPRA" | "TAXA" | "CREDITO",
+        natureza: "COMPRA" | "TAXA" | "CREDITO" | "RECORRENTE",
         valorItem: number,
       ) => {
         const compra = await criarCompra({ valorItem, natureza });
@@ -1518,10 +1556,16 @@ export async function confirmStatementImport(input: {
       } else if (acao === "REGISTER_FEE") {
         await criarEConciliar("TAXA", valor);
         resultado.taxas += 1;
+      } else if (acao === "CREATE_RECURRING") {
+        // Assinatura nova: uma compra recorrente que passa a ser reconhecida
+        // nas próximas faturas — nunca uma nova recorrência a cada mês.
+        await criarEConciliar("RECORRENTE", valor);
+        resultado.recorrentes += 1;
       } else if (acao === "REGISTER_CREDIT") {
         // Crédito/estorno preserva o sinal negativo: reduz a fatura.
         await criarEConciliar("CREDITO", -valor);
         resultado.creditos += 1;
+
       } else if (acao === "ASSOCIATE_EXISTING") {
         await associar();
       } else if (acao === "POSSIBLE_MATCH") {

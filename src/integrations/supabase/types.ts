@@ -571,6 +571,8 @@ export type Database = {
           purchase_id_criada: string | null
           purchase_id_matched: string | null
           recurring_expense_id_matched: string | null
+          tipo_regra_origem: string | null
+          tipo_revisado: string | null
           tipo_sugerido: Database["public"]["Enums"]["statement_item_kind"]
           total_parcelas: number | null
           updated_at: string
@@ -600,6 +602,8 @@ export type Database = {
           purchase_id_criada?: string | null
           purchase_id_matched?: string | null
           recurring_expense_id_matched?: string | null
+          tipo_regra_origem?: string | null
+          tipo_revisado?: string | null
           tipo_sugerido?: Database["public"]["Enums"]["statement_item_kind"]
           total_parcelas?: number | null
           updated_at?: string
@@ -629,6 +633,8 @@ export type Database = {
           purchase_id_criada?: string | null
           purchase_id_matched?: string | null
           recurring_expense_id_matched?: string | null
+          tipo_regra_origem?: string | null
+          tipo_revisado?: string | null
           tipo_sugerido?: Database["public"]["Enums"]["statement_item_kind"]
           total_parcelas?: number | null
           updated_at?: string
@@ -2464,6 +2470,57 @@ export type Database = {
             columns: ["purchase_id"]
             isOneToOne: false
             referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      statement_type_rules: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          credit_card_id: string | null
+          family_id: string
+          id: string
+          match_value: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          family_id: string
+          id?: string
+          match_value: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string | null
+          family_id?: string
+          id?: string
+          match_value?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "statement_type_rules_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "statement_type_rules_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
