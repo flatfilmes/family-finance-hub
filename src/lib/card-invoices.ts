@@ -158,6 +158,10 @@ export async function refreshInvoiceTotal(invoiceId: string) {
 /**
  * Gera as parcelas de uma despesa no cartão, cada uma ligada à fatura do seu ciclo.
  * Compras à vista no cartão geram uma única parcela.
+ *
+ * Quando a compra entra no sistema pelo meio da série (ex.: fatura importada
+ * trazendo a parcela 3/6), `parcelaInicial` evita inventar as parcelas antigas:
+ * só as parcelas de 3/6 em diante são criadas.
  */
 export async function generateInstallments(input: {
   familyId: string;
@@ -168,15 +172,22 @@ export async function generateInstallments(input: {
   parcelas: number;
   memberId?: string | null;
   purchaseId?: string | null;
+  parcelaInicial?: number;
+  valorParcela?: number;
 }) {
   const total = Math.max(1, input.parcelas || 1);
-  const valorParcela = Math.round((input.valorTotal / total) * 100) / 100;
+  const inicial = Math.min(Math.max(1, input.parcelaInicial || 1), total);
+  const restantes = total - inicial + 1;
+  const valorParcela =
+    input.valorParcela != null
+      ? Math.round(input.valorParcela * 100) / 100
+      : Math.round((input.valorTotal / restantes) * 100) / 100;
   const base = cycleForDate(input.card, input.dataCompra);
 
   const rows: Database["public"]["Tables"]["expense_installments"]["Insert"][] = [];
   const invoiceIds: string[] = [];
 
-  for (let i = 0; i < total; i++) {
+  for (let i = 0; i < restantes; i++) {
     const cycle = i === 0 ? base : shiftCycle(input.card, base, i);
     const invoice = await ensureInvoice(input.familyId, input.card.id, cycle);
     invoiceIds.push(invoice.id);
@@ -184,7 +195,7 @@ export async function generateInstallments(input: {
       family_id: input.familyId,
       expense_id: input.expenseId,
       card_invoice_id: invoice.id,
-      numero_parcela: i + 1,
+      numero_parcela: inicial + i,
       total_parcelas: total,
       valor_parcela: valorParcela,
       data_vencimento: cycle.data_vencimento,
@@ -193,6 +204,7 @@ export async function generateInstallments(input: {
       purchase_id: input.purchaseId ?? null,
     });
   }
+
 
   const { error } = await supabase.from("expense_installments").insert(rows);
   if (error) throw error;
