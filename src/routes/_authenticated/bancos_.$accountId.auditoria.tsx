@@ -136,12 +136,15 @@ function AuditoriaContaPage() {
         }`}
         badges={<StatusBadge tone="muted">Somente leitura — nada é alterado</StatusBadge>}
         actions={
-          <button
-            onClick={exportarCsv}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
-          >
-            <Download className="size-3.5" /> Exportar relatório
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <ReprocessCheckpointsDialog accountId={accountId} familyId={family.id} />
+            <button
+              onClick={exportarCsv}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              <Download className="size-3.5" /> Exportar relatório
+            </button>
+          </div>
         }
       />
 
