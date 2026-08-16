@@ -33,7 +33,7 @@ import { useFutureCommitments } from "@/hooks/useFutureCommitments";
 import { useMonthlySpending } from "@/hooks/useMonthlySpending";
 import { useFreeCash } from "@/hooks/useFreeCash";
 import { FREE_CASH_CLASSES, FREE_CASH_MESSAGES } from "@/lib/free-cash";
-import { formatDate as formatDateIso } from "@/lib/expenses";
+
 
 import {
   Dialog,
