@@ -8,6 +8,8 @@ import {
   fetchStatementImports,
   fetchStatementItems,
   findDuplicateImport,
+  inspectUndoStatementImport,
+  undoStatementImport,
   processStatementPdf,
   statementFingerprint,
   updateStatementItem,
@@ -152,6 +154,27 @@ export function useDeleteStatementImport(familyId?: string) {
       queryClient.invalidateQueries({ queryKey: ["card-statement-imports", familyId] });
       queryClient.removeQueries({ queryKey: ["card-statement-import", id] });
       queryClient.removeQueries({ queryKey: ["card-statement-items", id] });
+    },
+  });
+}
+
+/** Relatório de impacto antes de desfazer uma importação confirmada. */
+export function useUndoReport(importId?: string, enabled = true) {
+  return useQuery({
+    queryKey: ["card-statement-undo-report", importId],
+    queryFn: () => inspectUndoStatementImport(importId!),
+    enabled: !!importId && enabled,
+  });
+}
+
+/** Desfaz uma importação confirmada, revertendo apenas os efeitos exclusivos dela. */
+export function useUndoStatementImport(familyId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id: string; aceitarPendencias?: boolean }) =>
+      undoStatementImport(input.id, input.aceitarPendencias ?? false),
+    onSuccess: () => {
+      queryClient.invalidateQueries();
     },
   });
 }
