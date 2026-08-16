@@ -2584,6 +2584,10 @@ export type Database = {
         Args: { p_purchase_id: string }
         Returns: Json
       }
+      inspect_card_statement_import_undo: {
+        Args: { p_import_id: string }
+        Returns: Json
+      }
       inspect_purchase_deletion: {
         Args: { p_purchase_id: string }
         Returns: Json
@@ -2611,6 +2615,10 @@ export type Database = {
       pay_card_invoice: {
         Args: { _bank_account_id: string; _data?: string; _invoice_id: string }
         Returns: string
+      }
+      purchase_undo_blocks: {
+        Args: { p_purchase_id: string }
+        Returns: string[]
       }
       purge_demo_families: { Args: { demo_ids: string[] }; Returns: number }
       purge_family_records: {
@@ -2668,6 +2676,10 @@ export type Database = {
           _valor: number
         }
         Returns: string
+      }
+      undo_card_statement_import: {
+        Args: { p_aceitar_pendencias?: boolean; p_import_id: string }
+        Returns: Json
       }
     }
     Enums: {
