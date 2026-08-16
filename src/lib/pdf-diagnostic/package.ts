@@ -10,7 +10,11 @@ export type DiagnosticPackage = {
   pages: RawPdfDump["pages"];
   rawItems: RawTextItem[];
   visualRows: RawVisualLine[];
-  parser: string | null;
+  parser: {
+    status: "FOUND" | "NOT_FOUND";
+    requestedBank: string | null;
+    name: string | null;
+  };
   /** Detecção + parser selecionado, sempre presente quando houve dry run. */
   detection: {
     bank: string | null;
@@ -21,7 +25,10 @@ export type DiagnosticPackage = {
     stage: string | null;
     signals: string[];
     counts: { rawItems: number; rows: number; transactions: number; checkpoints: number } | null;
-  } | null;
+    matchedSignals: string[];
+    missingSignals: string[];
+    reason: string;
+  };
   parserOutput: unknown;
   checkpointTrace: unknown[];
   accepted: unknown[];
@@ -48,19 +55,24 @@ export function buildDiagnosticPackage(input: {
     pages,
     rawItems: filtro ? input.dump.items.filter((i) => i.page === filtro) : input.dump.items,
     visualRows: filtro ? input.visualRows.filter((r) => r.page === filtro) : input.visualRows,
-    parser: input.parser?.parser ?? null,
-    detection: input.parser
-      ? {
-          bank: input.parser.bank ?? null,
-          parser: input.parser.parser,
-          version: input.parser.version ?? null,
-          status: input.parser.status ?? null,
-          error: input.parser.error ?? null,
-          stage: input.parser.stage ?? null,
-          signals: input.parser.signals ?? [],
-          counts: input.parser.counts ?? null,
-        }
-      : null,
+    parser: input.parser?.parserInfo ?? {
+      status: "NOT_FOUND",
+      requestedBank: input.parser?.bank ?? null,
+      name: null,
+    },
+    detection: {
+      bank: input.parser?.detection?.bank ?? input.parser?.bank ?? null,
+      parser: input.parser?.parser ?? null,
+      version: input.parser?.version ?? null,
+      status: input.parser?.detection?.status ?? input.parser?.status ?? "PARSER_NOT_SELECTED",
+      error: input.parser?.error ?? null,
+      stage: input.parser?.stage ?? null,
+      signals: input.parser?.signals ?? [],
+      counts: input.parser?.counts ?? null,
+      matchedSignals: input.parser?.detection?.matchedSignals ?? input.parser?.signals ?? [],
+      missingSignals: input.parser?.detection?.missingSignals ?? [],
+      reason: input.parser?.detection?.reason ?? "O pipeline do parser não foi executado.",
+    },
     parserOutput: input.parser?.output ?? null,
     checkpointTrace: input.parser?.checkpointTrace ?? [],
     accepted: input.parser?.debug?.accepted ?? [],

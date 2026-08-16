@@ -60,6 +60,14 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
       debug: { accepted: [], rejected: [], metadata: [{ campo: "erro", valor: d.error }] },
       pipelineStages: d.pipelineStages,
       errors: d.errors,
+      detection: {
+        status: "FAILED",
+        bank: null,
+        matchedSignals: d.detection.matchedSignals,
+        missingSignals: [],
+        reason: d.error,
+      },
+      parserInfo: d.parser,
     };
 
   // Nenhum parser específico reconheceu o layout.
@@ -101,6 +109,18 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
     checkpointTrace: trace,
     pipelineStages: d.pipelineStages,
     errors: d.errors,
+    detection: {
+      status: d.pipelineStages.find((item) => item.stage === "BANK_DETECTION")?.status === "PASS" ? "PASS" : "FAILED",
+      bank: d.detection.detectedBank === "GENERICO" ? null : d.detection.detectedBank,
+      matchedSignals: d.detection.matchedSignals,
+      missingSignals: (d.metadata.find((item) =>
+        typeof item === "object" && item !== null && "field" in item && item.field === "missingSignals"
+      ) as { value?: string[] } | undefined)?.value ?? [],
+      reason: (d.metadata.find((item) =>
+        typeof item === "object" && item !== null && "field" in item && item.field === "detectionReason"
+      ) as { value?: string } | undefined)?.value ?? "Detecção concluída.",
+    },
+    parserInfo: d.parser,
   };
 
   return {

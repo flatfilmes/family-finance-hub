@@ -109,6 +109,14 @@ export function PdfDiagnosticDialog({
               stage: "PARSER_EXECUTION",
               ...(import.meta.env.DEV && error.stack ? { stack: error.stack } : {}),
             }],
+            detection: {
+              status: "FAILED",
+              bank: null,
+              matchedSignals: [],
+              missingSignals: [],
+              reason: error.message,
+            },
+            parserInfo: { status: "NOT_FOUND", requestedBank: null, name: null },
           });
           setErro(
             `Leitura bruta OK, mas o parser falhou: ${e instanceof Error ? e.message : "erro"}`,
