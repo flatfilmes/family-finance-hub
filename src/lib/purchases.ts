@@ -261,6 +261,44 @@ export function parcelaDoPeriodo(parcelas: PurchaseInstallment[], mes = "") {
   return ordenadas.find((p) => p.status !== "PAGO") ?? ordenadas[ordenadas.length - 1] ?? null;
 }
 
+export type ProgressoParcelamento = {
+  total: number;
+  pagas: number;
+  restantesQtd: number;
+  valorParcela: number;
+  atual: number;
+  restanteValor: number;
+  /** ATIVA enquanto houver parcelas pendentes; QUITADA quando todas foram pagas. */
+  estado: "ATIVA" | "QUITADA";
+};
+
+/**
+ * Estado derivado de uma compra parcelada. Uma compra parcelada continua sendo
+ * UMA purchase: nunca some da lista quando a primeira parcela é paga.
+ */
+export function progressoParcelamento(
+  parcelas: PurchaseInstallment[],
+): ProgressoParcelamento | null {
+  if (parcelas.length === 0) return null;
+  const ordenadas = [...parcelas].sort((a, b) => a.numero_parcela - b.numero_parcela);
+  const total = ordenadas[0]?.total_parcelas ?? ordenadas.length;
+  if (total <= 1) return null;
+  const pendentes = ordenadas.filter((p) => p.status !== "PAGO");
+  const pagas = ordenadas.length - pendentes.length;
+  const atual = pendentes[0] ?? ordenadas[ordenadas.length - 1]!;
+  return {
+    total,
+    pagas,
+    restantesQtd: pendentes.length,
+    valorParcela: Number(atual.valor_parcela) || 0,
+    atual: atual.numero_parcela,
+    restanteValor: pendentes.reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0),
+    estado: pendentes.length === 0 ? "QUITADA" : "ATIVA",
+  };
+}
+
+
+
 
 /** Tipos de compra que se repetem todo mês. */
 export function isRecorrente(tipo: string) {
