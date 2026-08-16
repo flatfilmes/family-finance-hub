@@ -110,6 +110,13 @@ export type StatementPeriod = {
   nomeArquivo: string;
   inicio: string | null;
   fim: string | null;
+  /** Mês que nomeia o extrato — vem do período, nunca do saldo anterior. */
+  mesReferencia: string | null;
+  /** Data do saldo anterior (OPENING_CHECKPOINT) — metadata fora do período. */
+  aberturaData: string | null;
+  origemPeriodo: StatementPeriodOrigin;
+  /** Saldos do dia DENTRO do período (o de abertura não entra). */
+  checkpointsDiarios: number;
   saldoInicial: number | null;
   saldoFinal: number | null;
   quantidade: number;
