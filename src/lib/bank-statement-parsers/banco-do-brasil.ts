@@ -330,10 +330,15 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
     const valor = lido.valor;
 
-    // Data: a da própria linha ou a última data vista no bloco.
+    // DATA CONTÁBIL: a da própria linha; senão, a célula da coluna "Dia" mais
+    // próxima; só então a última data vista no bloco. Nunca a data do histórico.
     const comData = DATA_INICIAL.test(raw);
-    const { data, resto } = comData ? lerData(raw, anoBase) : { data: null, resto: raw };
+    const { data: dataNaLinha, resto } = comData
+      ? lerData(raw, anoBase)
+      : { data: null, resto: raw };
+    const data = dataNaLinha ?? datasRecuperadas.get(i) ?? null;
     if (data) ultimaData = data;
+
 
     const descricaoNaLinha = resto
       .replace(lido.bruto, " ")
