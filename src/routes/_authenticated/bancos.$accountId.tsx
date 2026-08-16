@@ -151,7 +151,10 @@ function ContaDetalhePage() {
   const temPosicao =
     Number(conta.saldo_atual) !== 0 ||
     movimentosDaConta.some((t) => t.tipo === "ABERTURA_SALDO");
-  const semMovimento = movimentosDaConta.length === 0;
+  // Onboarding só para conta nunca inicializada: sem qualquer transação (inclusive
+  // abertura/ajuste/canceladas, que provam que já houve evento financeiro) e sem saldo.
+  const contaNuncaInicializada = movimentosDaConta.length === 0 && Number(conta.saldo_atual) === 0;
+
   const podeOperar =
     perms.isAdmin || (perms.podeLancar && conta.member_id === perms.myMemberId);
 
@@ -282,7 +285,7 @@ function ContaDetalhePage() {
         }
       />
 
-      {podeOperar && semMovimento && (
+      {podeOperar && contaNuncaInicializada && (
         <Card className="mb-4 border-primary/30 bg-primary/5">
           <SectionTitle
             title="Como você quer começar?"
@@ -440,7 +443,7 @@ function ContaDetalhePage() {
         {filtrados.length === 0 ? (
           <EmptyState
             icon={<Receipt className="size-5" />}
-            title="Nenhuma movimentação no período"
+            title="Nenhuma movimentação neste período"
             description="Entradas, compras no PIX/débito e pagamentos de fatura desta conta aparecem aqui."
           />
         ) : (
