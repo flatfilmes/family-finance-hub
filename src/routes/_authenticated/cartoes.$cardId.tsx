@@ -58,6 +58,7 @@ function CartaoDetalhePage() {
   const view = useViewMode();
 
   const [faturaId, setFaturaId] = useState("");
+  const [aba, setAba] = useState<"fechada" | "proxima" | "historico">("fechada");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [busca, setBusca] = useState("");
@@ -91,11 +92,19 @@ function CartaoDetalhePage() {
 
   // Só ciclos reais (fechados/pagos/oficiais) e a fatura em formação entram no seletor.
   const ciclos = dados.ciclosDe(cartao.id);
+  const cicloFechado = ciclos.atual;
+  const cicloProximo = ciclos.emFormacao;
   const selecionaveis = [ciclos.atual, ciclos.emFormacao, ...ciclos.historico].filter(
     (c): c is NonNullable<typeof c> => !!c,
   );
+  // Aba operacional: fatura fechada, próxima em formação ou um ciclo do histórico.
+  const doHistorico = ciclos.historico.find((c) => c.invoice.id === faturaId) ?? null;
   const cicloSelecionado =
-    selecionaveis.find((c) => c.invoice.id === faturaId) ?? ciclos.atual ?? selecionaveis[0] ?? null;
+    (aba === "proxima" ? cicloProximo : aba === "historico" ? doHistorico : cicloFechado) ??
+    cicloFechado ??
+    cicloProximo ??
+    selecionaveis[0] ??
+    null;
   const fatura = cicloSelecionado?.invoice ?? null;
   const estadoSelecionado: EstadoCiclo | null = cicloSelecionado?.estado ?? null;
   const toneEstado = (estado: EstadoCiclo) =>
@@ -116,13 +125,23 @@ function CartaoDetalhePage() {
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "—";
 
+  // O que já está entrando na próxima fatura (ciclo em formação).
+  const linhasProxima = cicloProximo ? dados.linhasDe(cartao.id, cicloProximo.invoice) : [];
+  const somaProxima = (kind: Kind) =>
+    linhasProxima.filter((l) => l.kind === kind).reduce((acc, l) => acc + l.valor, 0);
+  const totalProxima = linhasProxima.reduce((acc, l) => acc + l.valor, 0);
+
   const proximas = dados.proximasDe(cartao.id);
   const parcelamentos = dados.parcelamentosDe(cartao.id);
   const recorrencias = dados.recorrenciasDoCartao(cartao.id);
+  // Restante comprometido = soma das parcelas ainda não quitadas (nunca o total original).
+  const restanteParcelas = parcelamentos.reduce((acc, p) => acc + p.restante, 0);
 
   // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
   const faturaCiclo = dados.faturaDe(cartao.id, fatura);
+  const faturaFechadaCiclo = dados.faturaDe(cartao.id, cicloFechado?.invoice ?? null);
   const composicao = dados.composicaoDe(cartao.id);
+
 
   // Capacidade de pagamento: mesma fórmula da visão geral, aplicada às contas do titular.
   const contasAutorizadas = filterByMember(accounts ?? [], cartao.member_id ?? "sem").filter(
@@ -203,30 +222,40 @@ function CartaoDetalhePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
-          label={faturaCiclo.label}
-          value={formatCurrency(faturaCiclo.valor)}
+          label="Fatura fechada"
+          value={formatCurrency(cicloFechado ? faturaFechadaCiclo.valor : 0)}
           hint={
-            faturaCiclo.vencimento
-              ? `Vence em ${formatDate(faturaCiclo.vencimento)}${faturaCiclo.oficial ? " · fatura oficial importada" : " · estimativa interna"}`
-              : undefined
+            cicloFechado
+              ? `Vence em ${formatDate(cicloFechado.invoice.data_vencimento)} · ${ESTADO_CICLO_LABELS[cicloFechado.estado]}`
+              : "Nenhum ciclo fechado"
           }
           big
         />
         <Metric
-          label="Limite utilizado"
-          value={formatCurrency(utilizado)}
-          hint={`Fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
+          label="Próxima fatura"
+          value={formatCurrency(totalProxima)}
+          hint={
+            cicloProximo
+              ? `Em formação · fecha ${formatDate(cicloProximo.invoice.data_fechamento)}`
+              : "Sem ciclo em formação"
+          }
           big
         />
-
+        <Metric
+          label="Parcelas futuras"
+          value={formatCurrency(restanteParcelas)}
+          hint="Soma das parcelas ainda não quitadas"
+          big
+        />
         <Metric
           label="Limite disponível"
           value={formatCurrency(disponivel)}
+          hint={`Utilizado ${formatCurrency(utilizado)} de ${formatCurrency(limite)} · fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
           tone={disponivel < 0 ? "danger" : "ok"}
           big
         />
-        <Metric label="Limite total" value={formatCurrency(limite)} big />
       </div>
+
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
@@ -254,11 +283,175 @@ function CartaoDetalhePage() {
         </div>
       </Card>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionTitle
+              title="Fatura fechada"
+              hint="Ciclo já encerrado — é o valor que precisa ser pago."
+            />
+            {cicloFechado && (
+              <Badge tone={toneEstado(cicloFechado.estado)}>
+                {ESTADO_CICLO_LABELS[cicloFechado.estado]}
+              </Badge>
+            )}
+          </div>
+          {cicloFechado ? (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground">
+                {monthKeyLabel(cicloFechado.competencia)}
+              </p>
+              <p className="mt-1 text-3xl font-black">
+                {formatCurrency(faturaFechadaCiclo.valor)}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Fechamento {formatDate(cicloFechado.invoice.data_fechamento)} · vencimento{" "}
+                {formatDate(cicloFechado.invoice.data_vencimento)}
+                {faturaFechadaCiclo.oficial
+                  ? " · fatura oficial importada"
+                  : " · valor calculado pelo sistema"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAba("fechada");
+                    setFaturaId("");
+                    document
+                      .getElementById("compras-do-ciclo")
+                      ?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Ver lançamentos
+                </button>
+                {podePagar &&
+                  cicloFechado.invoice.status !== "PAGA" &&
+                  Number(cicloFechado.invoice.valor_total) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAba("fechada");
+                        setFaturaId("");
+                        setPagando(true);
+                      }}
+                      className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      Pagar fatura
+                    </button>
+                  )}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Nenhum ciclo fechado até agora neste cartão.
+            </p>
+          )}
+        </Card>
+
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionTitle
+              title="Próxima fatura"
+              hint="Compras feitas depois do fechamento entram aqui."
+            />
+            <Badge tone="muted">Em formação</Badge>
+          </div>
+          {cicloProximo ? (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground">
+                {monthKeyLabel(cicloProximo.competencia)}
+              </p>
+              <p className="mt-1 text-3xl font-black">{formatCurrency(totalProxima)}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Total até agora · fecha {formatDate(cicloProximo.invoice.data_fechamento)} · vence{" "}
+                {formatDate(cicloProximo.invoice.data_vencimento)}
+              </p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Compras da próxima fatura
+              </p>
+              {linhasProxima.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Nada lançado no novo ciclo ainda.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-border">
+                  {linhasProxima.slice(0, 6).map((l) => (
+                    <li key={l.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {l.estabelecimento}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {formatDate(l.data)} · {KIND_LABELS[l.kind]}
+                          {l.parcela !== "—" ? ` · ${l.parcela}` : ""}
+                        </span>
+                      </span>
+                      <span className="text-sm font-bold">{formatCurrency(l.valor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                <span>Compras novas: {formatCurrency(somaProxima("normais"))}</span>
+                <span>Parcelas: {formatCurrency(somaProxima("parceladas"))}</span>
+                <span>Taxas/recorrências: {formatCurrency(somaProxima("recorrentes"))}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAba("proxima");
+                  setFaturaId("");
+                  document
+                    .getElementById("compras-do-ciclo")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="mt-3 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                Ver tudo da próxima fatura
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Nenhum ciclo em formação neste momento.
+            </p>
+          )}
+        </Card>
+      </div>
+
+      <div id="compras-do-ciclo" />
       <Card className="mt-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <SectionTitle title="Fatura" hint="Escolha a competência para ver total e lançamentos." />
+          <SectionTitle
+            title="Compras deste ciclo"
+            hint="Cada lançamento pertence ao ciclo pela fatura/parcela — não apenas pela data da compra."
+          />
           {estadoSelecionado && (
             <Badge tone={toneEstado(estadoSelecionado)}>{ESTADO_CICLO_LABELS[estadoSelecionado]}</Badge>
+          )}
+        </div>
+
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(
+            [
+              ["fechada", "Fatura fechada", cicloFechado],
+              ["proxima", "Próxima fatura", cicloProximo],
+            ] as const
+          ).map(([valor, rotulo, ciclo]) =>
+            ciclo ? (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setAba(valor)}
+                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+                  aba === valor
+                    ? "bg-primary text-primary-foreground"
+                    : "border border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {rotulo} · {monthKeyLabel(ciclo.competencia)}
+              </button>
+            ) : null,
           )}
         </div>
 
@@ -271,37 +464,25 @@ function CartaoDetalhePage() {
           />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
-          <Field label="Competência">
+          <Field label="Outra competência (histórico)">
             <select
               className={inputClass}
-              value={fatura?.id ?? ""}
-              onChange={(e) => setFaturaId(e.target.value)}
-              aria-label="Fatura"
+              value={aba === "historico" ? faturaId : ""}
+              onChange={(e) => {
+                setFaturaId(e.target.value);
+                setAba(e.target.value ? "historico" : "fechada");
+              }}
+              aria-label="Fatura do histórico"
             >
-              {selecionaveis.length === 0 && <option value="">Nenhuma fatura</option>}
-              {ciclos.atual && (
-                <optgroup label="Fatura atual">
-                  <option value={ciclos.atual.invoice.id}>{optionLabel(ciclos.atual)}</option>
-                </optgroup>
-              )}
-              {ciclos.emFormacao && (
-                <optgroup label="Próxima fatura">
-                  <option value={ciclos.emFormacao.invoice.id}>
-                    {optionLabel(ciclos.emFormacao)}
-                  </option>
-                </optgroup>
-              )}
-              {ciclos.historico.length > 0 && (
-                <optgroup label="Histórico">
-                  {ciclos.historico.map((c) => (
-                    <option key={c.invoice.id} value={c.invoice.id}>
-                      {optionLabel(c)}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+              <option value="">Ciclo atual selecionado</option>
+              {ciclos.historico.map((c) => (
+                <option key={c.invoice.id} value={c.invoice.id}>
+                  {optionLabel(c)}
+                </option>
+              ))}
             </select>
           </Field>
+
           <Field label="Tipo de lançamento">
             <select
               className={inputClass}
@@ -498,9 +679,13 @@ function CartaoDetalhePage() {
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">{monthKeyLabel(m.key)}</span>
                     <span className="block text-xs text-muted-foreground">
-                      Projetado · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
+                      {cicloProximo && m.key === cicloProximo.competencia
+                        ? "Em formação · detalhado acima"
+                        : "Projetado"}{" "}
+                      · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
                       {formatCurrency(m.recorrencias)}
                     </span>
+
                   </span>
                   <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
                 </li>
@@ -510,7 +695,10 @@ function CartaoDetalhePage() {
         </Card>
 
         <Card>
-          <SectionTitle title="Parcelamentos ativos" />
+          <SectionTitle
+            title="Parcelamentos ativos"
+            hint="Cada compra parcelada continua sendo uma única compra — as parcelas é que mudam de ciclo."
+          />
           {parcelamentos.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhum parcelamento em andamento.</p>
           ) : (
@@ -520,7 +708,13 @@ function CartaoDetalhePage() {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold">{p.descricao}</span>
                     <span className="block text-xs text-muted-foreground">
-                      Parcela {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
+                      Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
+                      {p.proximaCobranca
+                        ? ` · próxima cobrança ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
+                        : ""}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
                     </span>
                   </span>
                   <span className="text-right">
@@ -533,6 +727,7 @@ function CartaoDetalhePage() {
               ))}
             </ul>
           )}
+
         </Card>
       </div>
 

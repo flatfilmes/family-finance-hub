@@ -6,6 +6,7 @@ import {
   faturasFechadasEmAberto,
   obrigacaoAbertaDoCartao,
 } from "@/lib/card-details";
+import { progressoParcelamento } from "@/lib/purchases";
 
 const invoice = {
   id: "invoice-aug",
@@ -159,5 +160,30 @@ describe("classificarCiclosDoCartao", () => {
     expect(grupos.emFormacao?.competencia).toBe("2026-09");
     expect(grupos.projecoes).toHaveLength(2);
     expect(grupos.historico.map((c) => c.competencia)).toEqual(["2026-07", "2026-06"]);
+  });
+});
+
+describe("progressoParcelamento", () => {
+  const parcelas = (pagas: number, total = 8) =>
+    Array.from({ length: total }, (_, i) => ({
+      purchase_id: "p1",
+      numero_parcela: i + 1,
+      total_parcelas: total,
+      valor_parcela: 77.34,
+      data_vencimento: `2026-${String(8 + i).padStart(2, "0")}-17`,
+      status: i < pagas ? "PAGO" : "PENDENTE",
+    }));
+
+  it("mantém a compra ativa após a primeira parcela paga", () => {
+    const p = progressoParcelamento(parcelas(1))!;
+    expect(p.estado).toBe("ATIVA");
+    expect(p.pagas).toBe(1);
+    expect(p.atual).toBe(2);
+    expect(p.restantesQtd).toBe(7);
+    expect(Math.round(p.restanteValor * 100) / 100).toBe(541.38);
+  });
+
+  it("marca como quitada só quando todas as parcelas foram pagas", () => {
+    expect(progressoParcelamento(parcelas(8))!.estado).toBe("QUITADA");
   });
 });

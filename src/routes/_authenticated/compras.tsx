@@ -17,6 +17,7 @@ import { useCreditCards } from "@/hooks/useFinanceData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useExpenseCategories } from "@/hooks/useExpenses";
+import { monthKeyLabel } from "@/lib/card-invoices";
 import {
   useProducts,
   usePurchaseInstallmentsByPurchases,
@@ -46,6 +47,7 @@ import {
   itemTotal,
   matchesPaymentFilter,
   parcelaDoPeriodo,
+  progressoParcelamento,
   purchaseTotal,
   usesBankAccount,
   type NewPurchaseItem,
@@ -137,6 +139,7 @@ function Compras() {
   const [filtroPagamento, setFiltroPagamento] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroMes, setFiltroMes] = useState("");
+  const [filtroFatura, setFiltroFatura] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<PaymentFilter>("");
   const [detalhe, setDetalhe] = useState<string | null>(null);
   const [pagando, setPagando] = useState<Purchase | null>(null);
@@ -153,25 +156,43 @@ function Compras() {
       matchesSearch(busca, p.estabelecimento, p.observacao),
   );
   const itemCategorias = usePurchaseItemCategories(porEscopo.map((p) => p.id));
-  const lista = filtroCategoria
+  const parcelasDaLista = usePurchaseInstallmentsByPurchases(porEscopo.map((p) => p.id));
+  const parcelasDe = (purchaseId: string) =>
+    (parcelasDaLista.data ?? []).filter((p) => p.purchase_id === purchaseId);
+  /** Competências de fatura disponíveis (mês de vencimento das parcelas). */
+  const faturasDisponiveis = [
+    ...new Set((parcelasDaLista.data ?? []).map((p) => p.data_vencimento.slice(0, 7))),
+  ].sort();
+  const porCategoria = filtroCategoria
     ? porEscopo.filter((p) =>
         (itemCategorias.data ?? []).some(
           (i) => i.purchase_id === p.id && i.categoria_id === filtroCategoria,
         ),
       )
     : porEscopo;
+  // Filtro por fatura ≠ filtro por mês da compra: aqui vale o ciclo em que a parcela cai.
+  const lista = filtroFatura
+    ? porCategoria.filter((p) =>
+        parcelasDe(p.id).some((i) => i.data_vencimento.startsWith(filtroFatura)),
+      )
+    : porCategoria;
   const compraDetalhe = lista.find((p) => p.id === detalhe) ?? null;
-  const parcelasDaLista = usePurchaseInstallmentsByPurchases(lista.map((p) => p.id));
   /** Parcela do período de uma compra parcelada (base do valor em destaque). */
   const parcelaDaCompra = (purchaseId: string) => {
-    const parcela = parcelaDoPeriodo(
-      (parcelasDaLista.data ?? []).filter((p) => p.purchase_id === purchaseId),
-      filtroMes,
-    );
+    const parcela = parcelaDoPeriodo(parcelasDe(purchaseId), filtroFatura || filtroMes);
     return parcela && parcela.total_parcelas > 1 ? parcela : null;
   };
+  /** Estado derivado do parcelamento: a compra nunca some depois da 1ª parcela paga. */
+  const progressoDaCompra = (purchaseId: string) => progressoParcelamento(parcelasDe(purchaseId));
   const temFiltro = Boolean(
-    busca || filtroMembro || filtroCategoria || filtroPagamento || filtroTipo || filtroMes || filtroStatus,
+    busca ||
+      filtroMembro ||
+      filtroCategoria ||
+      filtroPagamento ||
+      filtroTipo ||
+      filtroMes ||
+      filtroFatura ||
+      filtroStatus,
   );
   const limparFiltros = () => {
     setBusca("");
@@ -180,12 +201,14 @@ function Compras() {
     setFiltroPagamento("");
     setFiltroTipo("");
     setFiltroMes("");
+    setFiltroFatura("");
     setFiltroStatus("");
   };
   const totalListado = lista.reduce((acc, p) => {
     const parcela = parcelaDaCompra(p.id);
     return acc + (parcela ? parcela.valor_parcela : Number(p.valor_total) || 0);
   }, 0);
+
 
 
   const setItem = (index: number, patch: Partial<NewPurchaseItem>) =>
@@ -685,7 +708,7 @@ function Compras() {
               ))}
             </select>
           </Field>
-          <Field label="Período (mês)">
+          <Field label="Período (mês da compra)">
             <input
               type="month"
               value={filtroMes}
@@ -693,6 +716,22 @@ function Compras() {
               className={inputClass}
             />
           </Field>
+          <Field label="Fatura do cartão">
+            <select
+              value={filtroFatura}
+              onChange={(e) => setFiltroFatura(e.target.value)}
+              className={inputClass}
+              aria-label="Fatura do cartão"
+            >
+              <option value="">Todas as faturas</option>
+              {faturasDisponiveis.map((f) => (
+                <option key={f} value={f}>
+                  {monthKeyLabel(f)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
         </div>
       </Card>
 
@@ -745,6 +784,7 @@ function Compras() {
           <ul className="mt-4 divide-y divide-border">
             {lista.map((p) => {
               const parcela = parcelaDaCompra(p.id);
+              const progresso = progressoDaCompra(p.id);
               return (
               <li key={p.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-3">
@@ -755,12 +795,23 @@ function Compras() {
                   >
                     <ChevronRight className="size-4 text-muted-foreground" />
                     <span>
-                      <span className="flex items-center gap-2 text-sm font-semibold">
+                      <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                         {p.estabelecimento}
-                        {parcela && (
-                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                            {parcela.numero_parcela}/{parcela.total_parcelas}
-                          </span>
+                        {progresso && (
+                          <>
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                              Parcelada {progresso.atual}/{progresso.total}
+                            </span>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                                progresso.estado === "QUITADA"
+                                  ? "bg-emerald-500/10 text-emerald-600"
+                                  : "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {progresso.estado === "QUITADA" ? "Quitada" : "Ativa"}
+                            </span>
+                          </>
                         )}
                       </span>
                       <span className="block text-xs text-muted-foreground">
@@ -773,6 +824,13 @@ function Compras() {
                             : " · sem data prevista")}
                         {isAtrasada(p) && " · atrasada"}
                       </span>
+                      {progresso && (
+                        <span className="block text-xs text-muted-foreground">
+                          {progresso.pagas}/{progresso.total} pagas · parcela de{" "}
+                          {formatCurrency(progresso.valorParcela)} · restam{" "}
+                          {progresso.restantesQtd} ({formatCurrency(progresso.restanteValor)})
+                        </span>
+                      )}
                     </span>
                   </button>
                   <StatusBadge
@@ -791,6 +849,7 @@ function Compras() {
                       </span>
                     )}
                   </span>
+
 
                   {view.podeLancar && isPendentePagamento(p) && (
                     <button

@@ -1,6 +1,12 @@
-import { upcomingInstallmentMonths, type CardInvoice, type ExpenseInstallment } from "@/lib/card-invoices";
+import {
+  cycleForDate,
+  upcomingInstallmentMonths,
+  type CardInvoice,
+  type ExpenseInstallment,
+} from "@/lib/card-invoices";
 import { chargesInMonths, type RecurringExpense } from "@/lib/recurring-expenses";
 import type { Purchase } from "@/lib/purchases";
+import type { CreditCard } from "@/lib/finance";
 import type { Expense } from "@/lib/expenses";
 import { isStatementConfirmed } from "@/lib/card-statements";
 
@@ -28,6 +34,7 @@ export type LinhaFatura = {
   kind: Kind;
   parcela: string;
   valor: number;
+  purchaseId: string | null;
 };
 
 /**
@@ -45,7 +52,12 @@ export function utilizadoDoCartao(input: {
   return input.utilizadoParcelas + compras;
 }
 
-/** Linhas da fatura: parcelas ligadas à fatura + compras ainda sem parcela gerada. */
+/**
+ * Linhas de um ciclo: parcelas ligadas à fatura (fonte final = card_invoice_id)
+ * + compras do cartão ainda sem parcela gerada, associadas pelo ciclo do cartão.
+ * A data sozinha nunca decide: ela só serve para derivar o ciclo das compras
+ * que ainda não têm entidade de parcela/fatura.
+ */
 export function linhasDaFatura(input: {
   invoice: CardInvoice | null;
   parcelas: ExpenseInstallment[];
@@ -53,6 +65,8 @@ export function linhasDaFatura(input: {
   comprasComParcelas: Set<string>;
   despesaPorId: Map<string, Expense>;
   compraPorId: Map<string, Purchase>;
+  /** Quando informado, restringe as compras sem parcela ao ciclo da fatura. */
+  card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null;
 }): LinhaFatura[] {
   const linhas: LinhaFatura[] = [];
   const doInvoice = input.invoice
@@ -77,12 +91,17 @@ export function linhasDaFatura(input: {
           ? `${parcela.numero_parcela}/${parcela.total_parcelas}`
           : "—",
       valor: Number(parcela.valor_parcela) || 0,
+      purchaseId,
     });
   }
 
   for (const compra of input.comprasDoCartao) {
     if (input.comprasComParcelas.has(compra.id)) continue;
     if (compra.status_pagamento !== "COMPROMETIDO") continue;
+    if (input.card && input.invoice) {
+      const ciclo = cycleForDate(input.card, compra.data_compra);
+      if (ciclo.data_fechamento !== input.invoice.data_fechamento) continue;
+    }
     linhas.push({
       id: compra.id,
       data: compra.data_compra,
@@ -92,11 +111,13 @@ export function linhasDaFatura(input: {
       kind: kindOf(compra.tipo_compra as string),
       parcela: "—",
       valor: Number(compra.valor_total) || 0,
+      purchaseId: compra.id,
     });
   }
 
   return linhas.sort((a, b) => (a.data < b.data ? 1 : -1));
 }
+
 
 /**
  * Próximas faturas do cartão: parcelas futuras já registradas + projeção das
@@ -129,11 +150,16 @@ export function proximasObrigacoes(input: {
 
 export type ParcelamentoAtivo = {
   id: string;
+  purchaseId: string | null;
   descricao: string;
   numeroAtual: number;
   total: number;
+  pagas: number;
+  restantesQtd: number;
   valorParcela: number;
+  /** Soma somente das parcelas ainda não quitadas. */
   restante: number;
+  proximaCobranca: string | null;
 };
 
 /** Parcelamentos em andamento no cartão, com saldo futuro comprometido. */
@@ -165,14 +191,19 @@ export function parcelamentosAtivos(input: {
     const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
     resultado.push({
       id: expenseId,
+      purchaseId,
       descricao: compra?.estabelecimento ?? despesa?.descricao ?? "Parcelamento",
       numeroAtual: atual.numero_parcela,
       total: atual.total_parcelas,
+      pagas: ordenadas.filter((p) => p.status === "PAGO").length,
+      restantesQtd: pendentes.length,
       valorParcela: Number(atual.valor_parcela) || 0,
       restante: pendentes.reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0),
+      proximaCobranca: atual.data_vencimento ?? null,
     });
   }
   return resultado.sort((a, b) => b.restante - a.restante);
+
 }
 
 // ---------- Fonte de verdade da fatura do ciclo ----------
