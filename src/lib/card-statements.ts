@@ -10,7 +10,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { createPurchase, type NewPurchaseItem } from "@/lib/purchases";
-import { generateInstallments } from "@/lib/card-invoices";
+import { cycleForDate, generateInstallments } from "@/lib/card-invoices";
 import { suggestCategoryId } from "@/lib/category-suggest";
 import type { CreditCard } from "@/lib/finance";
 import { normalizeDescricao, type ParsedStatement, type StatementEntry } from "@/lib/card-statement-parsers";
