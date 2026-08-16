@@ -223,14 +223,8 @@ function Dashboard() {
                 to="/contas-fixas"
                 loading={engine.isLoading}
               />
-              <StatCard
-                icon={<ShoppingCart className="size-5" />}
-                label="Gastos realizados no mês"
-                value={formatCurrency(engine.gastosRealizados)}
-                hint={`Lançamentos de ${monthLabel(engine.month)}`}
-                to="/compras"
-                loading={engine.isLoading}
-              />
+              <GastosDoMesCard gasto={gastoMes} />
+
               <StatCard
                 icon={<Wallet className="size-5" />}
                 label="Dinheiro disponível real"
