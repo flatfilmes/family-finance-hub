@@ -694,7 +694,9 @@ function Compras() {
                   )}
                 </div>
               </li>
-            ))}
+              );
+            })}
+
           </ul>
         )}
       </Card>
