@@ -2703,6 +2703,7 @@ export type Database = {
         | "CONFIRMED"
         | "CANCELLED"
         | "ERROR"
+        | "UNDONE"
       document_read_strategy:
         | "DANFE_PDF_TABULAR"
         | "NFCE_QRCODE"
@@ -2979,6 +2980,7 @@ export const Constants = {
         "CONFIRMED",
         "CANCELLED",
         "ERROR",
+        "UNDONE",
       ],
       document_read_strategy: [
         "DANFE_PDF_TABULAR",
