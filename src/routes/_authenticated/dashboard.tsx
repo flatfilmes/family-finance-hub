@@ -62,6 +62,8 @@ function Dashboard() {
   const view = useViewMode();
   const escopo = view.scoped(filtroMembro);
   const gastos = useExpenseSummary(family?.id, escopo);
+  const gastoMes = useMonthlySpending(family?.id, escopo);
+
   const orcamento = useBudgetProgress(family?.id, undefined, escopo);
   const engine = useFinancialEngine(family?.id, escopo);
   const compromissos = useFutureCommitments(family?.id, escopo);
