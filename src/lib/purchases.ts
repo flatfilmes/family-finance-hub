@@ -427,12 +427,23 @@ export type PurchaseDeletionReport = {
   } | null;
 };
 
+/**
+ * `bloqueios` é uma lista no banco (text[] serializado em jsonb).
+ * Normalizamos aqui para que a UI nunca precise adivinhar o formato.
+ */
+export function normalizarBloqueios(valor: unknown): string[] {
+  if (Array.isArray(valor)) return valor.map((v) => String(v)).filter(Boolean);
+  if (typeof valor === "string" && valor.trim()) return [valor.trim()];
+  return [];
+}
+
 export async function inspectPurchaseDeletion(purchaseId: string) {
   const { data, error } = await supabase.rpc("inspect_purchase_deletion", {
     p_purchase_id: purchaseId,
   });
   if (error) throw new Error(friendlyDeleteError(error.message));
-  return data as unknown as PurchaseDeletionReport;
+  const relatorio = data as unknown as PurchaseDeletionReport;
+  return { ...relatorio, bloqueios: normalizarBloqueios(relatorio.bloqueios) };
 }
 
 /**
@@ -447,11 +458,16 @@ export async function deletePurchase(id: string) {
 
 /** Traduz erros técnicos do banco para uma mensagem compreensível. */
 export function friendlyDeleteError(message: string) {
+  if (/malformed array literal|22P02|invalid input syntax/i.test(message)) {
+    // Falha de serialização não é uma regra de negócio: nunca mostrar SQL cru.
+    return "Não foi possível concluir a operação por um erro interno. Tente novamente.";
+  }
   if (/foreign key|violates|fkey/i.test(message)) {
     return "Esta compra possui parcelas ou histórico financeiro vinculado e não pode ser excluída diretamente.";
   }
   return message;
 }
+
 
 // ------------------------------------------------------- mesclagem de duplicidade
 
@@ -492,8 +508,9 @@ export async function inspectPurchaseMerge(principalId: string, duplicadaId: str
     p_principal: principalId,
     p_duplicada: duplicadaId,
   });
-  if (error) throw new Error(error.message);
-  return data as unknown as PurchaseMergeReport;
+  if (error) throw new Error(friendlyDeleteError(error.message));
+  const relatorio = data as unknown as PurchaseMergeReport;
+  return { ...relatorio, bloqueios: normalizarBloqueios(relatorio.bloqueios) };
 }
 
 export async function mergeDuplicatePurchase(principalId: string, duplicadaId: string) {
@@ -501,7 +518,7 @@ export async function mergeDuplicatePurchase(principalId: string, duplicadaId: s
     p_principal: principalId,
     p_duplicada: duplicadaId,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyDeleteError(error.message));
   return data as unknown as { purchase_id: string; parcelas_transferidas: number };
 }
 
