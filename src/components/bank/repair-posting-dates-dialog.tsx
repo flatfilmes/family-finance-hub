@@ -140,7 +140,7 @@ export function RepairPostingDatesDialog({ accountId }: { accountId: string }) {
                         {l.description}
                       </span>
                       <span className="text-xs font-bold">{formatCurrency(Number(l.amount))}</span>
-                      <StatusBadge tone={l.action === "CORRIGIR" ? "warning" : "danger"}>
+                      <StatusBadge tone={l.action === "CORRIGIR" ? "warn" : "danger"}>
                         {l.action === "CORRIGIR" ? "Corrigir" : "Revisão necessária"}
                       </StatusBadge>
                     </div>
