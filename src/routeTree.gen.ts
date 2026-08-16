@@ -29,6 +29,7 @@ import { Route as AuthenticatedCartoesIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes.$cardId'
 import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authenticated/historico.index'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
+import { Route as AuthenticatedHistoricoAnoMesRouteImport } from './routes/_authenticated/historico.$ano.$mes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -140,6 +141,12 @@ const AuthenticatedMembroMemberIdRoute =
     path: '/membro/$memberId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedHistoricoAnoMesRoute =
+  AuthenticatedHistoricoAnoMesRouteImport.update({
+    id: '/historico/$ano/$mes',
+    path: '/historico/$ano/$mes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -161,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/bancos/': typeof AuthenticatedBancosIndexRoute
   '/cartoes/': typeof AuthenticatedCartoesIndexRoute
   '/historico/': typeof AuthenticatedHistoricoIndexRoute
+  '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -182,6 +190,7 @@ export interface FileRoutesByTo {
   '/bancos': typeof AuthenticatedBancosIndexRoute
   '/cartoes': typeof AuthenticatedCartoesIndexRoute
   '/historico': typeof AuthenticatedHistoricoIndexRoute
+  '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -205,6 +214,7 @@ export interface FileRoutesById {
   '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
   '/_authenticated/cartoes/': typeof AuthenticatedCartoesIndexRoute
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
+  '/_authenticated/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -228,6 +238,7 @@ export interface FileRouteTypes {
     | '/bancos/'
     | '/cartoes/'
     | '/historico/'
+    | '/historico/$ano/$mes'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -249,6 +260,7 @@ export interface FileRouteTypes {
     | '/bancos'
     | '/cartoes'
     | '/historico'
+    | '/historico/$ano/$mes'
   id:
     | '__root__'
     | '/'
@@ -271,6 +283,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bancos/'
     | '/_authenticated/cartoes/'
     | '/_authenticated/historico/'
+    | '/_authenticated/historico/$ano/$mes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -422,6 +435,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembroMemberIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/historico/$ano/$mes': {
+      id: '/_authenticated/historico/$ano/$mes'
+      path: '/historico/$ano/$mes'
+      fullPath: '/historico/$ano/$mes'
+      preLoaderRoute: typeof AuthenticatedHistoricoAnoMesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -442,6 +462,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
   AuthenticatedCartoesIndexRoute: typeof AuthenticatedCartoesIndexRoute
   AuthenticatedHistoricoIndexRoute: typeof AuthenticatedHistoricoIndexRoute
+  AuthenticatedHistoricoAnoMesRoute: typeof AuthenticatedHistoricoAnoMesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -461,6 +482,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,
   AuthenticatedCartoesIndexRoute: AuthenticatedCartoesIndexRoute,
   AuthenticatedHistoricoIndexRoute: AuthenticatedHistoricoIndexRoute,
+  AuthenticatedHistoricoAnoMesRoute: AuthenticatedHistoricoAnoMesRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
