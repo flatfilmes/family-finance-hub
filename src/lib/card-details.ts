@@ -124,31 +124,72 @@ export function linhasDaFatura(input: {
 
 
 /**
- * Próximas faturas do cartão: parcelas futuras já registradas + projeção das
- * recorrências ativas. Nunca soma o valor total da compra parcelada.
+ * Recorrências que pertencem a um ciclo do cartão, já sem as competências que
+ * viraram parcela/lançamento registrado (evita dupla contagem).
+ */
+export function recorrenciasDoCiclo(input: {
+  card: Pick<CreditCard, "dia_fechamento" | "dia_vencimento">;
+  invoice: {
+    id: string;
+    data_inicio_ciclo?: string | null;
+    data_fechamento: string;
+    data_vencimento: string;
+  };
+  recorrencias: RecurringExpense[];
+  parcelas: ExpenseInstallment[];
+}): RecurringOccurrence[] {
+  const jaLancadas = new Set<string>();
+  for (const p of input.parcelas) {
+    if (p.card_invoice_id === input.invoice.id && p.purchase_id) jaLancadas.add(p.purchase_id);
+  }
+  return recurringOccurrencesForCycle({
+    card: input.card,
+    cycle: input.invoice,
+    recorrencias: input.recorrencias.filter((r) => r.ativo),
+    jaLancadas,
+  });
+}
+
+/**
+ * Próximas faturas do cartão: parcelas ainda pendentes de cada ciclo futuro +
+ * as ocorrências recorrentes atribuídas ÀQUELE ciclo pela regra de fechamento.
+ * Nunca soma o valor total da compra parcelada nem repete o total mensal de
+ * recorrências em todos os meses.
  */
 export function proximasObrigacoes(input: {
+  card: Pick<CreditCard, "dia_fechamento" | "dia_vencimento">;
   parcelas: ExpenseInstallment[];
   faturas: CardInvoice[];
   recorrencias: RecurringExpense[];
+  meses?: number;
+  hoje?: Date;
 }) {
-  const doCartao = input.parcelas.filter(
-    (p) => p.status === "PENDENTE" && input.faturas.some((i) => i.id === p.card_invoice_id),
-  );
-  const base = upcomingInstallmentMonths(doCartao, 3);
-  const meses = base.map((m) => m.key);
-  const ativas = input.recorrencias.filter((r) => r.ativo);
-  // Se a competência já virou parcela registrada, não projeta de novo (evita dupla contagem).
-  const jaLancada = (purchaseId: string | null, mes: string) =>
-    !!purchaseId &&
-    doCartao.some((p) => p.purchase_id === purchaseId && p.data_vencimento.slice(0, 7) === mes);
-  return base.map((m) => {
-    const recorrente = ativas.reduce(
-      (acc, r) =>
-        acc + (jaLancada(r.purchase_id, m.key) ? 0 : (chargesInMonths(r, meses)[m.key] ?? 0)),
-      0,
-    );
-    return { ...m, parcelas: m.total, recorrencias: recorrente, total: m.total + recorrente };
+  const hoje = input.hoje ?? new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const futuras = input.faturas
+    .filter((i) => i.data_fechamento > hojeIso)
+    .sort((a, b) => (a.data_vencimento < b.data_vencimento ? -1 : 1))
+    .slice(0, input.meses ?? 3);
+
+  return futuras.map((invoice) => {
+    const parcelas = input.parcelas
+      .filter((p) => p.card_invoice_id === invoice.id && p.status === "PENDENTE")
+      .reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0);
+    const ocorrencias = recorrenciasDoCiclo({
+      card: input.card,
+      invoice,
+      recorrencias: input.recorrencias,
+      parcelas: input.parcelas,
+    });
+    const recorrencias = ocorrencias.reduce((acc, o) => acc + o.valor, 0);
+    return {
+      key: invoice.data_vencimento.slice(0, 7),
+      invoiceId: invoice.id,
+      parcelas: Math.round(parcelas * 100) / 100,
+      recorrencias: Math.round(recorrencias * 100) / 100,
+      ocorrencias,
+      total: Math.round((parcelas + recorrencias) * 100) / 100,
+    };
   });
 }
 
