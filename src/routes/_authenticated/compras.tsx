@@ -770,6 +770,10 @@ function Compras() {
       {compraDetalhe && (
         <PurchaseDetail purchase={compraDetalhe} onClose={() => setDetalhe(null)} />
       )}
+
+      {pagando && (
+        <RegistrarPagamentoDialog purchase={pagando} onClose={() => setPagando(null)} />
+      )}
     </div>
   );
 }
