@@ -106,9 +106,15 @@ function RevisarFaturaPage() {
   const conta = (status: MatchStatus) => lista.filter((i) => i.match_status === status).length;
   const atuais = lista.filter((i) => i.tipo_sugerido !== "PAGAMENTO");
   const totalExtraido = atuais.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
-  const creditos = atuais
-    .filter((i) => (Number(i.valor) || 0) < 0)
-    .reduce((acc, i) => acc + Number(i.valor), 0);
+  const soma = (filtrar: (i: StatementItem) => boolean) =>
+    atuais.filter(filtrar).reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
+  const compras = soma((i) => i.tipo_sugerido === "COMPRA" && Number(i.valor) > 0);
+  const creditos = soma((i) => Number(i.valor) < 0 || i.tipo_sugerido === "ESTORNO");
+  const taxas = soma(
+    (i) =>
+      Number(i.valor) > 0 &&
+      (i.tipo_sugerido === "TAXA" || i.tipo_sugerido === "JUROS" || i.tipo_sugerido === "AJUSTE"),
+  );
   const valorFatura = Number(importacao.valor_total_fatura) || 0;
   const diferenca = valorFatura - totalExtraido;
   const bateu = Math.abs(diferenca) < 0.01 && valorFatura > 0;
@@ -122,21 +128,19 @@ function RevisarFaturaPage() {
     subtotais?: { card_last4: string; valor: number }[];
     futuras?: { descricao_original: string }[];
   };
-  const subtotaisPdf = brutos.subtotais ?? [];
+  const proximaFatura = Number(brutos.metadata?.["next_invoice_amount"] ?? 0) || 0;
+  const demaisFaturas = Number(brutos.metadata?.["future_invoices_amount"] ?? 0) || 0;
   const futuroComprometido = Number(brutos.metadata?.["future_commitments_total"] ?? 0) || 0;
   const finais = Array.from(
     new Set(lista.map((i) => i.card_last4).filter(Boolean) as string[]),
   ).sort();
-  const somaDoCartao = (final: string) =>
-    lista
-      .filter((i) => i.card_last4 === final && i.tipo_sugerido !== "PAGAMENTO")
-      .reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
 
   const filtradas = lista.filter(
     (i) =>
       (filtro ? i.match_status === filtro : true) &&
       (filtroCartao ? i.card_last4 === filtroCartao : true),
   );
+
 
   const comprasDoCartao = (purchases ?? []).filter(
     (p) => p.credit_card_id === importacao.credit_card_id,
