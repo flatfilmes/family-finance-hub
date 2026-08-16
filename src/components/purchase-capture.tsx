@@ -690,19 +690,31 @@ function RevisarDocumento({
       {extracao && (
         <div className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
           <p>
-            Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
-            {Number(extracao.valor_total) > 0
-              ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
+            Leitura automática do PDF: {produtosLidos.length} produto(s) encontrado(s)
+            {valorLido > 0
+              ? ` · valor lido de ${formatCurrency(valorLido)}`
               : " · valor total não identificado"}
-            {pagamentoLido ? ` · pagamento sugerido: ${pagamentoLido}` : ""}. Confira e ajuste o que
-            precisar antes de confirmar.
+            {pagamentoLido ? ` · bandeira identificada: ${pagamentoLido}` : ""}. Confira e ajuste o
+            que precisar antes de confirmar.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="font-semibold">Produtos:</span>
             <ConfiancaTag nivel={confianca.items} />
+            {confere && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 font-semibold text-primary">
+                Valores conferidos
+              </span>
+            )}
+            {divergente && (
+              <span className="rounded-full bg-destructive/10 px-2 py-0.5 font-semibold text-destructive">
+                Divergência: soma dos produtos {formatCurrency(somaProdutos)} × nota{" "}
+                {formatCurrency(valorLido)}
+              </span>
+            )}
           </div>
         </div>
       )}
+
 
       <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
       <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
