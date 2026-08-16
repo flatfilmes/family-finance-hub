@@ -69,6 +69,7 @@ function AuditoriaContaPage() {
         transactions: transactions ?? [],
         imports: imports ?? [],
         checkpoints: checkpoints ?? [],
+        statementItems: statementItems ?? [],
         purchases: purchases ?? [],
         cardInvoiceIds: (invoices ?? []).map((i) => i.id),
         accounts: accounts ?? [],
