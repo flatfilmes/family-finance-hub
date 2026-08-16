@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { FileUp, Image as ImageIcon } from "lucide-react";
@@ -9,22 +9,27 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCardInvoices } from "@/hooks/useCardInvoices";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useIncomes } from "@/hooks/useFinanceData";
 import { readBankScreenshot } from "@/lib/bank-screenshot.functions";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 import { normalizeDescricao } from "@/lib/card-statement-parsers/generic";
+import { readBankStatementPdf } from "@/lib/bank-statement-parsers";
 import {
+  ACOES_SEM_EFEITO,
   MATCH_LABELS,
-  MOVEMENT_KINDS,
-  MOVEMENT_KIND_LABELS,
+  REVIEW_ACTIONS,
+  REVIEW_ACTION_LABELS,
   classificarMovimento,
   confirmBankStatementImport,
   createBankStatementImport,
-  readBankStatementPdf,
+  findExistingStatementImport,
   reconcileMovement,
   resumoDoExtrato,
-  type BankMovementKind,
+  statementFingerprint,
   type ParsedBankStatement,
+  type ReviewAction,
   type StatementDraftRow,
 } from "@/lib/bank-statements";
 import type { BankAccount } from "@/lib/bank-accounts";
@@ -39,8 +44,8 @@ async function toBase64(file: File) {
 }
 
 /**
- * Fluxo único de leitura: upload → dry run → diagnóstico → revisão → confirmação.
- * Nenhuma movimentação é persistida antes da revisão do usuário.
+ * Fluxo único de leitura: upload → dry run → diagnóstico → revisão →
+ * conciliação → confirmação. Nada é persistido antes da revisão do usuário.
  */
 export function BankStatementDialog({
   account,
@@ -61,8 +66,12 @@ export function BankStatementDialog({
   const { data: purchases } = usePurchases(familyId);
   const { data: accounts } = useBankAccounts(familyId);
   const { data: invoices } = useCardInvoices(familyId);
+  const { data: transactions } = useTransactions(familyId);
+  const { data: incomes } = useIncomes(familyId);
 
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [fingerprint, setFingerprint] = useState<string | null>(null);
+  const [duplicado, setDuplicado] = useState(false);
   const [resumo, setResumo] = useState<ParsedBankStatement | null>(null);
   const [linhas, setLinhas] = useState<StatementDraftRow[]>([]);
   const [saldoLido, setSaldoLido] = useState<number | null>(null);
@@ -75,15 +84,24 @@ export function BankStatementDialog({
         purchases: purchases ?? [],
         invoices: invoices ?? [],
         accounts: accounts ?? [],
+        transactions: transactions ?? [],
+        incomes: incomes ?? [],
       });
-      return { ...m, sugestao, incluir: sugestao.matchStatus === "NEW" };
+      return {
+        ...m,
+        sugestao,
+        acao: sugestao.reviewAction,
+        incluir: !ACOES_SEM_EFEITO.includes(sugestao.reviewAction),
+      };
     });
 
   const ler = useMutation({
     mutationFn: async (file: File) => {
+      const fp = await statementFingerprint(file);
+      const jaImportado = await findExistingStatementImport(account!.id, fp);
       if (modo === "PDF") {
         const parsed = await readBankStatementPdf(file);
-        return { parsed, saldo: parsed.saldoFinal, texto: "" };
+        return { parsed, saldo: parsed.saldoFinal, texto: "", fp, jaImportado: !!jaImportado };
       }
       const leitura = await readBankScreenshot({
         data: { imageBase64: await toBase64(file), mimeType: file.type },
@@ -104,13 +122,22 @@ export function BankStatementDialog({
         aceitos: leitura.movimentos.map((m) => ({ raw: m.descricao, valor: m.valor })),
         rejeitados: [],
       };
-      return { parsed, saldo: leitura.saldo, texto: leitura.textoDetectado };
+      return {
+        parsed,
+        saldo: leitura.saldo,
+        texto: leitura.textoDetectado,
+        fp,
+        jaImportado: !!jaImportado,
+      };
     },
-    onSuccess: ({ parsed, saldo, texto }) => {
+    onSuccess: ({ parsed, saldo, texto, fp, jaImportado }) => {
       setResumo(parsed);
       setLinhas(reconciliar(parsed));
       setSaldoLido(saldo);
       setTextoDetectado(texto);
+      setFingerprint(fp);
+      setDuplicado(jaImportado);
+      if (jaImportado) toast.warning("Este extrato já foi importado nesta conta.");
       if (!parsed.movimentos.length && saldo === null) {
         toast.error("Não conseguimos interpretar este arquivo. Use o modo diagnóstico.");
       }
@@ -128,22 +155,65 @@ export function BankStatementDialog({
         formato: modo,
         parser: resumo!.parser,
         createdBy: user?.id ?? null,
+        fingerprint,
         resumo: resumo!,
         linhas,
       });
       return confirmBankStatementImport(imp.id);
     },
     onSuccess: (r) => {
-      toast.success(`${r.criadas} movimentação(ões) criada(s). ${r.ignoradas} já existiam.`);
+      toast.success(
+        `${r.criadas} lançamento(s) criado(s), ${r.associadas} associado(s), ${r.ignoradas} ignorado(s).`,
+      );
       queryClient.invalidateQueries({ queryKey: ["bank-accounts", familyId] });
       queryClient.invalidateQueries({ queryKey: ["transactions", familyId] });
+      queryClient.invalidateQueries({ queryKey: ["purchases", familyId] });
+      queryClient.invalidateQueries({ queryKey: ["card-invoices", familyId] });
       queryClient.invalidateQueries({ queryKey: ["bank-statement-imports", account?.id] });
       onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const totais = resumoDoExtrato(linhas.filter((l) => l.incluir));
+  const totais = resumoDoExtrato(linhas);
+  const comEfeito = linhas.filter((l) => !ACOES_SEM_EFEITO.includes(l.acao));
+
+  const contagem = useMemo(() => {
+    const por = (acao: ReviewAction) => linhas.filter((l) => l.acao === acao).length;
+    return {
+      total: linhas.length,
+      associadas: por("ASSOCIATE_EXISTING"),
+      possiveis: linhas.filter((l) => l.sugestao.matchStatus === "POSSIBLE_MATCH").length,
+      novas: linhas.filter((l) => l.sugestao.matchStatus === "NEW").length,
+      transferencias: por("MATCH_TRANSFER"),
+      cartao: por("MATCH_CARD_PAYMENT"),
+      receitas: por("MATCH_INCOME"),
+      tarifas: por("REGISTER_FEE"),
+      estornos: por("REGISTER_REFUND"),
+      ignoradas: por("IGNORE"),
+    };
+  }, [linhas]);
+
+  // Validação do próprio extrato: saldo inicial + entradas - saídas = saldo final?
+  const conferencia = useMemo(() => {
+    if (!resumo || resumo.saldoInicial === null || resumo.saldoFinal === null) return null;
+    const esperado = resumo.saldoInicial + totais.entradas - totais.saidas;
+    const diferenca = Number((resumo.saldoFinal - esperado).toFixed(2));
+    return { esperado, diferenca, ok: Math.abs(diferenca) <= 0.02 };
+  }, [resumo, totais.entradas, totais.saidas]);
+
+  // Confronto com o saldo do sistema (nunca corrigido automaticamente).
+  const diferencaSistema =
+    resumo?.saldoFinal != null && account
+      ? Number((resumo.saldoFinal - Number(account.saldo_atual ?? 0)).toFixed(2))
+      : null;
+
+  const setAcao = (i: number, acao: ReviewAction) =>
+    setLinhas((rows) =>
+      rows.map((r, idx) =>
+        idx === i ? { ...r, acao, incluir: !ACOES_SEM_EFEITO.includes(acao) } : r,
+      ),
+    );
 
   return (
     <FormDialog
@@ -166,7 +236,7 @@ export function BankStatementDialog({
             <ImageIcon className="size-6 text-muted-foreground" />
           )}
           <span className="text-sm font-semibold">
-            {arquivo ? arquivo.name : modo === "PDF" ? "Escolher PDF do extrato" : "Escolher imagem"}
+            {arquivo ? arquivo.name : modo === "PDF" ? "Selecionar PDF do extrato" : "Escolher imagem"}
           </span>
           <span className="text-xs text-muted-foreground">
             {modo === "PDF" ? "PDF hoje · CSV e OFX em breve" : "PNG, JPG ou HEIC"}
@@ -180,6 +250,8 @@ export function BankStatementDialog({
               setArquivo(f);
               setResumo(null);
               setLinhas([]);
+              setDuplicado(false);
+              setFingerprint(null);
               if (f) ler.mutate(f);
             }}
           />
@@ -212,6 +284,13 @@ export function BankStatementDialog({
 
         {ler.isPending && <p className="text-sm text-muted-foreground">Lendo o documento...</p>}
 
+        {duplicado && (
+          <p className="rounded-2xl border border-warning/40 bg-warning/10 p-3 text-sm font-semibold text-warning-foreground">
+            Este extrato já foi importado. Confirme novamente apenas se quiser revisar as ações —
+            nada é duplicado.
+          </p>
+        )}
+
         {modo === "IMAGEM" && saldoLido !== null && (
           <div className="rounded-2xl border border-border p-4">
             <p className="text-xs font-semibold text-muted-foreground">Saldo identificado</p>
@@ -238,73 +317,88 @@ export function BankStatementDialog({
               <Resumo label="Saldo final" valor={resumo.saldoFinal} />
             </div>
 
+            <div className="flex flex-wrap gap-2 text-[11px]">
+              <Chip label="Movimentações" valor={contagem.total} />
+              <Chip label="Associadas" valor={contagem.associadas} />
+              <Chip label="Possíveis" valor={contagem.possiveis} />
+              <Chip label="Novas" valor={contagem.novas} />
+              <Chip label="Transferências" valor={contagem.transferencias} />
+              <Chip label="Pagamentos de cartão" valor={contagem.cartao} />
+              <Chip label="Receitas" valor={contagem.receitas} />
+              <Chip label="Tarifas" valor={contagem.tarifas} />
+              <Chip label="Estornos" valor={contagem.estornos} />
+              <Chip label="Ignoradas" valor={contagem.ignoradas} />
+            </div>
+
+            {conferencia && (
+              <p
+                className={`rounded-2xl p-3 text-xs font-semibold ${
+                  conferencia.ok
+                    ? "bg-success/10 text-success"
+                    : "bg-destructive/10 text-destructive"
+                }`}
+              >
+                {conferencia.ok
+                  ? "STATEMENT_BALANCE_OK — saldo inicial + entradas − saídas fecha com o saldo final."
+                  : `STATEMENT_BALANCE_MISMATCH — diferença de ${formatCurrency(
+                      Math.abs(conferencia.diferenca),
+                    )} no próprio extrato. Nada é ajustado automaticamente.`}
+              </p>
+            )}
+
+            {diferencaSistema !== null && Math.abs(diferencaSistema) > 0.02 && (
+              <p className="rounded-2xl bg-muted p-3 text-xs text-muted-foreground">
+                Saldo do sistema {formatCurrency(Number(account?.saldo_atual ?? 0))} · saldo do
+                extrato {formatCurrency(resumo.saldoFinal ?? 0)} · diferença{" "}
+                <strong>{formatCurrency(Math.abs(diferencaSistema))}</strong>. Há uma diferença a
+                revisar — depois de conciliar, use “Informar saldo” para criar um ajuste auditável.
+              </p>
+            )}
+
             {linhas.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Nenhuma movimentação interpretada neste documento.
               </p>
             ) : (
               <div className="max-h-[46vh] overflow-auto rounded-2xl border border-border">
-                <table className="w-full min-w-[640px] text-left text-sm">
+                <table className="w-full min-w-[720px] text-left text-sm">
                   <thead className="sticky top-0 bg-card">
                     <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <th className="px-3 py-2">Incluir</th>
                       <th className="px-3 py-2">Data</th>
                       <th className="px-3 py-2">Descrição</th>
-                      <th className="px-3 py-2">Tipo</th>
                       <th className="px-3 py-2">Situação</th>
+                      <th className="px-3 py-2">Ação</th>
                       <th className="px-3 py-2 text-right">Valor</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody>
                     {linhas.map((l, i) => (
-                      <tr key={`${l.descricaoOriginal}-${i}`}>
-                        <td className="px-3 py-2">
-                          <input
-                            type="checkbox"
-                            aria-label={`Incluir ${l.descricaoOriginal}`}
-                            checked={l.incluir}
-                            onChange={(e) =>
-                              setLinhas((rows) =>
-                                rows.map((r, idx) =>
-                                  idx === i ? { ...r, incluir: e.target.checked } : r,
-                                ),
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
+                      <tr key={`${l.descricaoOriginal}-${i}`} className="border-t border-border">
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">
                           {l.data ? formatDate(l.data) : "—"}
                         </td>
                         <td className="px-3 py-2">
-                          <span className="block font-semibold">{l.descricaoOriginal}</span>
+                          <span className="font-semibold">{l.descricaoOriginal}</span>
                           <span className="block text-[11px] text-muted-foreground">
                             {l.sugestao.motivo}
                           </span>
                         </td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">
+                          {MATCH_LABELS[l.sugestao.matchStatus]}
+                        </td>
                         <td className="px-3 py-2">
                           <select
-                            aria-label={`Tipo de ${l.descricaoOriginal}`}
+                            aria-label={`Ação para ${l.descricaoOriginal}`}
                             className={inputClass}
-                            value={l.tipo}
-                            onChange={(e) =>
-                              setLinhas((rows) =>
-                                rows.map((r, idx) =>
-                                  idx === i
-                                    ? { ...r, tipo: e.target.value as BankMovementKind }
-                                    : r,
-                                ),
-                              )
-                            }
+                            value={l.acao}
+                            onChange={(e) => setAcao(i, e.target.value as ReviewAction)}
                           >
-                            {MOVEMENT_KINDS.map((k) => (
-                              <option key={k} value={k}>
-                                {MOVEMENT_KIND_LABELS[k]}
+                            {REVIEW_ACTIONS.map((a) => (
+                              <option key={a} value={a}>
+                                {REVIEW_ACTION_LABELS[a]}
                               </option>
                             ))}
                           </select>
-                        </td>
-                        <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {MATCH_LABELS[l.sugestao.matchStatus]}
                         </td>
                         <td className="whitespace-nowrap px-3 py-2 text-right font-bold">
                           {l.valor >= 0 ? "+" : "-"}
@@ -318,9 +412,9 @@ export function BankStatementDialog({
             )}
 
             <p className="text-xs text-muted-foreground">
-              Lançamentos já existentes no sistema (compras, pagamento de fatura, transferências)
-              vêm desmarcados para não duplicar valores. O saldo informado anteriormente continua
-              sendo apenas o ponto de partida.
+              Compras já lançadas, pagamentos de fatura e transferências vêm como “associar” para
+              não duplicar valores. Transferência não vira gasto nem renda e pagamento de fatura não
+              vira compra.
             </p>
 
             <div className="flex flex-wrap justify-end gap-2">
@@ -333,12 +427,12 @@ export function BankStatementDialog({
               </button>
               <PrimaryButton
                 type="button"
-                disabled={confirmar.isPending || !linhas.some((l) => l.incluir)}
+                disabled={confirmar.isPending || linhas.length === 0}
                 onClick={() => confirmar.mutate()}
               >
                 {confirmar.isPending
                   ? "Confirmando..."
-                  : `Confirmar ${linhas.filter((l) => l.incluir).length} movimentação(ões)`}
+                  : `Confirmar revisão (${comEfeito.length} com efeito)`}
               </PrimaryButton>
             </div>
           </div>
@@ -365,5 +459,13 @@ function Resumo({ label, valor }: { label: string; valor: number | null }) {
       <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
       <p className="mt-0.5 font-bold">{valor === null ? "—" : formatCurrency(valor)}</p>
     </div>
+  );
+}
+
+function Chip({ label, valor }: { label: string; valor: number }) {
+  return (
+    <span className="rounded-full bg-muted px-3 py-1 font-semibold text-muted-foreground">
+      {label}: <strong className="text-foreground">{valor}</strong>
+    </span>
   );
 }
