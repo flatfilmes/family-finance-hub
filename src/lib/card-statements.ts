@@ -457,14 +457,17 @@ export async function processStatementPdf(input: {
         parcela_atual: entry.parcela_atual,
         total_parcelas: entry.total_parcelas,
         tipo_sugerido: entry.tipo_sugerido,
+        card_last4: entry.card_last4 ?? null,
         categoria_sugerida_id:
           entry.tipo_sugerido === "COMPRA"
-            ? suggestCategoryId(entry.descricao_original, input.categorias)
+            ? (categoriaPorNome(entry.categoria_banco, input.categorias) ??
+              suggestCategoryId(entry.descricao_original, input.categorias))
             : null,
         ordem: index,
         ...resultado,
       };
     });
+
 
     if (rows.length > 0) {
       const { error: itemsError } = await supabase.from("card_statement_items").insert(rows);
