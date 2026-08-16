@@ -569,3 +569,118 @@ describe("Banco do Brasil — janeiro/2026 lido em ordem documental", () => {
     expect(trace.find((t) => t.event === "OPENING_BALANCE")?.date).toBe("2025-12-29");
   });
 });
+
+/**
+ * DESCRIÇÃO ECONÔMICA — Lote/Documento nunca são descrição.
+ *
+ * Na linha financeira do BB frequentemente só existem as colunas técnicas
+ * ("13013 28308"); o Histórico ("Pagamento Fatura de Água" /
+ * "TUBARAO SANEAMENTO") fica nas linhas vizinhas. O event assembler agrega
+ * essas linhas SEM tocar em data, valor, sinal, contagem ou saldos.
+ */
+const hist = (page: number, y: number, texto: string): LinhaFisica => ({
+  page,
+  y,
+  cells: [[265, texto]],
+});
+const linhaTecnica = (
+  page: number,
+  y: number,
+  data: string | null,
+  lote: string,
+  documento: string,
+  valor: string,
+): LinhaFisica => ({
+  page,
+  y,
+  cells: [
+    ...(data ? ([[30, data]] as Array<[number, string]>) : []),
+    [110, lote],
+    [170, documento],
+    [520, valor],
+  ],
+});
+
+const DESCRICOES = porColunas([
+  { page: 1, y: 800, cells: [[30, "Extrato de Conta Corrente"]] },
+  { page: 1, y: 790, cells: [[30, "Período: 01 a 31/01/2026"]] },
+  { page: 1, y: 780, cells: [[30, "Dia"], [110, "Lote"], [170, "Documento"], [265, "Histórico"], [520, "Valor"]] },
+  { page: 1, y: 770, cells: [[30, "29/12/2025"], [265, "Saldo Anterior"], [520, "4.115,02 (+)"]] },
+
+  hist(1, 750, "Pagamento Fatura de Água"),
+  linhaTecnica(1, 744, "05/01/2026", "13013", "28308", "68,46 (-)"),
+  hist(1, 738, "TUBARAO SANEAMENTO"),
+
+  hist(1, 720, "Pix - Enviado"),
+  linhaTecnica(1, 714, null, "13105", "10501", "500,00 (-)"),
+  hist(1, 708, "04/01 12:48 EDUARDO GARCIA STANKOWICH"),
+
+  hist(1, 690, "Pix - Enviado"),
+  linhaTecnica(1, 684, "14/01/2026", "13105", "11401", "493,75 (-)"),
+  hist(1, 678, "14/01 14:28 CIA DO SORRISO"),
+
+  linhaTecnica(1, 660, null, "13105", "11402", "4,32 (-)"),
+  hist(1, 654, "Pagto cartão crédito"),
+
+  hist(1, 636, "Pix - Enviado"),
+  linhaTecnica(1, 630, "16/01/2026", "13105", "11601", "68,20 (-)"),
+  hist(1, 624, "16/01 19:44 POSTO MICHELLS BEACH"),
+
+  hist(1, 606, "Pagamento de Boleto"),
+  linhaTecnica(1, 600, "19/01/2026", "14397", "11901", "7.466,84 (-)"),
+  hist(1, 594, "ITAU UNIBANCO HOLDING S.A."),
+
+  hist(1, 576, "CLARO RESIDENCIAL"),
+  linhaTecnica(1, 570, "20/01/2026", "13105", "11902", "113,22 (-)"),
+  hist(1, 564, "NET SERVIçOS"),
+]);
+
+describe("Banco do Brasil — descrição econômica das transactions", () => {
+  const r = parseBancoDoBrasilLines(DESCRICOES);
+  const porValor = (v: number) => r.movimentos.find((m) => Math.abs(m.valor) === v);
+
+  it("nunca usa Lote/Documento como descrição", () => {
+    expect(r.movimentos).toHaveLength(7);
+    for (const m of r.movimentos) {
+      expect(m.descricaoOriginal.trim()).not.toMatch(/^[\d\s.]+$/);
+      expect(m.descricaoOriginal).not.toMatch(/\b(13013|13105|14397|10501|28308|11901|11902)\b/);
+    }
+  });
+
+  it("monta a descrição da conta de água a partir das linhas vizinhas", () => {
+    const agua = porValor(68.46);
+    expect(agua?.descricaoOriginal).toBe("Pagamento Fatura de Água · TUBARAO SANEAMENTO");
+    expect(agua?.bankOperation).toBe("Pagamento Fatura de Água");
+    expect(agua?.counterparty).toBe("TUBARAO SANEAMENTO");
+    expect(agua?.lot).toBe("13013");
+    expect(agua?.documentNumber).toBe("28308");
+    expect(agua?.descricaoNormalizada).toBe("PAGAMENTO FATURA AGUA TUBARAO SANEAMENTO");
+  });
+
+  it("separa operação e contraparte no Pix sem perder as datas", () => {
+    const pix = porValor(500);
+    expect(pix?.descricaoOriginal).toBe("Pix - Enviado · EDUARDO GARCIA STANKOWICH");
+    expect(pix?.bankOperation).toBe("Pix - Enviado");
+    expect(pix?.data).toBe("2026-01-05");
+    expect(pix?.eventDate).toBe("2026-01-04");
+  });
+
+  it("descreve os demais lançamentos do documento", () => {
+    expect(porValor(493.75)?.descricaoOriginal).toBe("Pix - Enviado · CIA DO SORRISO");
+    expect(porValor(68.2)?.descricaoOriginal).toBe("Pix - Enviado · POSTO MICHELLS BEACH");
+    expect(porValor(7466.84)?.descricaoOriginal).toBe(
+      "Pagamento de Boleto · ITAU UNIBANCO HOLDING S.A.",
+    );
+    expect(porValor(113.22)?.descricaoOriginal).toBe("CLARO RESIDENCIAL · NET SERVIÇOS");
+    expect(porValor(4.32)?.descricaoOriginal).toBe("Pagto cartão crédito");
+  });
+
+  it("mantém a identidade financeira intacta", () => {
+    expect(r.saldoInicial).toBe(4115.02);
+    expect(r.saldoInicialData).toBe("2025-12-29");
+    expect(r.periodoInicio).toBe("2026-01-01");
+    expect(r.periodoFim).toBe("2026-01-31");
+    expect(r.movimentos.every((m) => m.valor < 0)).toBe(true);
+    expect(porValor(4.32)?.data).toBe("2026-01-14");
+  });
+});
