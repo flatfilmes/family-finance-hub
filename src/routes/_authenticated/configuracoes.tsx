@@ -188,6 +188,8 @@ function Configuracoes() {
 
       <DemoModeCard />
 
+      <DocumentLibraryCard />
+
       <Card className="mt-4 max-w-xl">
 
         <h2 className="text-base font-bold">Conta</h2>
