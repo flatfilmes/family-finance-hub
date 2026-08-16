@@ -138,11 +138,25 @@ export function buildCommitments(input: {
     })
     .reduce((acc, r) => acc + (Number(r.valor) || 0), 0);
 
-  // 5) Outros compromissos: boletos ainda pendentes.
-  const outros = input.purchases
+  // 5) Outros compromissos: boletos e compras registradas sem pagamento realizado.
+  //    Enquanto pendente, a compra não saiu do banco — por isso é obrigação.
+  //    Quando o pagamento é registrado, ela sai daqui e o saldo já reflete a saída
+  //    (nunca as duas coisas ao mesmo tempo).
+  const boletos = input.purchases
     .filter((p) => p.status_pagamento === "PENDENTE" && p.forma_pagamento === "BOLETO")
     .filter((p) => p.data_compra <= to)
     .reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
+
+  const pendentes = input.purchases
+    .filter(
+      (p) =>
+        p.status_pagamento === "PENDENTE_PAGAMENTO" ||
+        p.status_pagamento === "PARCIALMENTE_PAGA",
+    )
+    .filter((p) => (p.data_prevista_pagamento ?? p.data_compra) <= to)
+    .reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
+
+  const outros = boletos + pendentes;
 
   const total = contasRecorrentes + faturasCartao + parcelas + recorrencias + outros;
 
