@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { Camera, Loader2, PencilLine, Plus, QrCode, Trash2, Upload } from "lucide-react";
 import { Card, Field, PrimaryButton, inputClass } from "@/components/page-header";
 import { MemberSelect } from "@/components/member-select";
+import { PdfDiagnosticButton } from "@/components/pdf-diagnostic/pdf-diagnostic-button";
+import { purchaseReceiptDryRun } from "@/lib/documents.diagnostic";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useDocumentExtraction, useExtractionItems } from "@/hooks/useDocuments";
@@ -213,6 +215,12 @@ export function NovaCompraOptions({
                     if (f) enviar.mutate(f);
                   }}
                 />
+                <div className="mt-3 flex justify-end">
+                  <PdfDiagnosticButton
+                    source="PURCHASE_RECEIPT"
+                    parserDryRun={purchaseReceiptDryRun}
+                  />
+                </div>
               </>
             )}
           </div>
