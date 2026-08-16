@@ -110,6 +110,31 @@ function detectarSecao(texto: string, atual: Secao): Secao {
   return atual;
 }
 
+/**
+ * PERÍODO OFICIAL DO EXTRATO BB — única fonte de `periodStart`/`periodEnd`.
+ *
+ * O cabeçalho real do banco abrevia o início: "Período: 01 a 31/01/2026".
+ * Também aceitamos "01/01 a 31/01/2026" e "01/01/2026 a 31/01/2026".
+ * Nunca derivamos período de saldo anterior, saldo do dia ou movimentações.
+ */
+export function parseBBStatementPeriod(
+  texto: string,
+): { start: string; end: string } | null {
+  const m = texto.match(
+    /per[ií]odo\s*:?\s*(\d{2})(?:\/(\d{2}))?(?:\/(\d{2,4}))?\s*(?:a|à|até|ate|-|–|até o dia)\s*(\d{2})\/(\d{2})\/(\d{2,4})/i,
+  );
+  if (!m) return null;
+  const ano4 = (a: string) => (a.length === 2 ? `20${a}` : a);
+  const fimAno = ano4(m[6]!);
+  const fim = `${fimAno}-${m[5]}-${m[4]}`;
+  const inicioMes = m[2] ?? m[5]!;
+  const inicioAno = m[3] ? ano4(m[3]) : fimAno;
+  const inicio = `${inicioAno}-${inicioMes}-${m[1]}`;
+  const valida = (d: string) => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(d);
+  if (!valida(inicio) || !valida(fim) || inicio > fim) return null;
+  return { start: inicio, end: fim };
+}
+
 function buscar(textos: string[], re: RegExp) {
   for (const linha of textos) {
     const m = linha.match(re);
