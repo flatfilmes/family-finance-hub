@@ -502,9 +502,10 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       rejeitadas.push({
         texto: linha,
         motivo,
-        page: pdfLinha.page,
-        column: pdfLinha.column ?? undefined,
+        ...(pdfLinha.page === undefined ? {} : { page: pdfLinha.page }),
+        ...(pdfLinha.column ? { column: pdfLinha.column } : {}),
       });
+
     };
     const chaveContexto = `${pdfLinha.page ?? 1}:${pdfLinha.column ?? "UNICA"}`;
     if (chaveContexto !== contexto) {
