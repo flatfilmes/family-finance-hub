@@ -729,11 +729,13 @@ export function getCycleDisplayValue(
  * - primeiro ciclo ainda não fechado => fatura em formação;
  * - demais ciclos futuros => apenas projeção de parcelas, nunca "fatura aberta".
  */
-export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
-  invoices: T[];
-  imports: ImportacaoFatura[];
-  hoje?: Date;
-}): CicloClassificado<T>[] {
+export function classificarCiclosDoCartao<T extends InvoiceBase>(
+  input: {
+    invoices: T[];
+    imports: ImportacaoFatura[];
+    hoje?: Date;
+  } & ContextoRecorrencias,
+): CicloClassificado<T>[] {
   const hoje = input.hoje ?? new Date();
   const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
   const ordenadas = input.invoices
@@ -758,12 +760,16 @@ export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
       emFormacaoUsada = true;
     } else estado = "PROJETADA";
 
-    // Fonte de verdade única — a fatura oficial confirmada sempre prevalece.
+    // Fonte de verdade única — a fatura oficial confirmada sempre prevalece;
+    // sem documento oficial, entram parcelas do ciclo + recorrências do ciclo.
     const display = getCycleDisplayValue({
       cardId: invoice.credit_card_id,
       invoice,
       imports: input.imports,
       estado,
+      card: input.card,
+      recorrencias: input.recorrencias,
+      parcelas: input.parcelas,
     });
 
     return {
@@ -774,8 +780,112 @@ export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
       oficial: !!oficialImport,
       valor: display.valor,
       fonte: display.fonte,
+      recorrencias: display.recorrencias,
     };
   });
+}
+
+/** Composição auditável de UM ciclo — fonte única de todas as telas. */
+export type ComposicaoCiclo = {
+  competencia: string;
+  estado: EstadoCiclo;
+  source: FonteValorCiclo;
+  normalPurchases: number;
+  installments: number;
+  recurringOccurrences: number;
+  fees: number;
+  credits: number;
+  total: number;
+  linhas: LinhaOficial[];
+  ocorrencias: RecurringOccurrence[];
+};
+
+/**
+ * buildCardCycleComposition — a ÚNICA função de composição de ciclo.
+ *
+ * - ciclo com fatura oficial confirmada: a decomposição vem dos lançamentos do
+ *   documento e o total é sempre o valor oficial (mudar o tipo de um lançamento
+ *   move valor entre naturezas, nunca altera o total);
+ * - ciclo em formação/projetado: compras e parcelas do ciclo + ocorrências
+ *   recorrentes atribuídas ao ciclo pela regra de fechamento.
+ */
+export function buildCardCycleComposition(input: {
+  ciclo: CicloClassificado<InvoiceBase> | null;
+  /** Lançamentos oficiais quando existe importação confirmada do ciclo. */
+  itensOficiais?: LancamentoOficial[] | null;
+  /** Linhas internas (parcelas + compras do ciclo) quando não há documento oficial. */
+  linhasInternas?: LinhaOficial[];
+  compraPorId?: Map<string, Purchase>;
+}): ComposicaoCiclo {
+  const ciclo = input.ciclo;
+  const vazio: ComposicaoCiclo = {
+    competencia: ciclo?.competencia ?? "",
+    estado: ciclo?.estado ?? "PROJETADA",
+    source: ciclo?.fonte ?? "PROJECTED",
+    normalPurchases: 0,
+    installments: 0,
+    recurringOccurrences: 0,
+    fees: 0,
+    credits: 0,
+    total: 0,
+    linhas: [],
+    ocorrencias: [],
+  };
+  if (!ciclo) return vazio;
+
+  const oficial = ciclo.fonte === "OFFICIAL_STATEMENT" && (input.itensOficiais?.length ?? 0) > 0;
+
+  if (oficial) {
+    const linhas = linhasOficiaisDaFatura({
+      items: input.itensOficiais!,
+      vencimento: ciclo.invoice.data_vencimento,
+      compraPorId: input.compraPorId,
+    });
+    const resumo = resumoOficialDaFatura(linhas);
+    return {
+      ...vazio,
+      source: "OFFICIAL_STATEMENT",
+      normalPurchases: resumo.normais,
+      installments: resumo.parceladas,
+      recurringOccurrences: resumo.recorrentes,
+      fees: resumo.taxas,
+      credits: resumo.creditos,
+      // O total oficial da fatura nunca é substituído pela soma das naturezas.
+      total: ciclo.valor,
+      linhas,
+      ocorrencias: [],
+    };
+  }
+
+  // Ocorrências recorrentes viram linhas do ciclo (mesma verdade do resumo).
+  const linhasRecorrentes: LinhaOficial[] = ciclo.recorrencias.map((o) => ({
+    id: o.id,
+    itemId: o.id,
+    data: o.data,
+    estabelecimento: o.nome,
+    memberId: null,
+    categoriaId: null,
+    kind: "recorrentes",
+    parcela: "—",
+    valor: o.valor,
+    purchaseId: o.purchaseId,
+  }));
+  const linhas = [...(input.linhasInternas ?? []), ...linhasRecorrentes].sort((a, b) =>
+    a.data < b.data ? 1 : -1,
+  );
+  const resumo = resumoOficialDaFatura(linhas);
+  return {
+    ...vazio,
+    source: ciclo.fonte,
+    normalPurchases: resumo.normais,
+    installments: resumo.parceladas,
+    recurringOccurrences: resumo.recorrentes,
+    fees: resumo.taxas,
+    credits: resumo.creditos,
+    total: resumo.total,
+    linhas,
+    ocorrencias: ciclo.recorrencias,
+  };
 }
 
 
