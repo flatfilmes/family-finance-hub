@@ -187,6 +187,8 @@ export async function createPurchase(input: {
       valor_unitario: Number(i.valor_unitario) || 0,
       valor_total: itemTotal(i),
       categoria_id: i.categoria_id || null,
+      categoria_sugerida: i.categoria_sugerida || null,
+      categoria_ajustada: !!i.categoria_sugerida && i.categoria_sugerida !== (i.categoria_id || null),
     }));
     const { error: itemsError } = await supabase.from("purchase_items").insert(rows);
     if (itemsError) throw itemsError;
