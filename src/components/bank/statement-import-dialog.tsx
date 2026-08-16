@@ -6,6 +6,11 @@ import { FormDialog } from "@/components/form-dialog";
 import { PrimaryButton, inputClass } from "@/components/page-header";
 import { PdfDiagnosticButton } from "@/components/pdf-diagnostic/pdf-diagnostic-button";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
+import {
+  pdfDiagnosticFlagEnabled,
+  setPdfDiagnosticFlag,
+} from "@/lib/pdf-diagnostic/availability";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCardInvoices } from "@/hooks/useCardInvoices";
@@ -77,6 +82,7 @@ export function BankStatementDialog({
   const [linhas, setLinhas] = useState<StatementDraftRow[]>([]);
   const [saldoLido, setSaldoLido] = useState<number | null>(null);
   const [textoDetectado, setTextoDetectado] = useState("");
+  const [diagnostico, setDiagnostico] = useState(0);
 
   const reconciliar = (parsed: ParsedBankStatement): StatementDraftRow[] =>
     parsed.movimentos.map((m) => {
@@ -253,32 +259,35 @@ export function BankStatementDialog({
               setLinhas([]);
               setDuplicado(false);
               setFingerprint(null);
-              if (f) ler.mutate(f);
+              if (f && modo === "IMAGEM") ler.mutate(f);
             }}
           />
         </label>
 
         {modo === "PDF" && arquivo && (
-          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border p-3">
-            <span className="text-xs text-muted-foreground">
+          <div className="space-y-2 rounded-2xl border border-border p-3">
+            <p className="text-xs text-muted-foreground">
               Arquivo selecionado: <strong className="text-foreground">{arquivo.name}</strong>
-            </span>
-            <PdfDiagnosticButton
-              source="BANK_STATEMENT"
-              file={arquivo}
-              parserDryRun={bankStatementDryRun}
-              className="ml-auto"
-            />
-            <button
-              type="button"
-              onClick={() => ler.mutate(arquivo)}
-              disabled={ler.isPending}
-              className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-60"
-            >
-              {ler.isPending ? "Processando…" : "Processar extrato"}
-            </button>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <PdfDiagnosticButton
+                source="BANK_STATEMENT"
+                file={arquivo}
+                parserDryRun={bankStatementDryRun}
+              />
+              <button
+                type="button"
+                onClick={() => ler.mutate(arquivo)}
+                disabled={ler.isPending}
+                className="ml-auto rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+              >
+                {ler.isPending ? "Processando…" : "Revisar extrato"}
+              </button>
+            </div>
+            <DiagnosticoHint onEnable={() => setDiagnostico((n) => n + 1)} key={diagnostico} />
           </div>
         )}
+
 
         {ler.isPending && <p className="text-sm text-muted-foreground">Lendo o documento...</p>}
 
@@ -465,5 +474,26 @@ function Chip({ label, valor }: { label: string; valor: number }) {
     <span className="rounded-full bg-muted px-3 py-1 font-semibold text-muted-foreground">
       {label}: <strong className="text-foreground">{valor}</strong>
     </span>
+  );
+}
+
+/**
+ * Atalho para ADMIN ligar a flag interna de diagnóstico sem usar a query string.
+ * Não altera dados: apenas revela o botão "Modo diagnóstico PDF".
+ */
+function DiagnosticoHint({ onEnable }: { onEnable: () => void }) {
+  const perms = usePermissions();
+  if (!perms.isAdmin || pdfDiagnosticFlagEnabled() || import.meta.env.DEV) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setPdfDiagnosticFlag(true);
+        onEnable();
+      }}
+      className="text-[11px] font-semibold text-muted-foreground underline-offset-2 hover:underline"
+    >
+      Ativar modo diagnóstico PDF
+    </button>
   );
 }

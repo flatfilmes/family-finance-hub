@@ -20,3 +20,15 @@ export function pdfDiagnosticFlagEnabled(): boolean {
     return false;
   }
 }
+
+/** Liga/desliga a flag interna sem precisar da query string. */
+export function setPdfDiagnosticFlag(ativo: boolean) {
+  if (typeof window === "undefined") return;
+  try {
+    if (ativo) localStorage.setItem(CHAVE, "1");
+    else localStorage.removeItem(CHAVE);
+  } catch {
+    /* armazenamento indisponível */
+  }
+}
+
