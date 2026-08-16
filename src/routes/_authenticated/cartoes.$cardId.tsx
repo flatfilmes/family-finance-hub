@@ -25,12 +25,14 @@ import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
 import {
   ESTADO_CICLO_LABELS,
   KIND_OFICIAL_LABELS,
+  janelaDeCiclos,
   linhasOficiaisDaFatura,
   resumoOficialDaFatura,
   type EstadoCiclo,
   type KindOficial,
   type LinhaOficial,
 } from "@/lib/card-details";
+
 import { useStatementItems } from "@/hooks/useCardStatements";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
