@@ -270,6 +270,8 @@ export type BankAudit = {
     mesesComContinuidade: number;
     totalTransicoes: number;
     mesesValidados: number;
+    /** Subconjunto validado dia a dia, com todos os checkpoints conferindo. */
+    mesesValidadosCompletos: number;
     totalMeses: number;
     mesesComDivergencia: number;
     mesesSemCheckpoint: number;
