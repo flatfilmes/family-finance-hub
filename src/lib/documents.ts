@@ -340,6 +340,17 @@ export async function processDocumentPdf(input: {
 
     const lido = await readNotaFiscalPdf(arquivo);
 
+    // Biblioteca de tipos: identifica o formato e registra a confiança.
+    // Não interfere no parser DANFE já validado — apenas classifica.
+    const deteccao = detectDocumentType(lido.linhas);
+    let tipoId: string | null = null;
+    try {
+      const tipo = await fetchDocumentTypeByCode(deteccao.codigo);
+      tipoId = tipo?.id ?? null;
+    } catch (err) {
+      console.warn("Não foi possível carregar o tipo de documento", err);
+    }
+
     // Uma extração por documento: substitui a leitura anterior.
     await supabase.from("document_extractions").delete().eq("document_id", doc.id);
 
