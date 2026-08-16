@@ -54,7 +54,7 @@ export function DeleteStatementImportDialog({
   onClose,
 }: {
   importacao: StatementImport | null;
-  familyId?: string;
+  familyId?: string | undefined;
   onClose: () => void;
 }) {
   const excluir = useDeleteStatementImport(familyId);
@@ -133,9 +133,9 @@ export function CardStatementImports({
   cardId,
   onImportar,
 }: {
-  familyId?: string;
+  familyId?: string | undefined;
   cardId: string;
-  onImportar?: () => void;
+  onImportar?: (() => void) | undefined;
 }) {
   const perms = usePermissions();
   const { data, isLoading } = useStatementImports(familyId, cardId);
