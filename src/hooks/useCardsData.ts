@@ -4,7 +4,12 @@ import { useCardInvoices, useCardOverview, useInstallments } from "@/hooks/useCa
 import { usePurchases } from "@/hooks/usePurchases";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
-import { useStatementImports } from "@/hooks/useCardStatements";
+import { useConfirmedInstallmentItems, useStatementImports } from "@/hooks/useCardStatements";
+import {
+  mesclarParcelasProjetadas,
+  projetarParcelasDoCiclo,
+} from "@/lib/card-installment-projection";
+
 import {
   agruparCiclos,
   buildCardCycleComposition,
