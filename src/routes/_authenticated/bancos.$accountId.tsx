@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeftRight, FileUp, ImagePlus, Plus, Receipt, Undo2, Wallet } from "lucide-react";
+import { FileUp, ImagePlus, Plus, Receipt, Undo2, Wallet } from "lucide-react";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
