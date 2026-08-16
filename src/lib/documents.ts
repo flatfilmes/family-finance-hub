@@ -4,6 +4,7 @@ import { createPurchase, itemTotal, type NewPurchaseItem, type PurchaseInsert } 
 import type { ExpenseRecurrence } from "@/lib/recurring-expenses";
 import type { CreditCard } from "@/lib/finance";
 import { readNotaFiscalPdf } from "@/lib/pdf-extract";
+import { detectDocumentType, fetchDocumentTypeByCode } from "@/lib/document-types";
 
 export type FinancialDocument = Database["public"]["Tables"]["documents"]["Row"];
 export type FinancialDocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
