@@ -690,6 +690,63 @@ export function reviewSummary(
 
 
 
+// ------------------------------------------------------------------ conferência da fatura
+
+export type InvoiceCheckLine = { descricao: string; valor: number };
+
+export type InvoiceCheck = {
+  compras: number;
+  creditos: number;
+  taxas: number;
+  detalheTaxas: InvoiceCheckLine[];
+  totalReconhecido: number;
+  totalOficial: number;
+  diferenca: number;
+  confere: boolean;
+};
+
+type CheckItemLike = {
+  descricao_original: string;
+  valor: number | string;
+  tipo_sugerido: StatementItemKind;
+};
+
+/**
+ * Fechamento matemático da fatura: compras + créditos/estornos + taxas.
+ * IOF internacional é taxa real e entra em "Taxas e serviços".
+ */
+export function invoiceCheck(items: CheckItemLike[], totalOficial: number): InvoiceCheck {
+  const atuais = items.filter((i) => i.tipo_sugerido !== "PAGAMENTO");
+  const valor = (i: CheckItemLike) => Number(i.valor) || 0;
+  const ehTaxa = (i: CheckItemLike) =>
+    valor(i) > 0 &&
+    (i.tipo_sugerido === "TAXA" || i.tipo_sugerido === "JUROS" || i.tipo_sugerido === "AJUSTE");
+  const compras = atuais
+    .filter((i) => i.tipo_sugerido === "COMPRA" && valor(i) > 0)
+    .reduce((a, i) => a + valor(i), 0);
+  const creditos = atuais
+    .filter((i) => valor(i) < 0 || i.tipo_sugerido === "ESTORNO")
+    .reduce((a, i) => a + valor(i), 0);
+  const detalheTaxas = atuais
+    .filter(ehTaxa)
+    .map((i) => ({ descricao: i.descricao_original, valor: valor(i) }));
+  const taxas = detalheTaxas.reduce((a, l) => a + l.valor, 0);
+  const totalReconhecido = atuais.reduce((a, i) => a + valor(i), 0);
+  const diferenca = totalOficial - totalReconhecido;
+  return {
+    compras: round2(compras),
+    creditos: round2(creditos),
+    taxas: round2(taxas),
+    detalheTaxas,
+    totalReconhecido: round2(totalReconhecido),
+    totalOficial: round2(totalOficial),
+    diferenca: round2(diferenca),
+    confere: totalOficial > 0 && Math.abs(diferenca) < 0.01,
+  };
+}
+
+const round2 = (v: number) => Math.round(v * 100) / 100;
+
 // ------------------------------------------------------------------ persistência
 
 export async function findDuplicateImport(familyId: string, fingerprint: string) {
