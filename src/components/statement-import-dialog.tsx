@@ -12,7 +12,7 @@ import {
   useCreateStatementImport,
   useReadStatementPdf,
 } from "@/hooks/useCardStatements";
-import { formatOptional } from "@/lib/card-statements";
+import { formatOptional, PrepareStatementError } from "@/lib/card-statements";
 import type { ParsedStatement } from "@/lib/card-statement-parsers";
 import { formatCurrency, type CreditCard } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
