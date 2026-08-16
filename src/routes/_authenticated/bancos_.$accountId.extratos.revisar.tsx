@@ -42,6 +42,8 @@ import {
   type StatementDraftRow,
 } from "@/lib/bank-statements";
 import { clearStatementDraft, loadStatementDraft } from "@/lib/bank-statements/draft";
+import { toCanonicalStatement } from "@/lib/bank-statements/canonical";
+import { validateStatement } from "@/lib/bank-statements/validate";
 
 export const Route = createFileRoute("/_authenticated/bancos_/$accountId/extratos/revisar")({
   head: () => ({
@@ -133,6 +135,19 @@ function RevisarExtrato() {
 
   const draft = useMemo(() => loadStatementDraft(accountId), [accountId]);
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
+
+  // TRAVA DE QUALIDADE: extrato lido com período, saldo ou soma inconsistentes
+  // não pode ser gravado. A conferência é feita sobre o documento canônico.
+  const validacao = useMemo(() => {
+    if (!draft) return null;
+    const canonical = toCanonicalStatement(draft.resumo, {
+      statementId: draft.fingerprint ?? draft.nomeArquivo,
+      bank: draft.resumo.identificacao?.banco ?? null,
+      account: draft.resumo.identificacao?.conta ?? null,
+    });
+    return validateStatement(canonical);
+  }, [draft]);
+  const bloqueado = validacao?.status === "PARSED_STATEMENT_INVALID";
 
   const [linhas, setLinhas] = useState<StatementDraftRow[] | null>(null);
   const [filtro, setFiltro] = useState<Filtro>("TODOS");
@@ -541,6 +556,24 @@ function RevisarExtrato() {
         </Card>
       )}
 
+      {bloqueado && (
+        <Card>
+          <div className="flex items-start gap-3">
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
+            <div>
+              <h2 className="font-bold text-destructive">Leitura do extrato inválida</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Este documento não pode ser gravado: o que foi lido não fecha com o próprio
+                extrato. Corrija o arquivo ou abra o diagnóstico de importação.
+              </p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                {validacao?.problems.map((p) => <li key={p}>{p}</li>)}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 px-4 py-3 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3">
           <p className="text-xs text-muted-foreground">
@@ -562,10 +595,12 @@ function RevisarExtrato() {
             </button>
             <PrimaryButton
               type="button"
-              disabled={confirmar.isPending || rows.length === 0}
+              disabled={confirmar.isPending || rows.length === 0 || bloqueado}
               onClick={() => confirmar.mutate()}
             >
-              {confirmar.isPending
+              {bloqueado
+                ? "Leitura inválida"
+                : confirmar.isPending
                 ? "Confirmando…"
                 : `Confirmar ${contagem.total} movimentaç${contagem.total === 1 ? "ão" : "ões"}`}
             </PrimaryButton>

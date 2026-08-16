@@ -175,7 +175,7 @@ export function toCanonicalStatement(
   const checkpoints: CanonicalCheckpoint[] = (parsed.checkpoints ?? []).map((c) => ({
     date: c.data,
     amount: c.saldo,
-    type: "DAILY" as const,
+    type: c.tipo === "CLOSING" ? ("CLOSING" as const) : ("DAILY" as const),
     label: c.rotulo ?? null,
   }));
 
@@ -188,8 +188,12 @@ export function toCanonicalStatement(
     statementId: ctx.statementId,
     periodStart: parsed.periodoInicio,
     periodEnd: parsed.periodoFim,
-    openingBalance: { date: null, amount: parsed.saldoInicial },
-    closingBalance: { date: parsed.periodoFim, amount: parsed.saldoFinal },
+    // Saldo anterior é METADATA fora do período: sua data nunca vira periodStart.
+    openingBalance: { date: parsed.saldoInicialData ?? null, amount: parsed.saldoInicial },
+    closingBalance: {
+      date: parsed.saldoFinalData ?? parsed.periodoFim,
+      amount: parsed.saldoFinal,
+    },
     transactions: toTransactions(parsed.movimentos, parsed.aceitos ?? [], base),
     futureTransactions: toTransactions(
       parsed.futuros ?? [],

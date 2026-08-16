@@ -110,6 +110,31 @@ function detectarSecao(texto: string, atual: Secao): Secao {
   return atual;
 }
 
+/**
+ * PERÍODO OFICIAL DO EXTRATO BB — única fonte de `periodStart`/`periodEnd`.
+ *
+ * O cabeçalho real do banco abrevia o início: "Período: 01 a 31/01/2026".
+ * Também aceitamos "01/01 a 31/01/2026" e "01/01/2026 a 31/01/2026".
+ * Nunca derivamos período de saldo anterior, saldo do dia ou movimentações.
+ */
+export function parseBBStatementPeriod(
+  texto: string,
+): { start: string; end: string } | null {
+  const m = texto.match(
+    /per[ií]odo\s*:?\s*(\d{2})(?:\/(\d{2}))?(?:\/(\d{2,4}))?\s*(?:a|à|até|ate|-|–|até o dia)\s*(\d{2})\/(\d{2})\/(\d{2,4})/i,
+  );
+  if (!m) return null;
+  const ano4 = (a: string) => (a.length === 2 ? `20${a}` : a);
+  const fimAno = ano4(m[6]!);
+  const fim = `${fimAno}-${m[5]}-${m[4]}`;
+  const inicioMes = m[2] ?? m[5]!;
+  const inicioAno = m[3] ? ano4(m[3]) : fimAno;
+  const inicio = `${inicioAno}-${inicioMes}-${m[1]}`;
+  const valida = (d: string) => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(d);
+  if (!valida(inicio) || !valida(fim) || inicio > fim) return null;
+  return { start: inicio, end: fim };
+}
+
 function buscar(textos: string[], re: RegExp) {
   for (const linha of textos) {
     const m = linha.match(re);
@@ -267,15 +292,8 @@ function recuperarDatas(
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
 export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const periodoTexto = textos
-    .join(" ")
-    .match(/per[ií]odo\s*:?\s*(\d{2}\/\d{2}\/\d{4})\s*(?:a|até|-)\s*(\d{2}\/\d{2}\/\d{4})/i);
-  const periodoOficial = periodoTexto
-    ? {
-        inicio: lerData(periodoTexto[1]!, new Date().getFullYear()).data,
-        fim: lerData(periodoTexto[2]!, new Date().getFullYear()).data,
-      }
-    : null;
+  const cabecalho = parseBBStatementPeriod(textos.join(" "));
+  const periodoOficial = cabecalho ? { inicio: cabecalho.start, fim: cabecalho.end } : null;
   const anoBase = periodoOficial?.inicio
     ? Number(periodoOficial.inicio.slice(0, 4))
     : new Date().getFullYear();
@@ -314,7 +332,9 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
   let secao: Secao = "MOVIMENTOS";
   let ultimaData: string | null = null;
   let saldoInicial: number | null = null;
+  let saldoInicialData: string | null = null;
   let saldoFinal: number | null = null;
+  let saldoFinalData: string | null = null;
 
 
   for (let i = 0; i < linhas.length; i++) {
@@ -348,8 +368,6 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const { data: dataNaLinha, resto } = comData
       ? lerData(raw, anoBase)
       : { data: null, resto: raw };
-    const data = dataNaLinha ?? datasRecuperadas.get(i) ?? null;
-    if (data) ultimaData = data;
 
 
     const descricaoNaLinha = resto
@@ -363,17 +381,34 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     // vem das linhas vizinhas da coluna "Histórico".
     const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
 
+    const ehSaldo = ehSaldoMetadata(descricao);
+    // Linha de saldo NUNCA pega data por geometria: "Saldo do dia" pertence ao
+    // último dia lançado antes dele (o PDF não repete a data nessa linha).
+    const data: string | null = ehSaldo
+      ? dataNaLinha ?? ultimaData
+      : dataNaLinha ?? datasRecuperadas.get(i) ?? null;
+    if (data && !ehSaldo) ultimaData = data;
 
-
-
-    if (ehSaldoMetadata(descricao)) {
+    if (ehSaldo) {
       const t = plano(descricao);
-      if (t.startsWith("saldo anterior")) saldoInicial = valor;
-      else saldoFinal = valor;
+      const abertura = t.startsWith("saldo anterior");
+      const fechamento = /^s a l d o$|^saldo$|^saldo final|^saldo atual/.test(t);
+      if (abertura) {
+        saldoInicial = valor;
+        saldoInicialData = data ?? saldoInicialData;
+      } else {
+        saldoFinal = valor;
+        if (fechamento) saldoFinalData = data ?? saldoFinalData;
+      }
       // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
-      const dataCheck = data ?? ultimaData;
-      if (dataCheck && !t.startsWith("saldo anterior")) {
-        checkpoints.push({ data: dataCheck, saldo: valor, rotulo: descricao });
+      // O sinal impresso é preservado (saldo devedor fica negativo).
+      if (data && !abertura) {
+        checkpoints.push({
+          data,
+          saldo: valor,
+          rotulo: descricao,
+          tipo: fechamento ? "CLOSING" : "DAILY",
+        });
       }
       rejeitados.push({
         raw,
@@ -447,14 +482,17 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     return null;
   })();
 
-  const datas = movimentos.map((m) => m.data).filter((d): d is string => !!d).sort();
-
   return {
     parser: BB_PARSER_ID,
-    periodoInicio: periodoOficial?.inicio ?? datas[0] ?? null,
-    periodoFim: periodoOficial?.fim ?? datas[datas.length - 1] ?? null,
+    // Período vem EXCLUSIVAMENTE do cabeçalho oficial. Sem cabeçalho o extrato
+    // fica sem período e é bloqueado pela validação — nunca inferimos das
+    // movimentações, do saldo anterior ou do saldo do dia.
+    periodoInicio: periodoOficial?.inicio ?? null,
+    periodoFim: periodoOficial?.fim ?? null,
     saldoInicial,
+    saldoInicialData,
     saldoFinal: saldoFinal ?? saldoRotulado,
+    saldoFinalData: saldoFinalData ?? periodoOficial?.fim ?? null,
     movimentos,
     // Um checkpoint por dia: o último saldo impresso é o que vale.
     checkpoints: [...new Map(checkpoints.map((c) => [c.data, c])).values()].sort((a, b) =>

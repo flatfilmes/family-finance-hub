@@ -92,6 +92,8 @@ export type ParsedBalanceCheckpoint = {
   data: string;
   saldo: number;
   rotulo?: string | null;
+  /** Natureza do saldo impresso: diário ou fechamento do período. */
+  tipo?: "DAILY" | "CLOSING";
 };
 
 /** Resultado completo da leitura de um extrato (dry run). */
@@ -100,7 +102,11 @@ export type ParsedBankStatement = {
   periodoInicio: string | null;
   periodoFim: string | null;
   saldoInicial: number | null;
+  /** Data do "Saldo Anterior" — FORA do período, nunca é periodStart. */
+  saldoInicialData?: string | null;
   saldoFinal: number | null;
+  /** Data do saldo de fechamento impresso ("S A L D O"). */
+  saldoFinalData?: string | null;
   movimentos: ParsedBankMovement[];
   /** Saldos diários impressos no documento ("Saldo do dia", "S A L D O"). */
   checkpoints?: ParsedBalanceCheckpoint[];
