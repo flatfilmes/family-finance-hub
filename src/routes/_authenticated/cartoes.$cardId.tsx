@@ -425,13 +425,16 @@ function CartaoDetalhePage() {
                     Ciclo de {formatDate(fatura.data_inicio_ciclo)} a{" "}
                     {formatDate(fatura.data_fechamento)} · vencimento{" "}
                     {formatDate(fatura.data_vencimento)}
-                    {estadoSelecionado === "EM_FORMACAO"
-                      ? " · valor parcial, o ciclo ainda não fechou"
-                      : usarOficial
-                        ? " · fatura oficial importada"
-                        : " · valor calculado pelo sistema"}
+                    {projetado
+                      ? " · projeção, este ciclo ainda não existe como fatura"
+                      : estadoSelecionado === "EM_FORMACAO"
+                        ? " · valor parcial, o ciclo ainda não fechou"
+                        : usarOficial
+                          ? " · fatura oficial importada"
+                          : " · valor calculado pelo sistema"}
                   </p>
                 )}
+
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {estadoSelecionado && (
