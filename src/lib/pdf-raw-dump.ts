@@ -92,8 +92,9 @@ export async function rawPdfDump(file: Blob, fileName = "arquivo.pdf"): Promise<
         width: round(item.width ?? 0),
         height: round(item.height ?? 0),
         transform: transform.map(round),
-        hasEOL: item.hasEOL,
-        fontName: item.fontName,
+        ...(item.hasEOL === undefined ? {} : { hasEOL: item.hasEOL }),
+        ...(item.fontName === undefined ? {} : { fontName: item.fontName }),
+
       });
     });
   }
