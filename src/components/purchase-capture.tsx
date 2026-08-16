@@ -767,7 +767,7 @@ function RevisarDocumento({
               {extracao.forma_pagamento ? (
                 <>
                   <ConfiancaTag nivel={confianca.forma_pagamento} />
-                  {pagamentoLido ? <span>lido: {pagamentoLido}</span> : null}
+                  {pagamentoLido ? <span>Bandeira identificada: {pagamentoLido}</span> : null}
                 </>
               ) : (
                 NAO_IDENTIFICADO
