@@ -22,6 +22,7 @@ import { filterByMember } from "@/components/member-filter";
 import { useViewMode } from "@/components/view-mode";
 import { monthKeyLabel } from "@/lib/card-invoices";
 import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
+import { recurringForecast } from "@/lib/card-recurrences";
 import {
   ESTADO_CICLO_LABELS,
   KIND_OFICIAL_LABELS,
@@ -716,9 +717,9 @@ function CartaoDetalhePage() {
                   <span className="block truncate text-sm font-semibold">{p.descricao}</span>
                   <span className="block text-xs text-muted-foreground">
                     Parcela atual {p.numeroAtual}/{p.total} · {formatCurrency(p.valorParcela)}/mês
-                    {p.proximaCobranca
-                      ? ` · próxima cobrança ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
-                      : ""}
+                    {p.proximaCobranca && p.proximaParcela
+                      ? ` · próxima parcela ${p.proximaParcela}/${p.total} na fatura de ${monthKeyLabel(p.proximaCobranca.slice(0, 7))}`
+                      : " · última parcela já faturada"}
                   </span>
                   <span className="block text-xs text-muted-foreground">
                     {p.pagas} paga(s) · {p.restantesQtd} parcela(s) restante(s)
@@ -778,7 +779,12 @@ function CartaoDetalhePage() {
                   <span className="block text-xs text-muted-foreground">
                     {RECURRENCE_LABELS[r.periodicidade]} ·{" "}
                     {r.ativo
-                      ? `próxima cobrança ${formatDate(r.proxima_cobranca)}`
+                      ? (() => {
+                          const previsao = recurringForecast(r, cartao);
+                          return previsao.data
+                            ? `próxima ${formatDate(previsao.data)} · fatura prevista ${monthKeyLabel(previsao.competencia!)}`
+                            : "sem próxima cobrança";
+                        })()
                       : `cancelada em ${r.data_cancelamento ? formatDate(r.data_cancelamento) : "—"}`}
                   </span>
                 </span>
