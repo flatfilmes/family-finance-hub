@@ -231,7 +231,11 @@ function AuditoriaContaPage() {
         <Metric
           label="Datas inconsistentes"
           value={String(r.datasInconsistentes)}
-          hint="Ledger diferente da data do extrato"
+          hint={
+            r.datasIgnoradasAbertura
+              ? `${r.datasIgnoradasAbertura} comparação(ões) ignoradas (saldo anterior)`
+              : "Ledger diferente da data do extrato"
+          }
           {...(r.datasInconsistentes ? { tone: "danger" as const } : {})}
         />
         <Metric
