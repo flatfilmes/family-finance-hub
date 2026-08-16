@@ -597,9 +597,10 @@ function RevisarDocumento({
           estabelecimento: estabelecimento.trim(),
           data_compra: dataCompra,
           tipo_compra: "COMPRA_NORMAL",
-          forma_pagamento: formaPagamento,
+          forma_pagamento: (formaPagamento || "PIX") as PaymentMethod,
           credit_card_id: formaPagamento === "CREDITO" ? cartaoId || null : null,
-          bank_account_id: usesBankAccount(formaPagamento) ? contaId || null : null,
+          bank_account_id: formaPagamento && usesBankAccount(formaPagamento) ? contaId || null : null,
+
         },
         items,
         cards: cards ?? [],
