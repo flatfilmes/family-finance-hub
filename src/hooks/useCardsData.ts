@@ -40,6 +40,8 @@ export function useCardsData(familyId?: string) {
   const parcelas = useInstallments(familyId);
   const recorrentes = useRecurringExpenses(familyId);
   const importacoes = useStatementImports(familyId);
+  const itensParcelados = useConfirmedInstallmentItems(familyId);
+
 
 
   const despesaPorId = useMemo(() => {
