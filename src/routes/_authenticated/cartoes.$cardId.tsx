@@ -316,38 +316,101 @@ function CartaoDetalhePage() {
         </Card>
       ) : (
         <>
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {selecionaveis.map((c) => {
-              const ativo = c.invoice.id === cicloSelecionado?.invoice.id;
-              return (
-                <button
-                  key={c.invoice.id}
-                  type="button"
-                  onClick={() => {
-                    setCicloId(c.invoice.id);
-                    setPagando(false);
-                  }}
-                  className={`min-w-[9.5rem] shrink-0 rounded-2xl border px-4 py-3 text-left transition ${
-                    ativo
-                      ? "border-primary bg-accent"
-                      : "border-border hover:bg-accent/50"
-                  }`}
-                >
-                  <span className="block text-xs font-semibold text-muted-foreground">
-                    {monthKeyLabel(c.competencia)}
-                  </span>
-                  <span className="mt-0.5 block text-base font-extrabold">
-                    {formatCurrency(c.valor)}
-                  </span>
-                  <span className="mt-1 block">
-                    <StatusBadge tone={toneEstado(c.estado)}>
-                      {ESTADO_CICLO_LABELS[c.estado]}
-                    </StatusBadge>
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => rolar(-1)}
+              aria-label="Ciclos anteriores"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted sm:inline-flex"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <div
+              ref={reguaRef}
+              className="-mx-1 flex flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
+            >
+              {selecionaveis.map((c) => {
+                const ativo = c.invoice.id === cicloSelecionado?.invoice.id;
+                const ancora = c.invoice.id === janela.ancora?.invoice.id;
+                return (
+                  <button
+                    key={c.invoice.id}
+                    type="button"
+                    ref={ancora ? ancoraRef : undefined}
+                    onClick={() => {
+                      setCicloId(c.invoice.id);
+                      setPagando(false);
+                    }}
+                    className={`shrink-0 rounded-2xl border text-left transition ${
+                      ativo
+                        ? "min-w-[11rem] border-primary bg-accent px-4 py-3 shadow-soft"
+                        : "min-w-[9.5rem] border-border px-4 py-3 hover:bg-accent/50"
+                    }`}
+                  >
+                    <span
+                      className={`block text-xs font-semibold ${ativo ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {monthKeyLabel(c.competencia)}
+                    </span>
+                    <span
+                      className={`mt-0.5 block font-extrabold ${ativo ? "text-xl" : "text-base"}`}
+                    >
+                      {formatCurrency(c.valor)}
+                    </span>
+                    <span className="mt-1 block">
+                      <StatusBadge tone={toneEstado(c.estado)}>
+                        {ESTADO_CICLO_LABELS[c.estado]}
+                      </StatusBadge>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => rolar(1)}
+              aria-label="Próximos ciclos"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted sm:inline-flex"
+            >
+              <ChevronRight className="size-4" />
+            </button>
           </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {janela.ocultosPassado > 0 && (
+              <button
+                type="button"
+                onClick={() => setVerHistorico(true)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Ver histórico ({janela.ocultosPassado} ciclo
+                {janela.ocultosPassado > 1 ? "s" : ""} anteriores)
+              </button>
+            )}
+            {verHistorico && (
+              <button
+                type="button"
+                onClick={() => setVerHistorico(false)}
+                className="text-xs font-semibold text-muted-foreground hover:underline"
+              >
+                Ocultar histórico
+              </button>
+            )}
+            {janela.ocultosFuturo > 0 && (
+              <button
+                type="button"
+                onClick={() => setMesesFuturos((m) => m + 6)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Ver mais meses futuros
+              </button>
+            )}
+            <span className="text-[11px] text-muted-foreground">
+              A régua prioriza o futuro comprometido: meses projetados aparecem só quando já existem
+              parcelas ou recorrências.
+            </span>
+          </div>
+
 
           {/* Bloco principal: tudo do ciclo selecionado em um único resumo. */}
           <Card className="mt-4">
