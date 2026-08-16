@@ -13,6 +13,7 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   TRANSFERENCIA: "Transferência",
   PAGAMENTO_CARTAO: "Pagamento de cartão",
   AJUSTE_SALDO: "Ajuste de saldo",
+  ABERTURA_SALDO: "Abertura de saldo",
 };
 
 export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
