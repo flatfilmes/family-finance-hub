@@ -436,8 +436,11 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
         saldoInicialData = data ?? saldoInicialData;
       } else {
         saldoFinal = valor;
-        if (fechamento) saldoFinalData = data ?? saldoFinalData;
+        // O saldo final não herda a última data lançada: sem data própria ele
+        // cai no fim do período oficial.
+        if (fechamento) saldoFinalData = dataColuna ?? saldoFinalData;
       }
+
       // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
       // O sinal impresso é preservado (saldo devedor fica negativo).
       if (data && !abertura) {
