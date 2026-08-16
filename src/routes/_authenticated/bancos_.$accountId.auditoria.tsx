@@ -80,7 +80,17 @@ function AuditoriaContaPage() {
             }
           : null,
       }),
-    [accountId, transactions, imports, checkpoints, purchases, invoices, accounts, conta],
+    [
+      accountId,
+      transactions,
+      imports,
+      checkpoints,
+      statementItems,
+      purchases,
+      invoices,
+      accounts,
+      conta,
+    ],
   );
 
   if (!family) return <NoFamily />;
