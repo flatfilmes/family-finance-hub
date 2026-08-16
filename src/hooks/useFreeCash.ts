@@ -91,7 +91,7 @@ export function useFreeCash(familyId?: string, memberId = "") {
       invoices.isLoading ||
       installments.isLoading ||
       recurring.isLoading ||
-      purchases.isLoading,
+      purchases.isLoading ||
       statementImports.isLoading,
     month,
     hoje,
