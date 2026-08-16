@@ -14,8 +14,23 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { IncomeForm } from "@/components/forms/income-form";
 import { BankAccountForm } from "@/components/forms/bank-account-form";
 import { CreditCardForm } from "@/components/forms/credit-card-form";
-import { formatCurrency } from "@/lib/finance";
-import { BANK_ACCOUNT_TYPE_LABELS } from "@/lib/bank-accounts";
+import {
+  archiveCreditCard,
+  deleteCreditCardIfUnused,
+  formatCurrency,
+  toggleIncome,
+  deleteIncome,
+  type CreditCard,
+  type Income,
+} from "@/lib/finance";
+import {
+  BANK_ACCOUNT_TYPE_LABELS,
+  archiveBankAccount,
+  deleteBankAccountIfUnused,
+  type BankAccount,
+} from "@/lib/bank-accounts";
+import { ConfirmDialog, RecordActions, type RecordAction } from "@/components/record-actions";
+import { AdjustBalanceDialog } from "@/components/forms/adjust-balance-dialog";
 import {
   MEMBER_PROFILE_DESCRIPTIONS,
   MEMBER_PROFILE_LABELS,
@@ -50,14 +65,27 @@ type Tab = (typeof TABS)[number];
 const PERMISSOES: FamilyPermission[] = ["ADMIN", "MEMBER", "VIEWER"];
 
 
-function Row({ title, subtitle, value }: { title: string; subtitle: string; value: string }) {
+function Row({
+  title,
+  subtitle,
+  value,
+  actions,
+}: {
+  title: string;
+  subtitle: string;
+  value: string;
+  actions?: RecordAction[];
+}) {
   return (
-    <li className="flex items-center justify-between gap-4 py-3">
+    <li className="flex items-center justify-between gap-3 py-3">
       <div className="min-w-0">
         <p className="truncate text-sm font-semibold">{title}</p>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
-      <span className="shrink-0 text-sm font-semibold">{value}</span>
+      <div className="flex shrink-0 items-center gap-1">
+        <span className="text-sm font-semibold">{value}</span>
+        {actions ? <RecordActions label={title} actions={actions} /> : null}
+      </div>
     </li>
   );
 }
