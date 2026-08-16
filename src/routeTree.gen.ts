@@ -31,6 +31,7 @@ import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 import { Route as AuthenticatedCartoesFaturasImportIdRouteImport } from './routes/_authenticated/cartoes.faturas.$importId'
 import { Route as AuthenticatedHistoricoAnoMesRouteImport } from './routes/_authenticated/historico.$ano.$mes'
+import { Route as AuthenticatedBancosAccountIdExtratosRevisarRouteImport } from './routes/_authenticated/bancos.$accountId.extratos.revisar'
 import { Route as AuthenticatedHistoricoFecharAnoMesRouteImport } from './routes/_authenticated/historico.fechar.$ano.$mes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -155,6 +156,12 @@ const AuthenticatedHistoricoAnoMesRoute =
     path: '/historico/$ano/$mes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBancosAccountIdExtratosRevisarRoute =
+  AuthenticatedBancosAccountIdExtratosRevisarRouteImport.update({
+    id: '/extratos/revisar',
+    path: '/extratos/revisar',
+    getParentRoute: () => AuthenticatedBancosAccountIdRoute,
+  } as any)
 const AuthenticatedHistoricoFecharAnoMesRoute =
   AuthenticatedHistoricoFecharAnoMesRouteImport.update({
     id: '/historico/fechar/$ano/$mes',
@@ -176,7 +183,7 @@ export interface FileRoutesByFullPath {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
-  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRouteWithChildren
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos/': typeof AuthenticatedBancosIndexRoute
@@ -184,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
+  '/bancos/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRoutesByTo {
@@ -200,7 +208,7 @@ export interface FileRoutesByTo {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
-  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRouteWithChildren
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/bancos': typeof AuthenticatedBancosIndexRoute
@@ -208,6 +216,7 @@ export interface FileRoutesByTo {
   '/historico': typeof AuthenticatedHistoricoIndexRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
+  '/bancos/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRoutesById {
@@ -226,7 +235,7 @@ export interface FileRoutesById {
   '/_authenticated/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
-  '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRouteWithChildren
   '/_authenticated/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
   '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
@@ -234,6 +243,7 @@ export interface FileRoutesById {
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/_authenticated/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/_authenticated/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
+  '/_authenticated/bancos/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/_authenticated/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRouteTypes {
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/historico/'
     | '/cartoes/faturas/$importId'
     | '/historico/$ano/$mes'
+    | '/bancos/$accountId/extratos/revisar'
     | '/historico/fechar/$ano/$mes'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/cartoes/faturas/$importId'
     | '/historico/$ano/$mes'
+    | '/bancos/$accountId/extratos/revisar'
     | '/historico/fechar/$ano/$mes'
   id:
     | '__root__'
@@ -309,6 +321,7 @@ export interface FileRouteTypes {
     | '/_authenticated/historico/'
     | '/_authenticated/cartoes/faturas/$importId'
     | '/_authenticated/historico/$ano/$mes'
+    | '/_authenticated/bancos/$accountId/extratos/revisar'
     | '/_authenticated/historico/fechar/$ano/$mes'
   fileRoutesById: FileRoutesById
 }
@@ -475,6 +488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoricoAnoMesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos/$accountId/extratos/revisar': {
+      id: '/_authenticated/bancos/$accountId/extratos/revisar'
+      path: '/extratos/revisar'
+      fullPath: '/bancos/$accountId/extratos/revisar'
+      preLoaderRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRouteImport
+      parentRoute: typeof AuthenticatedBancosAccountIdRoute
+    }
     '/_authenticated/historico/fechar/$ano/$mes': {
       id: '/_authenticated/historico/fechar/$ano/$mes'
       path: '/historico/fechar/$ano/$mes'
@@ -484,6 +504,21 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedBancosAccountIdRouteChildren {
+  AuthenticatedBancosAccountIdExtratosRevisarRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
+}
+
+const AuthenticatedBancosAccountIdRouteChildren: AuthenticatedBancosAccountIdRouteChildren =
+  {
+    AuthenticatedBancosAccountIdExtratosRevisarRoute:
+      AuthenticatedBancosAccountIdExtratosRevisarRoute,
+  }
+
+const AuthenticatedBancosAccountIdRouteWithChildren =
+  AuthenticatedBancosAccountIdRoute._addFileChildren(
+    AuthenticatedBancosAccountIdRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
@@ -496,7 +531,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlanejamentoRoute: typeof AuthenticatedPlanejamentoRoute
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
-  AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRoute
+  AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRouteWithChildren
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
   AuthenticatedMembroMemberIdRoute: typeof AuthenticatedMembroMemberIdRoute
   AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
@@ -518,7 +553,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlanejamentoRoute: AuthenticatedPlanejamentoRoute,
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
-  AuthenticatedBancosAccountIdRoute: AuthenticatedBancosAccountIdRoute,
+  AuthenticatedBancosAccountIdRoute:
+    AuthenticatedBancosAccountIdRouteWithChildren,
   AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
   AuthenticatedMembroMemberIdRoute: AuthenticatedMembroMemberIdRoute,
   AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,

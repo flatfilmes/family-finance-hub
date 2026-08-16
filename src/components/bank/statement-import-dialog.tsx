@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { FileUp, Image as ImageIcon } from "lucide-react";
 import { FormDialog } from "@/components/form-dialog";
@@ -38,6 +39,7 @@ import {
   type ReviewAction,
   type StatementDraftRow,
 } from "@/lib/bank-statements";
+import { saveStatementDraft } from "@/lib/bank-statements/draft";
 import type { BankAccount } from "@/lib/bank-accounts";
 
 type Modo = "PDF" | "IMAGEM";
@@ -68,6 +70,7 @@ export function BankStatementDialog({
   onUsarSaldo: (valor: number) => void;
 }) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: purchases } = usePurchases(familyId);
   const { data: accounts } = useBankAccounts(familyId);
@@ -138,6 +141,23 @@ export function BankStatementDialog({
       };
     },
     onSuccess: ({ parsed, saldo, texto, fp, jaImportado }) => {
+      // PDF: a revisão financeira acontece em página completa, não em modal.
+      if (modo === "PDF" && parsed.movimentos.length) {
+        saveStatementDraft({
+          accountId: account!.id,
+          nomeArquivo: arquivo?.name ?? "extrato.pdf",
+          formato: "PDF",
+          fingerprint: fp,
+          jaImportado,
+          resumo: parsed,
+        });
+        onClose();
+        navigate({
+          to: "/bancos/$accountId/extratos/revisar",
+          params: { accountId: account!.id },
+        });
+        return;
+      }
       setResumo(parsed);
       setLinhas(reconciliar(parsed));
       setSaldoLido(saldo);
