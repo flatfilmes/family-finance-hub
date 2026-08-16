@@ -116,7 +116,7 @@ export function similaridade(a: string, b: string) {
 
 /** Texto compacto (só letras e números) para comparar nomes de fornecedor. */
 function compacto(texto: string) {
-  return normalizeDescricao(texto).replace(/[^a-z0-9]/g, "");
+  return normalizeDescricao(texto).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 /** Maior trecho em comum entre dois textos compactos. */
