@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
   Target,
   HeartPulse,
+  CalendarCheck,
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
@@ -27,12 +28,14 @@ import { filterByMember } from "@/components/member-filter";
 import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
 import { HEALTH_CLASSES, HEALTH_LABELS, HEALTH_MESSAGES } from "@/lib/financial-engine";
 import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
-import { monthLabel, formatDate } from "@/lib/expenses";
+import { monthLabel, formatDate, currentMonth, previousMonth } from "@/lib/expenses";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useFutureCommitments } from "@/hooks/useFutureCommitments";
 import { useMonthlySpending } from "@/hooks/useMonthlySpending";
 import { useFreeCash } from "@/hooks/useFreeCash";
 import { FREE_CASH_CLASSES, FREE_CASH_MESSAGES } from "@/lib/free-cash";
+import { useMonthlySnapshots } from "@/hooks/useMonthlySnapshots";
+import { competenciaFromMonth, competenciaLabel, podeFechar } from "@/lib/monthly-snapshots";
 
 
 import {
@@ -951,6 +954,58 @@ function Bloco({ label, value }: { label: string; value: string }) {
     <div className="rounded-2xl border border-border px-4 py-3">
       <p className="text-xs font-semibold text-muted-foreground">{label}</p>
       <p className="mt-1 text-lg font-extrabold">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * Ação de fechamento da competência + aviso de mês já fechado.
+ * O snapshot nunca é recalculado automaticamente: alterações em registros
+ * antigos não modificam o retrato histórico já preservado.
+ */
+function FechamentoMensal({ familyId, isAdmin }: { familyId?: string; isAdmin: boolean }) {
+  const snapshots = useMonthlySnapshots(familyId);
+  const atual = competenciaFromMonth(currentMonth());
+  const anterior = competenciaFromMonth(previousMonth(currentMonth()));
+  const sugerida = podeFechar(atual) ? atual : anterior;
+
+  const lista = snapshots.data ?? [];
+  const fechadoAtual = lista.find(
+    (s) => s.ano === atual.ano && s.mes === atual.mes && s.member_id === null && s.fechado,
+  );
+  const jaFechado = lista.some(
+    (s) => s.ano === sugerida.ano && s.mes === sugerida.mes && s.member_id === null && s.fechado,
+  );
+
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-5 py-4 shadow-card">
+      <div>
+        <p className="text-sm font-bold">Fechamento mensal</p>
+        <p className="text-xs text-muted-foreground">
+          {fechadoAtual
+            ? "Este mês já foi fechado. Alterações em registros antigos não modificam o histórico consolidado."
+            : jaFechado
+              ? `${competenciaLabel(sugerida)} já está fechado no histórico.`
+              : `Você pode preservar o retrato financeiro de ${competenciaLabel(sugerida)}.`}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          to="/historico"
+          className="rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-muted"
+        >
+          Ver histórico
+        </Link>
+        {isAdmin && !jaFechado && (
+          <Link
+            to="/historico/fechar/$ano/$mes"
+            params={{ ano: String(sugerida.ano), mes: String(sugerida.mes) }}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            <CalendarCheck className="size-4" /> Fechar {competenciaLabel(sugerida)}
+          </Link>
+        )}
+      </div>
     </div>
   );
 }
