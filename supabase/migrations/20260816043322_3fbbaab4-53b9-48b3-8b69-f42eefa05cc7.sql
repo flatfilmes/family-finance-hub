@@ -1,0 +1,2 @@
+alter table public.card_statement_items add column if not exists card_last4 text;
+comment on column public.card_statement_items.card_last4 is 'Final do cartao (4 digitos) do lancamento na fatura importada.';
