@@ -11,7 +11,7 @@ export function DetailHeader({
   badges,
   actions,
 }: {
-  backTo: "/cartoes" | "/bancos" | "/cartoes/$cardId";
+  backTo: "/cartoes" | "/bancos" | "/cartoes/$cardId" | "/bancos/$accountId";
   backParams?: Record<string, string>;
   backLabel: string;
   title: string;

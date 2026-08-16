@@ -310,6 +310,14 @@ function ContaDetalhePage() {
                     {conta.ativo ? "Arquivar conta" : "Reativar conta"}
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/bancos/$accountId/auditoria"
+                    params={{ accountId: conta.id }}
+                  >
+                    Auditoria da conta
+                  </Link>
+                </DropdownMenuItem>
                 {conta.member_id && (
                   <DropdownMenuItem asChild>
                     <Link to="/membro/$memberId" params={{ memberId: conta.member_id }}>
