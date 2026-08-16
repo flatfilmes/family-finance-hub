@@ -25,6 +25,31 @@ export type ItemAction = Database["public"]["Enums"]["statement_item_action"];
 
 export const NAO_IDENTIFICADO = "Não identificado";
 
+/**
+ * Data-âncora do ciclo importado.
+ *
+ * Lançamentos sem data (ex.: "Repasse de IOF") pertencem ao ciclo da fatura que
+ * está sendo importada — nunca ao ciclo do vencimento. Usar o vencimento como
+ * data de compra jogava o item para o mês seguinte (17/08 > fechamento 10/08).
+ * Aqui devolvemos uma data que cai dentro do ciclo da própria importação.
+ */
+export function ancoraDoCicloImportado(
+  card: Pick<CreditCard, "dia_fechamento" | "dia_vencimento">,
+  importacao: Pick<StatementImport, "periodo_fim" | "data_vencimento" | "data_fechamento">,
+): string | null {
+  if (importacao.periodo_fim) return importacao.periodo_fim;
+  const venc = importacao.data_vencimento;
+  if (!venc) return importacao.data_fechamento ?? null;
+  // Caminha para trás até encontrar o ciclo cujo vencimento é o da fatura.
+  let ciclo = cycleForDate(card, venc);
+  for (let i = 0; i < 6 && ciclo.data_vencimento !== venc; i += 1) {
+    const anterior = new Date(`${ciclo.data_inicio_ciclo}T00:00:00`);
+    anterior.setDate(anterior.getDate() - 1);
+    ciclo = cycleForDate(card, anterior.toISOString().slice(0, 10));
+  }
+  return ciclo.data_vencimento === venc ? ciclo.data_fechamento : (importacao.data_fechamento ?? null);
+}
+
 export const MATCH_LABELS: Record<MatchStatus, string> = {
   MATCHED: "Conciliado",
   UNMATCHED: "Novo lançamento",
