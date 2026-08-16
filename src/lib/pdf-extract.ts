@@ -299,13 +299,21 @@ function acharValorTotal(linhas: PdfLine[]): { valor: number; confianca: Confian
         // Rótulo e valor na mesma linha.
         const cellRotulo =
           linha.cells.find((c) => semAcento(c.text).includes(rotulo)) ?? linha.cells[0]!;
-        const depois = linha.cells.filter((c) => c.x > cellRotulo.x);
+        const posRotulo = semAcento(linha.text).indexOf(rotulo);
+        const restoDaLinha = linha.text.slice(posRotulo + rotulo.length);
+        const naLinha = restoDaLinha.match(MOEDA_RE);
+        if (naLinha && naLinha.length > 0) {
+          const valor = parseValorBr(naLinha[0]!);
+          if (valor > 0) return valor;
+        }
 
+        const depois = linha.cells.filter((c) => c.x > cellRotulo.x);
         for (const cell of depois) {
           const valores = cell.text.match(MOEDA_RE);
           const valor = valores ? parseValorBr(valores[valores.length - 1]!) : 0;
           if (valor > 0) return valor;
         }
+
 
         // Rótulo em cima, valor logo abaixo (layout em colunas do DANFE).
         const abaixo = valorAbaixoDoRotulo(linhas, i, cellRotulo.x);
