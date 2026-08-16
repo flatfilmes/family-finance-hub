@@ -121,7 +121,8 @@ function ProjecaoCartaoPage() {
         )}
       </Card>
 
-      <Card className="mt-4" id="parcelamentos">
+      <div id="parcelamentos">
+      <Card className="mt-4">
         <SectionTitle
           title="Parcelamentos ativos"
           hint={`${parcelamentos.length} em andamento · ${formatCurrency(restanteParcelas)} comprometido`}
@@ -155,8 +156,10 @@ function ProjecaoCartaoPage() {
           </ul>
         )}
       </Card>
+      </div>
 
-      <Card className="mt-4" id="recorrencias">
+      <div id="recorrencias">
+      <Card className="mt-4">
         <SectionTitle
           title="Cobranças recorrentes"
           hint={`${ativas.length} ativa(s) neste cartão · ${formatCurrency(previstoMes)}/mês`}
@@ -213,6 +216,7 @@ function ProjecaoCartaoPage() {
           Cancelar mantém todo o histórico já lançado e apenas interrompe as próximas competências.
         </p>
       </Card>
+      </div>
     </div>
   );
 }

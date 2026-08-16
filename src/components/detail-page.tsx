@@ -4,13 +4,15 @@ import { ArrowLeft } from "lucide-react";
 /** Cabeçalho padrão das páginas de detalhe (cartão e conta bancária). */
 export function DetailHeader({
   backTo,
+  backParams,
   backLabel,
   title,
   subtitle,
   badges,
   actions,
 }: {
-  backTo: "/cartoes" | "/bancos";
+  backTo: "/cartoes" | "/bancos" | "/cartoes/$cardId";
+  backParams?: Record<string, string>;
   backLabel: string;
   title: string;
   subtitle?: string;
@@ -21,6 +23,7 @@ export function DetailHeader({
     <header className="mb-6">
       <Link
         to={backTo}
+        params={backParams as never}
         className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-3.5" /> {backLabel}
