@@ -4,7 +4,12 @@ import { useCardInvoices, useCardOverview, useInstallments } from "@/hooks/useCa
 import { usePurchases } from "@/hooks/usePurchases";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
-import { useStatementImports } from "@/hooks/useCardStatements";
+import { useConfirmedInstallmentItems, useStatementImports } from "@/hooks/useCardStatements";
+import {
+  mesclarParcelasProjetadas,
+  projetarParcelasDoCiclo,
+} from "@/lib/card-installment-projection";
+
 import {
   agruparCiclos,
   buildCardCycleComposition,
@@ -35,6 +40,8 @@ export function useCardsData(familyId?: string) {
   const parcelas = useInstallments(familyId);
   const recorrentes = useRecurringExpenses(familyId);
   const importacoes = useStatementImports(familyId);
+  const itensParcelados = useConfirmedInstallmentItems(familyId);
+
 
 
   const despesaPorId = useMemo(() => {
@@ -86,6 +93,40 @@ export function useCardsData(familyId?: string) {
     });
   };
 
+  /**
+   * Projeção das parcelas já contratadas para um ciclo ainda sem fatura oficial.
+   *
+   * A parcela atual de cada série vem da última fatura CONFIRMADA do cartão (o
+   * PDF é evidência explícita). O cronograma interno pode estar ancorado em
+   * datas históricas, então ele não pode ser a única fonte das próximas.
+   */
+  const projecaoParcelasDe = (
+    cardId: string,
+    ciclo: Parameters<typeof buildCardCycleComposition>[0]["ciclo"],
+  ) => {
+    if (!ciclo || ciclo.fonte === "OFFICIAL_STATEMENT") return [];
+    const doCartao = (itensParcelados.data ?? []).filter((i) => i.credit_card_id === cardId);
+    if (doCartao.length === 0) return [];
+    const vencimentoBase = doCartao
+      .map((i) => i.card_statement_imports?.data_vencimento ?? null)
+      .filter((v): v is string => !!v)
+      .sort()
+      .at(-1);
+    if (!vencimentoBase) return [];
+    const itens = doCartao.filter(
+      (i) => i.card_statement_imports?.data_vencimento === vencimentoBase,
+    );
+    const mesesEntre = (a: string, b: string) =>
+      (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 +
+      (Number(b.slice(5, 7)) - Number(a.slice(5, 7)));
+    return projetarParcelasDoCiclo({
+      itens,
+      offset: mesesEntre(vencimentoBase, ciclo.invoice.data_vencimento),
+      vencimentoCiclo: ciclo.invoice.data_vencimento,
+    });
+  };
+
+
   return {
     isLoading: cards.isLoading,
     cards: cards.data ?? [],
@@ -100,8 +141,37 @@ export function useCardsData(familyId?: string) {
           card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
           recorrencias: recorrenciasDoCartao(cardId),
           parcelas: parcelasDoCartao(cardId),
+        }).map((c) => {
+          // Régua e detalhe usam a MESMA composição: sem fatura oficial, o valor
+          // do ciclo inclui as parcelas projetadas a partir do último PDF.
+          if (c.fonte === "OFFICIAL_STATEMENT") return c;
+          const projetadas = projecaoParcelasDe(cardId, c);
+          if (projetadas.length === 0) return c;
+          return {
+            ...c,
+            valor: buildCardCycleComposition({
+              ciclo: c,
+              itensOficiais: null,
+              linhasInternas: mesclarParcelasProjetadas(
+                linhasDaFatura({
+                  invoice: (c.invoice as CardInvoice | undefined) ?? null,
+                  parcelas: parcelas.data ?? [],
+                  comprasDoCartao: comprasDoCartao(cardId),
+                  comprasComParcelas,
+                  despesaPorId,
+                  compraPorId,
+                  card: (cards.data ?? []).find((x) => x.id === cardId) ?? null,
+                }).map((l) => ({ ...l, itemId: l.id })),
+                projetadas,
+              ),
+              compraPorId,
+            }).total,
+          };
         }),
       ),
+
+    /** Parcelas já contratadas projetadas no ciclo, a partir da fatura oficial. */
+    projecaoParcelasDe,
     /**
      * Composição do ciclo — função única usada pela régua, pelo resumo, pelos
      * lançamentos, pelos compromissos futuros e pelo planejamento.
@@ -114,17 +184,21 @@ export function useCardsData(familyId?: string) {
       buildCardCycleComposition({
         ciclo,
         itensOficiais: itensOficiais ?? null,
-        linhasInternas: linhasDaFatura({
-          invoice: (ciclo?.invoice as CardInvoice | undefined) ?? null,
-          parcelas: parcelas.data ?? [],
-          comprasDoCartao: comprasDoCartao(cardId),
-          comprasComParcelas,
-          despesaPorId,
-          compraPorId,
-          card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
-        }).map((l) => ({ ...l, itemId: l.id })),
+        linhasInternas: mesclarParcelasProjetadas(
+          linhasDaFatura({
+            invoice: (ciclo?.invoice as CardInvoice | undefined) ?? null,
+            parcelas: parcelas.data ?? [],
+            comprasDoCartao: comprasDoCartao(cardId),
+            comprasComParcelas,
+            despesaPorId,
+            compraPorId,
+            card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
+          }).map((l) => ({ ...l, itemId: l.id })),
+          projecaoParcelasDe(cardId, ciclo),
+        ),
         compraPorId,
       }),
+
     recorrenciasDoCartao,
     parcelasDoCartao,
     /**

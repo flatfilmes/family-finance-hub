@@ -847,6 +847,44 @@ export async function fetchStatementItems(importId: string) {
   return data ?? [];
 }
 
+/**
+ * Lançamentos PARCELADOS de todas as faturas confirmadas da família.
+ *
+ * Base da projeção das próximas faturas: a fatura oficial diz qual é a parcela
+ * atual de cada série ("Compras parceladas — próximas faturas" do PDF).
+ */
+export async function fetchConfirmedInstallmentItems(familyId: string) {
+  const { data, error } = await supabase
+    .from("card_statement_items")
+    .select(
+      "id, import_id, credit_card_id, descricao_original, estabelecimento_sugerido, valor, parcela_atual, total_parcelas, tipo_sugerido, tipo_revisado, categoria_sugerida_id, purchase_id_criada, purchase_id_matched, card_statement_imports!inner(status, data_vencimento)",
+    )
+    .eq("family_id", familyId)
+    .gt("total_parcelas", 1)
+    .eq("card_statement_imports.status", "CONFIRMED");
+  if (error) throw error;
+  return (data ?? []) as unknown as (ConfirmedInstallmentItem & {
+    card_statement_imports: { status: string; data_vencimento: string | null };
+  })[];
+}
+
+export type ConfirmedInstallmentItem = {
+  id: string;
+  import_id: string;
+  credit_card_id: string;
+  descricao_original: string;
+  estabelecimento_sugerido: string | null;
+  valor: number | string;
+  parcela_atual: number | null;
+  total_parcelas: number | null;
+  tipo_sugerido: string;
+  tipo_revisado: string | null;
+  categoria_sugerida_id: string | null;
+  purchase_id_criada: string | null;
+  purchase_id_matched: string | null;
+};
+
+
 export async function updateStatementItem(id: string, patch: Partial<StatementItem>) {
   const { error } = await supabase.from("card_statement_items").update(patch).eq("id", id);
   if (error) throw error;

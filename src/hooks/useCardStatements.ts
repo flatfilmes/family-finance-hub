@@ -4,7 +4,9 @@ import {
   cancelStatementImport,
   confirmStatementImport,
   deleteStatementImport,
+  fetchConfirmedInstallmentItems,
   fetchStatementImport,
+
   fetchStatementImports,
   fetchStatementItems,
   findDuplicateImport,
@@ -49,6 +51,16 @@ export function useStatementItems(importId?: string) {
     enabled: !!importId,
   });
 }
+
+/** Séries parceladas das faturas confirmadas — base da projeção das próximas. */
+export function useConfirmedInstallmentItems(familyId?: string) {
+  return useQuery({
+    queryKey: ["card-statement-installment-items", familyId],
+    queryFn: () => fetchConfirmedInstallmentItems(familyId!),
+    enabled: !!familyId,
+  });
+}
+
 
 /** Lê o PDF no navegador (sem enviar o arquivo para lugar nenhum). */
 export function useReadStatementPdf() {
