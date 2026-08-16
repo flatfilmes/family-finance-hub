@@ -443,7 +443,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
       // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
       // O sinal impresso é preservado (saldo devedor fica negativo).
-      if (data && !abertura) {
+      if (data && !abertura && (!fechamento || dataColuna)) {
         checkpoints.push({
           data,
           saldo: valor,
