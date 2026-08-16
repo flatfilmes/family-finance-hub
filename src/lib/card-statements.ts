@@ -142,8 +142,12 @@ export function similaridadeFornecedor(a: string, b: string) {
   const cb = compacto(b);
   if (!ca || !cb) return porTokens;
   const trecho = maiorTrechoComum(ca, cb);
-  const porTrecho = trecho < 4 ? 0 : Math.min(1, trecho / Math.min(ca.length, cb.length));
-  return Math.max(porTokens, porTrecho);
+  // Um trecho longo em comum ("ns2co") é assinatura da marca, mesmo quando o
+  // resto do nome é ruído do adquirente ("MLP*", "S.A.", "INTERNET").
+  const proporcao = trecho / Math.min(ca.length, cb.length);
+  const porTrecho =
+    trecho >= 5 ? Math.max(0.5, proporcao) : trecho === 4 ? Math.max(0.35, proporcao) : 0;
+  return Math.max(porTokens, Math.min(1, porTrecho));
 }
 
 export function diasEntre(a: string | null, b: string | null) {
