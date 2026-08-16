@@ -510,11 +510,11 @@ describe("Banco do Brasil — janeiro/2026 lido em ordem documental", () => {
     expect(porDescricao(/CARLOS/)?.data).toBe("2026-01-16");
     expect(porDescricao(/CLARO/)?.data).toBe("2026-01-20");
     expect(porDescricao(/Recebido ANDERSON/)?.data).toBe("2026-01-22");
-    expect(porDescricao(/26\/01/)?.data).toBe("2026-01-26");
+    expect(porDescricao(/FULLGAZ/)?.data).toBe("2026-01-26");
   });
 
   it("mantém a data contábil na virada de página e separa occurredAt", () => {
-    const continuacao = porDescricao(/Enviado 17\/01/);
+    const continuacao = porDescricao(/ANDERSON/);
     expect(continuacao?.data).toBe("2026-01-19");
     expect(continuacao?.eventDate).toBe("2026-01-17");
   });

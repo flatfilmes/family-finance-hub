@@ -271,7 +271,12 @@ function historicoNaLinha(linha: PdfLine, resto: string, bruto: string): string 
       .filter((c) => c.x >= HISTORICO_X_MIN)
       .map((c) => c.text)
       .join(" ");
-    return removerColunasTecnicas(semValor(daColuna));
+    const daColunaLimpa = removerColunasTecnicas(semValor(daColuna));
+    if (daColunaLimpa) return daColunaLimpa;
+    // Sem nada na coluna Histórico: o texto restante da linha ainda pode trazer
+    // o histórico (layouts que imprimem tudo à esquerda). Códigos técnicos
+    // continuam removidos, então linhas de Lote/Documento seguem vazias.
+    return removerColunasTecnicas(semValor(resto));
   }
   return removerColunasTecnicas(semValor(resto));
 }
