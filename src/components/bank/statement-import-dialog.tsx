@@ -258,28 +258,25 @@ export function BankStatementDialog({
         </label>
 
         {modo === "PDF" && arquivo && (
-          <PdfDiagnosticButton
-            source="BANK_STATEMENT"
-            file={arquivo}
-            parserDryRun={async (file) => {
-              const parsed = await readBankStatementPdf(file);
-              return {
-                parser: parsed.parser,
-                output: parsed,
-                debug: {
-                  accepted: parsed.aceitos,
-                  rejected: parsed.rejeitados,
-                  metadata: [
-                    { campo: "Período início", valor: parsed.periodoInicio },
-                    { campo: "Período fim", valor: parsed.periodoFim },
-                    { campo: "Saldo inicial", valor: parsed.saldoInicial },
-                    { campo: "Saldo final", valor: parsed.saldoFinal },
-                    { campo: "Movimentações", valor: parsed.movimentos.length },
-                  ],
-                },
-              };
-            }}
-          />
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border p-3">
+            <span className="text-xs text-muted-foreground">
+              Arquivo selecionado: <strong className="text-foreground">{arquivo.name}</strong>
+            </span>
+            <PdfDiagnosticButton
+              source="BANK_STATEMENT"
+              file={arquivo}
+              parserDryRun={bankStatementDryRun}
+              className="ml-auto"
+            />
+            <button
+              type="button"
+              onClick={() => ler.mutate(arquivo)}
+              disabled={ler.isPending}
+              className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-muted disabled:opacity-60"
+            >
+              {ler.isPending ? "Processando…" : "Processar extrato"}
+            </button>
+          </div>
         )}
 
         {ler.isPending && <p className="text-sm text-muted-foreground">Lendo o documento...</p>}

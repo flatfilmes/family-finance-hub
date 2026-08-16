@@ -25,7 +25,8 @@ export function PdfDiagnosticButton({
   const { data: family } = useFamily();
   const [aberto, setAberto] = useState(false);
 
-  const disponivel = perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo);
+  const disponivel =
+    perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo || pdfDiagnosticFlagEnabled());
   if (!disponivel) return null;
 
   return (
