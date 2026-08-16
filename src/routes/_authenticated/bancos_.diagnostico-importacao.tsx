@@ -100,6 +100,7 @@ function DiagnosticoImportacao() {
             ? parseBancoDoBrasilLines(lines)
             : parseBankStatementLines(lines);
         const statement = toCanonicalStatement(parsed, { statementId: file.name });
+        const pipeline = (parsed as { pipeline?: ItauPipelineDiagnostics }).pipeline;
         lidos.push({
           arquivo: file.name,
           lines,
