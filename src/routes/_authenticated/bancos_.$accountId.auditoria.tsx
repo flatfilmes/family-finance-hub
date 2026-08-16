@@ -300,8 +300,8 @@ function AuditoriaContaPage() {
               <li key={c.anterior.id} className="rounded-2xl border border-border px-4 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-sm font-semibold">
-                    {monthLabel(String(c.anterior.inicio).slice(0, 7))} →{" "}
-                    {monthLabel(String(c.proximo.inicio).slice(0, 7))}
+                    {monthLabel(c.anterior.mesReferencia ?? String(c.anterior.fim).slice(0, 7))} →{" "}
+                    {monthLabel(c.proximo.mesReferencia ?? String(c.proximo.fim).slice(0, 7))}
                   </p>
                   <StatusBadge tone={c.confere ? "ok" : "danger"}>
                     {c.confere ? "Continuidade confirmada" : "Quebra de continuidade"}
