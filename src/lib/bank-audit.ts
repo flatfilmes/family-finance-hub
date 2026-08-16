@@ -726,7 +726,19 @@ export function buildBankAudit(input: {
         id: `mes-${m.key}`,
         severity: "CRITICO",
         titulo: `${m.key} — fechamento do mês não bate`,
-        detalhe: `Diferença de ${m.difference} entre o saldo informado pelo banco e o calculado, sem checkpoint diário que aponte o dia exato.`,
+        detalhe: `Diferença de ${m.difference} entre o saldo informado pelo banco e o calculado.${
+          m.checkpoints === 0
+            ? " Sem \"Saldo do dia\" importado: reprocesse o PDF para descobrir o dia exato."
+            : ""
+        }${
+          m.datasInconsistentes.length
+            ? ` ${m.datasInconsistentes.length} movimentação(ões) deste extrato estão gravadas em outra data no ledger — causa provável.`
+            : ""
+        }${
+          m.diferencaMovimentos !== 0
+            ? ` O PDF traz ${m.movimentosPdf} lançamentos e o ledger contabiliza ${m.movimentosLedger} neste mês.`
+            : ""
+        }`,
         referencia: m.key,
       });
       continue;
