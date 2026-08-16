@@ -18,6 +18,7 @@ import { extractPdfLines, parseValorBr, type PdfCell, type PdfLine } from "@/lib
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "@/lib/bank-statements/types";
 import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
+import { montarDescricaoBb, removerColunasTecnicas } from "./bb-description";
 
 export const BB_PARSER_ID = "EXTRATO_BANCO_DO_BRASIL_PDF";
 
@@ -248,6 +249,42 @@ function recuperarHistoricos(
   return resultado;
 }
 
+/**
+ * HISTÓRICO IMPRESSO NA PRÓPRIA LINHA FINANCEIRA.
+ *
+ * As colunas "Lote" e "Documento" (x < coluna Histórico) são técnicas e nunca
+ * são descrição: quando a linha só traz esses códigos ("13013 28308"), o
+ * histórico é vazio e vem das linhas vizinhas.
+ */
+function historicoNaLinha(linha: PdfLine, resto: string, bruto: string): string {
+  const semValor = (t: string) =>
+    t
+      .replace(bruto, " ")
+      .replace(VALOR_COM_SINAL, " ")
+      .replace(SINAL_ANTES_DO_VALOR, " ")
+      .replace(/\(\s*[+-]\s*\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  if (linha.cells.length) {
+    const daColuna = linha.cells
+      .filter((c) => c.x >= HISTORICO_X_MIN)
+      .map((c) => c.text)
+      .join(" ");
+    return removerColunasTecnicas(semValor(daColuna));
+  }
+  return removerColunasTecnicas(semValor(resto));
+}
+
+/** Lote e Documento da linha — metadata técnica, fora da descrição. */
+function colunasTecnicas(linha: PdfLine): { lot: string | null; documentNumber: string | null } {
+  const codigos = linha.cells
+    .filter((c) => c.x < HISTORICO_X_MIN)
+    .map((c) => c.text.trim())
+    .filter((t) => /^\d{3,}$/.test(t));
+  return { lot: codigos[0] ?? null, documentNumber: codigos[1] ?? null };
+}
+
 /** Linha que contém SOMENTE uma data — é a célula da coluna "Dia". */
 const SO_DATA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?$/;
 /** Linha de coluna "Dia": data seguida apenas de códigos numéricos do banco. */
@@ -400,13 +437,7 @@ export function parseBancoDoBrasilLines(linhasEntrada: PdfLine[]): ParsedBankSta
     const lido = lerValorComSinal(alvo);
     if (!lido) return null;
     const { resto } = DATA_INICIAL.test(raw) ? lerData(raw, anoBase) : { resto: raw };
-    return resto
-      .replace(lido.bruto, " ")
-      .replace(VALOR_COM_SINAL, " ")
-      .replace(SINAL_ANTES_DO_VALOR, " ")
-      .replace(/\(\s*[+-]\s*\)/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
+    return historicoNaLinha(linha, resto, lido.bruto);
   });
   const historicosRecuperados = recuperarHistoricos(linhas, descricaoDaLinha);
   const datasRecuperadas = recuperarDatas(linhas, descricaoDaLinha, anoBase);
@@ -490,18 +521,19 @@ export function parseBancoDoBrasilLines(linhasEntrada: PdfLine[]): ParsedBankSta
     const resto = leadEhColunaDia ? dataLead!.resto : raw;
 
 
-    const descricaoNaLinha = resto
-      .replace(lido.bruto, " ")
-      .replace(VALOR_COM_SINAL, " ")
-      .replace(SINAL_ANTES_DO_VALOR, " ")
-      .replace(/\(\s*[+-]\s*\)/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-    // Histórico em duas linhas: data+valor identificam a movimentação, o texto
-    // vem das linhas vizinhas da coluna "Histórico".
-    const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
+    const descricaoNaLinha = historicoNaLinha(linha, resto, lido.bruto);
+    // EVENT ASSEMBLER: o Histórico do lançamento pode estar na linha anterior,
+    // na mesma linha do valor e/ou na linha seguinte. Aqui eles são agregados
+    // na ordem documental — sem nunca puxar texto do próximo lançamento.
+    const vizinhos = historicosRecuperados.get(i);
+    const montada = montarDescricaoBb([
+      ...(vizinhos?.acima ?? []),
+      descricaoNaLinha,
+      ...(vizinhos?.abaixo ?? []),
+    ]);
+    const descricao = montada.description;
 
-    const ehSaldo = ehSaldoMetadata(descricao);
+    const ehSaldo = ehSaldoMetadata(descricaoNaLinha) || ehSaldoMetadata(descricao);
     // DATA CONTÁBIL = coluna "Dia". Nunca a data escrita dentro do histórico.
     const data: string | null = ehSaldo
       ? dataColuna ?? ultimaData
@@ -510,7 +542,7 @@ export function parseBancoDoBrasilLines(linhasEntrada: PdfLine[]): ParsedBankSta
 
 
     if (ehSaldo) {
-      const t = plano(descricao);
+      const t = plano(descricaoNaLinha || descricao);
       const abertura = t.startsWith("saldo anterior");
       const fechamento = /^s a l d o$|^saldo$|^saldo final|^saldo atual/.test(t);
       if (abertura) {
@@ -548,7 +580,7 @@ export function parseBancoDoBrasilLines(linhasEntrada: PdfLine[]): ParsedBankSta
         checkpoints.push({
           data,
           saldo: valor,
-          rotulo: descricao,
+          rotulo: descricaoNaLinha || descricao,
           tipo: fechamento ? "CLOSING" : "DAILY",
         });
         temporalTrace.push({
@@ -591,19 +623,27 @@ export function parseBancoDoBrasilLines(linhasEntrada: PdfLine[]): ParsedBankSta
     }
 
     // EVENTO MONTADO: a data contábil é congelada aqui e nunca mais muda.
+    const tecnicas = colunasTecnicas(linha);
     const movimento: ParsedBankMovement = {
       data: data ?? ultimaData,
+      // occurredAt sai do HISTÓRICO BRUTO (com "04/01 12:48"), preservado mesmo
+      // quando a descrição apresentada já foi limpa.
       eventDate:
         periodoOficial?.inicio && periodoOficial.fim
-          ? eventDateFromHistory(descricao, {
+          ? eventDateFromHistory(montada.historico, {
               inicio: periodoOficial.inicio,
               fim: periodoOficial.fim,
             })
           : null,
       descricaoOriginal: descricao,
-      descricaoNormalizada: normalizeDescricao(descricao),
+      descricaoNormalizada: montada.normalizedDescription,
+      bankOperation: montada.bankOperation,
+      counterparty: montada.counterparty,
+      lot: tecnicas.lot,
+      documentNumber: tecnicas.documentNumber,
+      historico: montada.historico,
       valor,
-      tipo: classificarBb(descricao, valor),
+      tipo: classificarBb(montada.historico || descricao, valor),
     };
     temporalTrace.push({
       page: linha.page ?? null,
