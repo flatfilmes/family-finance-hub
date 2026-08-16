@@ -100,6 +100,10 @@ function Dashboard() {
         </div>
       )}
 
+      <FechamentoMensal familyId={family?.id} isAdmin={view.isAdmin} />
+
+
+
       <section className="mb-6">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-4">
           <div>
