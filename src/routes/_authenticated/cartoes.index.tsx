@@ -1,9 +1,14 @@
-import { CreditCard } from "lucide-react";
+import { useState } from "react";
+import { CreditCard, FileUp } from "lucide-react";
+import { StatementImportDialog } from "@/components/statement-import-dialog";
+import { useStatementImports } from "@/hooks/useCardStatements";
+import { IMPORT_STATUS_LABELS } from "@/lib/card-statements";
+import { StatusBadge } from "@/components/status-badge";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { TONE_DOTS, usageTone } from "@/lib/status";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Card, Field, PageHeader, inputClass } from "@/components/page-header";
+import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { Badge, Metric } from "@/components/detail-page";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCardsData } from "@/hooks/useCardsData";
@@ -48,6 +53,8 @@ function CartoesPage() {
   const [filtroBanco, setFiltroBanco] = useStickyState("cartoes:banco", "");
   const [mes, setMes] = useStickyState("cartoes:mes", "");
   const [busca, setBusca] = useStickyState("cartoes:busca", "");
+  const [importando, setImportando] = useState(false);
+  const importacoes = useStatementImports(family?.id);
 
   if (!family) return <NoFamily />;
 
@@ -97,6 +104,54 @@ function CartoesPage() {
         title="Cartões da família"
         subtitle="Visão geral do crédito. Clique em um cartão para abrir a página completa com fatura, lançamentos e projeções."
       />
+
+      <div className="-mt-4 mb-6 flex flex-wrap items-center gap-3">
+        <PrimaryButton type="button" onClick={() => setImportando(true)}>
+          <span className="inline-flex items-center gap-2">
+            <FileUp className="size-4" /> Importar fatura
+          </span>
+        </PrimaryButton>
+        <p className="text-xs text-muted-foreground">
+          Envie a fatura em PDF para conferir com as compras já cadastradas ou para criar os
+          lançamentos que faltam.
+        </p>
+      </div>
+
+      {importando && (
+        <StatementImportDialog cards={dados.cards} onClose={() => setImportando(false)} />
+      )}
+
+      {(importacoes.data ?? []).length > 0 && (
+        <Card className="mb-4">
+          <p className="text-base font-bold">Faturas importadas</p>
+          <ul className="mt-2 divide-y divide-border">
+            {(importacoes.data ?? []).slice(0, 5).map((imp) => (
+              <li key={imp.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">{imp.nome_arquivo}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {imp.quantidade_lancamentos} lançamento(s) ·{" "}
+                    {formatCurrency(Number(imp.valor_total_fatura) || 0)}
+                    {imp.data_vencimento ? ` · vence em ${formatDate(imp.data_vencimento)}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge tone={imp.status === "CONFIRMED" ? "ok" : "warn"}>
+                    {IMPORT_STATUS_LABELS[imp.status]}
+                  </StatusBadge>
+                  <Link
+                    to="/cartoes/faturas/$importId"
+                    params={{ importId: imp.id }}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Revisar
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Total das faturas abertas" value={formatCurrency(totalFaturasAbertas)} big />

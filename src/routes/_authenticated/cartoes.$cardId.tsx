@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Receipt } from "lucide-react";
+import { FileUp, Receipt } from "lucide-react";
+import { StatementImportDialog } from "@/components/statement-import-dialog";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { TONE_DOTS, usageTone } from "@/lib/status";
@@ -62,6 +63,7 @@ function CartaoDetalhePage() {
   const [conta, setConta] = useState("");
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState("");
+  const [importando, setImportando] = useState(false);
 
   if (!family) return <NoFamily />;
 
