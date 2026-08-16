@@ -30,6 +30,8 @@ export function useCardsData(familyId?: string) {
   const faturas = useCardInvoices(familyId);
   const parcelas = useInstallments(familyId);
   const recorrentes = useRecurringExpenses(familyId);
+  const importacoes = useStatementImports(familyId);
+
 
   const despesaPorId = useMemo(() => {
     const m = new Map<string, Expense>();
