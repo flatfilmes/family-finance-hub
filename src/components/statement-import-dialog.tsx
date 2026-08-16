@@ -47,9 +47,14 @@ export function StatementImportDialog({
   const [parsed, setParsed] = useState<ParsedStatement | null>(null);
   const [duplicata, setDuplicata] = useState<{ id: string; created_at: string } | null>(null);
   const [erro, setErro] = useState("");
+  const [diagnostico, setDiagnostico] = useState(false);
+
+  /** Ferramenta técnica: só em desenvolvimento ou família demo, e sempre para admin. */
+  const podeDiagnosticar = perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo);
 
   const cartao = cards.find((c) => c.id === cardId) ?? null;
   const ocupado = ler.isPending || criar.isPending || checarDuplicata.isPending;
+
 
   async function analisar() {
     setErro("");
