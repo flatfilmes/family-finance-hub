@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { FileUp, Receipt } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, FileUp, Receipt } from "lucide-react";
+
 import { StatementImportDialog } from "@/components/statement-import-dialog";
 import { CardStatementImports } from "@/components/card-statement-imports";
 
