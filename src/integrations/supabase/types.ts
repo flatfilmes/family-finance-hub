@@ -1114,6 +1114,181 @@ export type Database = {
           },
         ]
       }
+      monthly_closing_logs: {
+        Row: {
+          acao: string
+          ano: number
+          created_at: string
+          created_by: string | null
+          family_id: string
+          id: string
+          member_id: string | null
+          mes: number
+          motivo: string | null
+          snapshot_id: string | null
+        }
+        Insert: {
+          acao: string
+          ano: number
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          id?: string
+          member_id?: string | null
+          mes: number
+          motivo?: string | null
+          snapshot_id?: string | null
+        }
+        Update: {
+          acao?: string
+          ano?: number
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          id?: string
+          member_id?: string | null
+          mes?: number
+          motivo?: string | null
+          snapshot_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_closing_logs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_closing_logs_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_closing_logs_snapshot_id_fkey"
+            columns: ["snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_snapshots: {
+        Row: {
+          ano: number
+          compras_cartao: number
+          compras_pix_debito_dinheiro: number
+          comprometido_final: number
+          contas_recorrentes_do_mes: number
+          created_at: string
+          dinheiro_livre_final: number
+          family_id: string
+          faturas_em_aberto: number
+          faturas_pagas: number
+          fechado: boolean
+          fechado_em: string
+          fechado_por: string | null
+          gastos_realizados: number
+          id: string
+          member_id: string | null
+          mes: number
+          motivo_reabertura: string | null
+          parcelas_do_mes: number
+          reaberto_em: string | null
+          reaberto_por: string | null
+          receita_total_real: number
+          recorrencias_do_mes: number
+          renda_fixa: number
+          renda_variavel_prevista: number
+          renda_variavel_recebida: number
+          reserva_final: number
+          saldo_bancario_final: number
+          status_saude_financeira: string
+          updated_at: string
+        }
+        Insert: {
+          ano: number
+          compras_cartao?: number
+          compras_pix_debito_dinheiro?: number
+          comprometido_final?: number
+          contas_recorrentes_do_mes?: number
+          created_at?: string
+          dinheiro_livre_final?: number
+          family_id: string
+          faturas_em_aberto?: number
+          faturas_pagas?: number
+          fechado?: boolean
+          fechado_em?: string
+          fechado_por?: string | null
+          gastos_realizados?: number
+          id?: string
+          member_id?: string | null
+          mes: number
+          motivo_reabertura?: string | null
+          parcelas_do_mes?: number
+          reaberto_em?: string | null
+          reaberto_por?: string | null
+          receita_total_real?: number
+          recorrencias_do_mes?: number
+          renda_fixa?: number
+          renda_variavel_prevista?: number
+          renda_variavel_recebida?: number
+          reserva_final?: number
+          saldo_bancario_final?: number
+          status_saude_financeira?: string
+          updated_at?: string
+        }
+        Update: {
+          ano?: number
+          compras_cartao?: number
+          compras_pix_debito_dinheiro?: number
+          comprometido_final?: number
+          contas_recorrentes_do_mes?: number
+          created_at?: string
+          dinheiro_livre_final?: number
+          family_id?: string
+          faturas_em_aberto?: number
+          faturas_pagas?: number
+          fechado?: boolean
+          fechado_em?: string
+          fechado_por?: string | null
+          gastos_realizados?: number
+          id?: string
+          member_id?: string | null
+          mes?: number
+          motivo_reabertura?: string | null
+          parcelas_do_mes?: number
+          reaberto_em?: string | null
+          reaberto_por?: string | null
+          receita_total_real?: number
+          recorrencias_do_mes?: number
+          renda_fixa?: number
+          renda_variavel_prevista?: number
+          renda_variavel_recebida?: number
+          reserva_final?: number
+          saldo_bancario_final?: number
+          status_saude_financeira?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_snapshots_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_snapshots_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           ativo: boolean
