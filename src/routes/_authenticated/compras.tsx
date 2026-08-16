@@ -46,6 +46,7 @@ import {
   itemTotal,
   matchesPaymentFilter,
   parcelaDoPeriodo,
+  progressoParcelamento,
   purchaseTotal,
   usesBankAccount,
   type NewPurchaseItem,
