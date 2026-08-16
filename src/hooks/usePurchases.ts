@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchConsumptionItems,
   fetchProducts,
@@ -6,6 +6,7 @@ import {
   fetchPurchaseItems,
   fetchPurchaseItemsByPurchases,
   fetchPurchases,
+  updatePurchaseItemCategory,
 } from "@/lib/purchases";
 
 export function useProducts() {
@@ -54,5 +55,18 @@ export function useConsumptionItems(purchaseIds: string[]) {
     queryKey: ["purchase-consumption", key],
     queryFn: () => fetchConsumptionItems(purchaseIds),
     enabled: purchaseIds.length > 0,
+  });
+}
+
+/** Altera somente a categoria de um item de compra já confirmada. */
+export function useUpdatePurchaseItemCategory(purchaseId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updatePurchaseItemCategory,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["purchase-items", purchaseId] });
+      void queryClient.invalidateQueries({ queryKey: ["purchase-consumption"] });
+      void queryClient.invalidateQueries({ queryKey: ["purchase-item-categories"] });
+    },
   });
 }
