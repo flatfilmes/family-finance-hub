@@ -413,8 +413,15 @@ export async function processDocumentPdf(input: {
       }
     }
 
-    await supabase.from("documents").update({ status: "PROCESSADO" }).eq("id", doc.id);
-    return { extraction, items: itensGravados, lidos: lido.items };
+    await supabase
+      .from("documents")
+      .update({
+        status: "PROCESSADO",
+        document_type_id: tipoId,
+        document_type_confidence: deteccao.confianca,
+      })
+      .eq("id", doc.id);
+    return { extraction, items: itensGravados, lidos: lido.items, deteccao };
 
   } catch (e) {
     await supabase.from("documents").update({ status: "ERRO" }).eq("id", doc.id);
