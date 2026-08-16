@@ -132,7 +132,7 @@ function ReceitasPage() {
           </ul>
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">
-            Nenhuma receita encontrada. Abra o perfil de uma pessoa em Minha Família para cadastrar
+            Nenhuma receita encontrada. Abra o perfil de uma pessoa em Configurações para cadastrar
             salário e comissões.
           </p>
         )}
@@ -150,7 +150,7 @@ export function NoFamily() {
       />
       <Card>
         <Link to="/configuracoes" className="text-sm font-semibold text-primary">
-          Ir para Minha Família
+          Ir para Configurações
         </Link>
       </Card>
     </div>
