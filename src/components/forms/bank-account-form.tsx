@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
-import { CurrencyInput } from "@/components/ui/currency-input";
 import { FormActions } from "@/components/form-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useMembers } from "@/hooks/useFamilyData";
@@ -41,7 +40,6 @@ export function BankAccountForm({
   const [nomeConta, setNomeConta] = useState(account?.nome_conta ?? "");
   const [tipo, setTipo] = useState<BankAccountType>(account?.tipo_conta ?? "CORRENTE");
   const [titular, setTitular] = useState(account?.member_id ?? memberId);
-  const [saldoInicial, setSaldoInicial] = useState<number | null>(null);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -61,14 +59,15 @@ export function BankAccountForm({
         banco: banco.trim(),
         nome_conta: nomeConta.trim(),
         tipo_conta: tipo,
-        saldo_atual: saldoInicial ?? 0,
+        // O cadastro é estrutural: a posição financeira nasce em Bancos,
+        // por saldo informado, extrato ou print — sempre auditável.
+        saldo_atual: 0,
       });
     },
     onSuccess: () => {
       if (!account) {
         setBanco("");
         setNomeConta("");
-        setSaldoInicial(null);
       }
       toast.success(account ? "Conta atualizada." : "Conta bancária cadastrada.");
       onSaved?.();
@@ -136,14 +135,16 @@ export function BankAccountForm({
           <p className="text-xs font-semibold text-muted-foreground">Saldo atual calculado</p>
           <p className="mt-1 text-lg font-bold">{formatCurrency(Number(account.saldo_atual))}</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            O saldo é controlado pelas movimentações. Para corrigi-lo, use a ação “Ajustar saldo”,
-            que registra um lançamento auditável.
+            O saldo é controlado pelas movimentações. Para informar ou corrigir a posição da conta,
+            use a página Bancos — todo ajuste gera um lançamento auditável.
           </p>
         </div>
       ) : (
-        <Field label="Saldo inicial">
-          <CurrencyInput value={saldoInicial} onChange={setSaldoInicial} />
-        </Field>
+        <p className="sm:col-span-2 rounded-2xl bg-primary/5 p-4 text-xs text-muted-foreground">
+          O cadastro guarda apenas os dados da conta. Depois de salvar, abra a conta em
+          <strong> Bancos</strong> para informar o saldo atual, importar o extrato ou enviar um
+          print.
+        </p>
       )}
       {onCancel ? (
         <div className="sm:col-span-2">
