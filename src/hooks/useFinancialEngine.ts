@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { currentMonth } from "@/lib/expenses";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useMonthlySpending } from "@/hooks/useMonthlySpending";
 import { useCreditCards, useFixedExpenses, useIncomes } from "@/hooks/useFinanceData";
 import { useCardInvoices, useInstallments } from "@/hooks/useCardInvoices";
 import { filterByMember } from "@/components/member-filter";
@@ -37,7 +37,7 @@ export function useFinancialEngine(familyId?: string, memberId = "") {
   const incomes = useIncomes(familyId);
   const fixed = useFixedExpenses(familyId);
   const cards = useCreditCards(familyId);
-  const expenses = useExpenses(familyId, { month, memberId: memberId || undefined });
+  const gastoDoMes = useMonthlySpending(familyId, memberId, month);
   const settings = useFinancialSettings(familyId);
   const installments = useInstallments(familyId);
   const invoices = useCardInvoices(familyId);
@@ -76,19 +76,10 @@ export function useFinancialEngine(familyId?: string, memberId = "") {
 
   const compromissos = contasFixas + faturaCartoes + parcelasFuturas;
 
-  const gastosRealizados = (expenses.data ?? []).reduce(
-    (acc, e) => acc + (Number(e.valor) || 0),
-    0,
-  );
-  /** Despesas do mês que não passaram pelo cartão (o cartão entra pela fatura). */
-  const gastosAvulsos = (expenses.data ?? [])
-    .filter(
-      (e) =>
-        e.tipo_compra === "A_VISTA" &&
-        e.forma_pagamento !== "CREDITO" &&
-        !e.cartao_id,
-    )
-    .reduce((acc, e) => acc + (Number(e.valor) || 0), 0);
+  /** Fonte única de consumo: purchases (mesmo motor do card "Gastos do mês"). */
+  const gastosRealizados = gastoDoMes.total;
+  /** Consumo do mês que saiu direto do caixa (o cartão entra pela fatura). */
+  const gastosAvulsos = gastoDoMes.caixa;
 
   const reserva = (receitaTotal * percentualReserva) / 100;
   const disponivel = receitaTotal - compromissos - gastosAvulsos - reserva;
@@ -110,7 +101,7 @@ export function useFinancialEngine(familyId?: string, memberId = "") {
 
   const temReceitas = receitasLista.length > 0;
   const temCompromissos = contasLista.length > 0 || cartoesLista.length > 0;
-  const temDespesas = (expenses.data ?? []).length > 0;
+  const temDespesas = gastoDoMes.total > 0;
   const semDados = !temReceitas && !temCompromissos && !temDespesas;
 
   return {
@@ -124,7 +115,7 @@ export function useFinancialEngine(familyId?: string, memberId = "") {
       incomes.isLoading ||
       fixed.isLoading ||
       cards.isLoading ||
-      expenses.isLoading ||
+      gastoDoMes.isLoading ||
       installments.isLoading ||
       settings.isLoading,
     month,

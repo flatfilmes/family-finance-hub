@@ -14,7 +14,7 @@ import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import { useStickyState } from "@/hooks/useStickyState";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 
 export const Route = createFileRoute("/_authenticated/cartoes/")({
   head: () => ({

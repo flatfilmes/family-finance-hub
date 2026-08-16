@@ -1,4 +1,5 @@
-import { Landmark } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeftRight, Landmark } from "lucide-react";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -14,7 +15,8 @@ import { formatCurrency } from "@/lib/finance";
 import { BANK_ACCOUNT_TYPE_LABELS } from "@/lib/bank-accounts";
 import { currentMonth, monthLabel } from "@/lib/expenses";
 import type { Transaction } from "@/lib/transactions";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
+import { TransferDialog } from "@/components/transfer-dialog";
 
 export const Route = createFileRoute("/_authenticated/bancos/")({
   head: () => ({
@@ -48,6 +50,7 @@ function BancosPage() {
   const [filtroBanco, setFiltroBanco] = useStickyState("bancos:banco", "");
   const [periodo, setPeriodo] = useStickyState("bancos:periodo", currentMonth());
   const [busca, setBusca] = useStickyState("bancos:busca", "");
+  const [transferOpen, setTransferOpen] = useState(false);
 
   if (!family) return <NoFamily />;
 
@@ -89,9 +92,27 @@ function BancosPage() {
 
   return (
     <div>
-      <PageHeader
-        title="Bancos da família"
-        subtitle="Visão geral das contas. Clique em uma conta para abrir a página completa com extrato e filtros."
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <PageHeader
+          title="Bancos da família"
+          subtitle="Visão geral das contas. Clique em uma conta para abrir a página completa com extrato e filtros."
+        />
+        <button
+          type="button"
+          onClick={() => setTransferOpen(true)}
+          disabled={(accounts ?? []).filter((a) => a.ativo).length < 2}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+        >
+          <ArrowLeftRight className="size-4" />
+          Transferir entre contas
+        </button>
+      </div>
+
+      <TransferDialog
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        familyId={family.id}
+        accounts={(accounts ?? []).filter((a) => a.ativo)}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">

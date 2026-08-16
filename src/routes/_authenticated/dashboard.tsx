@@ -18,7 +18,7 @@ import {
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
-import { useExpenseSummary } from "@/hooks/useExpenses";
+import { useSpendingSummary } from "@/hooks/useSpendingSummary";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
@@ -79,7 +79,7 @@ function Dashboard() {
   const [filtroMembro, setFiltroMembro] = useState("");
   const view = useViewMode();
   const escopo = view.scoped(filtroMembro);
-  const gastos = useExpenseSummary(family?.id, escopo);
+  const gastos = useSpendingSummary(family?.id, escopo);
   const gastoMes = useMonthlySpending(family?.id, escopo);
 
   const orcamento = useBudgetProgress(family?.id, undefined, escopo);
@@ -292,15 +292,17 @@ function Dashboard() {
         )}
       </section>
 
+      {/* O total gasto já aparece em "Gastos realizados no mês" — aqui só o detalhe. */}
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
           icon={<ShoppingCart className="size-5" />}
-          label="Total gasto no mês"
-          value={formatCurrency(gastos.totalMes)}
-          hint={`${gastos.count} lançamento(s) em ${monthLabel(gastos.month)}`}
+          label="Compras do mês"
+          value={String(gastos.count)}
+          hint={`Compras registradas em ${monthLabel(gastos.month)}`}
           to="/compras"
           loading={gastos.isLoading}
         />
+
         <StatCard
           icon={<PieChart className="size-5" />}
           label="Maior categoria de gasto"

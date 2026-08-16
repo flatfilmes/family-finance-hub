@@ -53,3 +53,27 @@ export async function payCardInvoice(input: {
   if (error) throw error;
   return data as string;
 }
+
+/**
+ * Transferência entre contas da mesma família.
+ * Operação atômica no banco: debita a origem, credita o destino e registra
+ * as duas movimentações ligadas pelo mesmo `transfer_group_id`.
+ * Transferência interna não é gasto nem receita da família.
+ */
+export async function transferBetweenAccounts(input: {
+  origemId: string;
+  destinoId: string;
+  valor: number;
+  data?: string;
+  descricao?: string;
+}) {
+  const { data, error } = await supabase.rpc("transfer_between_accounts", {
+    _origem_id: input.origemId,
+    _destino_id: input.destinoId,
+    _valor: input.valor,
+    ...(input.data ? { _data: input.data } : {}),
+    ...(input.descricao ? { _descricao: input.descricao } : {}),
+  });
+  if (error) throw error;
+  return data as string;
+}
