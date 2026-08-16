@@ -18,9 +18,9 @@ import { useRecurringExpenseActions } from "@/hooks/useRecurringExpenses";
 import { useMemberName } from "@/components/member-select";
 import { filterByMember } from "@/components/member-filter";
 import { useViewMode } from "@/components/view-mode";
-import { INVOICE_STATUS_LABELS, monthKeyLabel } from "@/lib/card-invoices";
+import { monthKeyLabel } from "@/lib/card-invoices";
 import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
-import { KIND_LABELS, type Kind } from "@/lib/card-details";
+import { ESTADO_CICLO_LABELS, KIND_LABELS, type EstadoCiclo, type Kind } from "@/lib/card-details";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "@/components/no-family";
@@ -89,11 +89,19 @@ function CartaoDetalhePage() {
   const disponivel = limite - utilizado;
   const uso = limite > 0 ? Math.min(100, (utilizado / limite) * 100) : 0;
 
-  const faturas = dados
-    .faturasDoCartao(cartao.id)
-    .slice()
-    .sort((a, b) => (a.data_vencimento < b.data_vencimento ? 1 : -1));
-  const fatura = faturas.find((f) => f.id === faturaId) ?? info?.faturaAtual ?? faturas[0] ?? null;
+  // Só ciclos reais (fechados/pagos/oficiais) e a fatura em formação entram no seletor.
+  const ciclos = dados.ciclosDe(cartao.id);
+  const selecionaveis = [ciclos.atual, ciclos.emFormacao, ...ciclos.historico].filter(
+    (c): c is NonNullable<typeof c> => !!c,
+  );
+  const cicloSelecionado =
+    selecionaveis.find((c) => c.invoice.id === faturaId) ?? ciclos.atual ?? selecionaveis[0] ?? null;
+  const fatura = cicloSelecionado?.invoice ?? null;
+  const estadoSelecionado: EstadoCiclo | null = cicloSelecionado?.estado ?? null;
+  const toneEstado = (estado: EstadoCiclo) =>
+    estado === "PAGA" ? "ok" : estado === "VENCIDA" ? "danger" : estado === "EM_FORMACAO" ? "muted" : "warn";
+  const optionLabel = (c: (typeof selecionaveis)[number]) =>
+    `${monthKeyLabel(c.competencia)} · ${formatCurrency(c.valor)} · ${ESTADO_CICLO_LABELS[c.estado]}`;
 
   const linhas = dados.linhasDe(cartao.id, fatura);
   const filtradas = linhas.filter(
@@ -249,7 +257,9 @@ function CartaoDetalhePage() {
       <Card className="mt-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionTitle title="Fatura" hint="Escolha a competência para ver total e lançamentos." />
-          {fatura && <Badge tone={fatura.status === "PAGA" ? "ok" : "warn"}>{INVOICE_STATUS_LABELS[fatura.status]}</Badge>}
+          {estadoSelecionado && (
+            <Badge tone={toneEstado(estadoSelecionado)}>{ESTADO_CICLO_LABELS[estadoSelecionado]}</Badge>
+          )}
         </div>
 
         <div className="mb-3">
@@ -268,13 +278,28 @@ function CartaoDetalhePage() {
               onChange={(e) => setFaturaId(e.target.value)}
               aria-label="Fatura"
             >
-              {faturas.length === 0 && <option value="">Nenhuma fatura</option>}
-              {faturas.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {monthKeyLabel(f.data_vencimento.slice(0, 7))} · vence{" "}
-                  {formatDate(f.data_vencimento)} · {INVOICE_STATUS_LABELS[f.status].toLowerCase()}
-                </option>
-              ))}
+              {selecionaveis.length === 0 && <option value="">Nenhuma fatura</option>}
+              {ciclos.atual && (
+                <optgroup label="Fatura atual">
+                  <option value={ciclos.atual.invoice.id}>{optionLabel(ciclos.atual)}</option>
+                </optgroup>
+              )}
+              {ciclos.emFormacao && (
+                <optgroup label="Próxima fatura">
+                  <option value={ciclos.emFormacao.invoice.id}>
+                    {optionLabel(ciclos.emFormacao)}
+                  </option>
+                </optgroup>
+              )}
+              {ciclos.historico.length > 0 && (
+                <optgroup label="Histórico">
+                  {ciclos.historico.map((c) => (
+                    <option key={c.invoice.id} value={c.invoice.id}>
+                      {optionLabel(c)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </Field>
           <Field label="Tipo de lançamento">
@@ -312,6 +337,11 @@ function CartaoDetalhePage() {
             Ciclo de {formatDate(fatura.data_inicio_ciclo)} a {formatDate(fatura.data_fechamento)} ·
             fechamento {formatDate(fatura.data_fechamento)} · vencimento{" "}
             {formatDate(fatura.data_vencimento)}
+            {estadoSelecionado === "EM_FORMACAO"
+              ? " · valor parcial, o ciclo ainda não fechou"
+              : cicloSelecionado?.oficial
+                ? " · fatura oficial importada"
+                : " · valor calculado pelo sistema"}
           </p>
         )}
 
@@ -456,8 +486,8 @@ function CartaoDetalhePage() {
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <Card>
           <SectionTitle
-            title="Próximas faturas"
-            hint="Parcelas já registradas e recorrências ativas dos próximos meses."
+            title="Compromissos futuros"
+            hint="Projeção de parcelas e recorrências dos próximos meses — não são faturas fechadas."
           />
           {proximas.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nenhum compromisso futuro registrado.</p>
@@ -468,7 +498,7 @@ function CartaoDetalhePage() {
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">{monthKeyLabel(m.key)}</span>
                     <span className="block text-xs text-muted-foreground">
-                      Parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
+                      Projetado · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
                       {formatCurrency(m.recorrencias)}
                     </span>
                   </span>
