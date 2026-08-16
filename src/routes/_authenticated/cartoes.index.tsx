@@ -185,7 +185,7 @@ function CartoesPage() {
         open={!!paraExcluir}
         onOpenChange={(aberto) => !aberto && setParaExcluir(null)}
         title="Excluir fatura importada"
-        description={paraExcluir?.nome_arquivo}
+        description={paraExcluir?.nome_arquivo ?? ""}
       >
         {paraExcluir && podeExcluirImportacao(paraExcluir.status) ? (
           <div className="space-y-3 text-sm">
