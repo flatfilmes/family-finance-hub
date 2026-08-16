@@ -5,7 +5,7 @@ import { AlertTriangle, X } from "lucide-react";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useMemberName } from "@/components/member-select";
-import { Card, PrimaryButton } from "@/components/ui-kit";
+import { Card, PrimaryButton } from "@/components/page-header";
 import { formatCurrency } from "@/lib/finance";
 import { PAYMENT_METHOD_LABELS, formatDate } from "@/lib/expenses";
 import {
@@ -89,8 +89,14 @@ export function RegistrarPagamentoDialog({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (usaBanco && !contaId) return toast.error("Selecione a conta bancária do pagamento.");
-    if (credito && !cartaoId) return toast.error("Selecione o cartão utilizado.");
+    if (usaBanco && !contaId) {
+      toast.error("Selecione a conta bancária do pagamento.");
+      return;
+    }
+    if (credito && !cartaoId) {
+      toast.error("Selecione o cartão utilizado.");
+      return;
+    }
     pagar.mutate();
   };
 
