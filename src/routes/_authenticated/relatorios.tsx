@@ -143,3 +143,39 @@ function RelatoriosPage() {
     </div>
   );
 }
+
+/** Resumo individual: gastos vêm do mesmo motor de competência baseado em compras. */
+function MembroLinha({
+  familyId,
+  memberId,
+  nome,
+  month,
+  receitas,
+}: {
+  familyId: string;
+  memberId: string;
+  nome: string;
+  month: string;
+  receitas: number;
+}) {
+  const gasto = useMonthlySpending(familyId, memberId, month);
+  return (
+    <li className="flex items-center justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <Link
+          to="/membro/$memberId"
+          params={{ memberId }}
+          className="truncate text-sm font-semibold text-primary hover:underline"
+        >
+          {nome}
+        </Link>
+        <p className="text-xs text-muted-foreground">
+          Receitas {formatCurrency(receitas)} · Gastos {formatCurrency(gasto.total)}
+        </p>
+      </div>
+      <span className="shrink-0 text-sm font-semibold">
+        {formatCurrency(receitas - gasto.total)}
+      </span>
+    </li>
+  );
+}
