@@ -923,18 +923,22 @@ export function buildBankAudit(input: {
       detalhe: `${d.descricao} — ${d.ids.length} lançamentos idênticos.`,
     });
   }
-  for (const t of pagamentosCartaoSemFatura) {
+  for (const p of pagamentosCartaoSemFatura) {
+    const t = p.transaction;
     const mismatch = datasInconsistentes.find((m) => m.transactionId === t.id);
     problemas.push({
       id: `cartao-${t.id}`,
-      severity: mismatch ? "ATENCAO" : "PENDENCIA",
+      severity: mismatch || p.dataDivergente ? "ATENCAO" : "PENDENCIA",
       categoria: "DADOS",
-      titulo: mismatch
-        ? "Pagamento de cartão com data divergente do extrato"
-        : "Pagamento de cartão sem fatura associada",
+      titulo:
+        mismatch || p.dataDivergente
+          ? "Pagamento de cartão com data divergente do extrato"
+          : "Pagamento de cartão sem fatura associada",
       detalhe: mismatch
         ? `Extrato informa ${mismatch.dataExtrato}, ledger gravou ${mismatch.dataLedger}. Valor ${mismatch.valor}.`
-        : `${t.data_movimento} · ${t.descricao}`,
+        : p.dataDivergente
+          ? `Data contábil ${t.data_movimento} (coluna "Dia"), mas o histórico cita ${p.dataNoHistorico}. A data contábil é a que vale — o histórico é apenas referência do pagamento.`
+          : `${t.data_movimento} · ${t.descricao}`,
     });
   }
   if (semAssociacao.length) {
