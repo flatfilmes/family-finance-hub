@@ -197,6 +197,9 @@ function EnvioNotaFiscal({
       );
       setFile(null);
       void queryClient.invalidateQueries({ queryKey: ["documents", familyId] });
+      void queryClient.invalidateQueries({ queryKey: ["document-extraction"] });
+      void queryClient.invalidateQueries({ queryKey: ["document-extraction-items"] });
+
     },
     onError: (e: Error) => toast.error(e.message),
   });
