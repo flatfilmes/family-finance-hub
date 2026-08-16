@@ -112,13 +112,17 @@ function CartaoDetalhePage() {
   const parcelamentos = dados.parcelamentosDe(cartao.id);
   const recorrencias = dados.recorrenciasDoCartao(cartao.id);
 
+  // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
+  const faturaCiclo = dados.faturaDe(cartao.id, fatura);
+  const composicao = dados.composicaoDe(cartao.id);
+
   // Capacidade de pagamento: mesma fórmula da visão geral, aplicada às contas do titular.
   const contasAutorizadas = filterByMember(accounts ?? [], cartao.member_id ?? "sem").filter(
     (a) => a.ativo,
   );
   const saldoContas = contasAutorizadas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-  const valorFaturaAberta =
-    fatura && fatura.status !== "PAGA" ? Number(fatura.valor_total) || 0 : 0;
+  const valorFaturaAberta = fatura && fatura.status !== "PAGA" ? faturaCiclo.valor : 0;
+
   const capacidade = saldoContas - valorFaturaAberta;
   const statusPagamento =
     capacidade < 0 ? "Crítico" : capacidade < valorFaturaAberta * 0.2 ? "Atenção" : "Seguro";
