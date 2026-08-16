@@ -284,43 +284,6 @@ function Dashboard() {
       </section>
 
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<TrendingUp className="size-5" />}
-          label="Receita mensal"
-          value={formatCurrency(summary.receitaMensal)}
-          hint={`${summary.counts.incomes} receita(s) cadastrada(s)`}
-          to="/receitas"
-          loading={summary.isLoading}
-        />
-        <StatCard
-          icon={<Receipt className="size-5" />}
-          label="Contas fixas"
-          value={formatCurrency(summary.contasFixas)}
-          hint={`${summary.counts.expenses} conta(s) cadastrada(s)`}
-          to="/contas-fixas"
-          loading={summary.isLoading}
-        />
-        <StatCard
-          icon={<CreditCard className="size-5" />}
-          label="Limite dos cartões"
-          value={formatCurrency(summary.limiteCartoes)}
-          hint={`${summary.counts.cards} cartão(ões) cadastrado(s)`}
-          to="/cartoes"
-          loading={summary.isLoading}
-        />
-        <StatCard
-          icon={<Gauge className="size-5" />}
-          label="Comprometimento financeiro"
-          value={comprometimento === null ? "—" : `${comprometimento.toFixed(0)}%`}
-          hint={
-            comprometimento === null
-              ? "Cadastre receitas para calcular"
-              : `Sobra estimada: ${formatCurrency(summary.saldo)}`
-          }
-          loading={summary.isLoading}
-        />
-      </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
@@ -496,47 +459,6 @@ function Dashboard() {
 
 
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Card>
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-            <Users className="size-5" />
-          </span>
-          <h2 className="mt-4 text-base font-bold">Minha Família</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isLoading
-              ? "Carregando..."
-              : family
-                ? `${family.nome_da_familia} · ${members?.length ?? 0} membro(s)`
-                : "Nenhuma família criada ainda."}
-          </p>
-          <Link
-            to="/minha-familia"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
-          >
-            {family ? "Gerenciar membros" : "Criar minha família"}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Card>
-
-        <Card>
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-            <Wallet className="size-5" />
-          </span>
-          <h2 className="mt-4 text-base font-bold">Perfil Financeiro</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {financial?.objetivo_principal
-              ? `Objetivo: ${GOAL_LABELS[financial.objetivo_principal]}`
-              : "Ainda não preenchido."}
-          </p>
-          <Link
-            to="/perfil-financeiro"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
-          >
-            {financial ? "Atualizar informações" : "Preencher perfil"}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Card>
-      </div>
 
       <Card className="mt-4">
         <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
