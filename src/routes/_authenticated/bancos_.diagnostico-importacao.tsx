@@ -275,11 +275,89 @@ function DiagnosticoImportacao() {
   );
 }
 
+/** Etapas do parser em ordem — mostra exatamente onde a contagem zera. */
+function PipelinePanel({ resultado }: { resultado: Resultado }) {
+  const p = resultado.pipeline;
+  const etapas: { rotulo: string; valor: string; alerta?: boolean }[] = [
+    {
+      rotulo: "BANK DETECTION",
+      valor: p
+        ? `${p.detection.detectedBank} · confiança ${p.detection.confidence}`
+        : resultado.statement.parser ?? "—",
+      alerta: p ? p.detection.detectedBank !== "ITAU" : false,
+    },
+    {
+      rotulo: "PERIOD",
+      valor: `${resultado.statement.periodStart ?? "?"} → ${resultado.statement.periodEnd ?? "?"}`,
+      alerta: !resultado.statement.periodStart || !resultado.statement.periodEnd,
+    },
+    { rotulo: "RAW ITEMS", valor: String(resultado.rawItems), alerta: resultado.rawItems === 0 },
+    {
+      rotulo: "ASSEMBLED ROWS",
+      valor: String(p?.assembledRows ?? resultado.lines.length),
+      alerta: (p?.assembledRows ?? resultado.lines.length) === 0,
+    },
+    {
+      rotulo: "PARSED TRANSACTIONS",
+      valor: String(resultado.statement.transactions.length),
+      alerta: resultado.statement.transactions.length === 0,
+    },
+    {
+      rotulo: "PARSED CHECKPOINTS",
+      valor: String(resultado.statement.checkpoints.length),
+    },
+    {
+      rotulo: "VALIDATION",
+      valor: p?.validation.status ?? resultado.validation.status,
+      alerta: (p?.validation.status ?? resultado.validation.status) !== "PASS" &&
+        resultado.validation.status !== "PARSED_STATEMENT_VALID",
+    },
+  ];
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {etapas.map((e) => (
+          <div key={e.rotulo}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {e.rotulo}
+            </p>
+            <p className={e.alerta ? "text-sm font-semibold text-destructive" : "text-sm font-medium"}>
+              {e.valor}
+            </p>
+          </div>
+        ))}
+      </div>
+      {p && (
+        <p className="text-[11px] text-muted-foreground">
+          Sinais: {p.detection.matchedSignals.join(" · ") || "nenhum"}
+          {p.columns
+            ? ` · colunas (${p.columns.source}) valor x≈${p.columns.valorX.toFixed(0)} · saldo x≈${p.columns.saldoX.toFixed(0)}`
+            : " · colunas não detectadas"}
+          {p.openingBalance.date ? ` · abertura ${p.openingBalance.date}` : ""}
+          {p.referenceBalance.date
+            ? ` · saldo de referência ${p.referenceBalance.date} (fora do período)`
+            : ""}
+        </p>
+      )}
+      {p?.validation.errors.length ? (
+        <ul className="list-disc space-y-0.5 pl-5 text-[11px] text-destructive">
+          {p.validation.errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function Detalhe({ resultado }: { resultado: Resultado }) {
   const { statement, validation } = resultado;
   const mes = statement.periodEnd?.slice(0, 7) ?? "sem-periodo";
   return (
     <div className="space-y-4">
+      <PipelinePanel resultado={resultado} />
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
