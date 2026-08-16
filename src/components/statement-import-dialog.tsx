@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { FileUp, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { Bug, FileUp, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
+import { PdfDiagnosticDialog } from "@/components/pdf-diagnostic-dialog";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useExpenseCategories } from "@/hooks/useExpenses";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -14,6 +15,7 @@ import { formatOptional } from "@/lib/card-statements";
 import type { ParsedStatement } from "@/lib/card-statement-parsers";
 import { formatCurrency, type CreditCard } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
+
 
 type Modo = "conferir" | "comecar";
 
