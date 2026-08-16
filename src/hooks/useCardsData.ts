@@ -86,6 +86,40 @@ export function useCardsData(familyId?: string) {
     });
   };
 
+  /**
+   * Projeção das parcelas já contratadas para um ciclo ainda sem fatura oficial.
+   *
+   * A parcela atual de cada série vem da última fatura CONFIRMADA do cartão (o
+   * PDF é evidência explícita). O cronograma interno pode estar ancorado em
+   * datas históricas, então ele não pode ser a única fonte das próximas.
+   */
+  const projecaoParcelasDe = (
+    cardId: string,
+    ciclo: Parameters<typeof buildCardCycleComposition>[0]["ciclo"],
+  ) => {
+    if (!ciclo || ciclo.fonte === "OFFICIAL_STATEMENT") return [];
+    const doCartao = (itensParcelados.data ?? []).filter((i) => i.credit_card_id === cardId);
+    if (doCartao.length === 0) return [];
+    const vencimentoBase = doCartao
+      .map((i) => i.card_statement_imports?.data_vencimento ?? null)
+      .filter((v): v is string => !!v)
+      .sort()
+      .at(-1);
+    if (!vencimentoBase) return [];
+    const itens = doCartao.filter(
+      (i) => i.card_statement_imports?.data_vencimento === vencimentoBase,
+    );
+    const mesesEntre = (a: string, b: string) =>
+      (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 +
+      (Number(b.slice(5, 7)) - Number(a.slice(5, 7)));
+    return projetarParcelasDoCiclo({
+      itens,
+      offset: mesesEntre(vencimentoBase, ciclo.invoice.data_vencimento),
+      vencimentoCiclo: ciclo.invoice.data_vencimento,
+    });
+  };
+
+
   return {
     isLoading: cards.isLoading,
     cards: cards.data ?? [],
