@@ -73,6 +73,7 @@ function RevisarFaturaPage() {
   const { data: purchases } = usePurchases(family?.id);
   const { data: categorias } = useExpenseCategories();
   const perms = usePermissions();
+  const recorrencias = useRecurringExpenses(family?.id);
   const acoes = useStatementItemActions(importId);
   const confirmar = useConfirmStatementImport(family?.id);
 
