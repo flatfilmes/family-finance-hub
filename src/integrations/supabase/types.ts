@@ -2547,6 +2547,15 @@ export type Database = {
         }
         Returns: Json
       }
+      set_bank_account_balance: {
+        Args: {
+          _account_id: string
+          _data?: string
+          _motivo?: string
+          _saldo: number
+        }
+        Returns: string
+      }
       sync_installment_invoices: {
         Args: { _family_id?: string }
         Returns: number
