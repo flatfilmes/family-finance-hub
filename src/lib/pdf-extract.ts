@@ -396,6 +396,9 @@ const LINHA_IGNORADA = [
 
 function limparDescricao(raw: string): string {
   return raw
+    .replace(/\s+(?:CÁLCULO|CALCULO)\s+DO\s+ISSQN.*$/i, "")
+    .replace(/\s+c\s+(?=\d+\s+Pares\b)/i, " c/ ")
+    .replace(/\s+(?=(?:Preto|Branco|Bege|Azul|Laranja)(?:\+|$))/i, " - ")
     .replace(/\s{2,}/g, " ")
     .replace(/^[\s\-–:.]+/, "").replace(/[\s\-–:]+$/, "")
     .slice(0, 120)
