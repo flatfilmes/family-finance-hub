@@ -23,12 +23,47 @@ import {
 import { normalizeDescricao, semAcento, tituloEstabelecimento } from "./generic";
 import type {
   ParsedStatement,
+  StatementBlockAudit,
   StatementCardSubtotal,
   StatementEntry,
   StatementItemKind,
   StatementMetadata,
   StatementParser,
+  StatementRejectedLine,
+  StatementRejectionReason,
 } from "./types";
+
+/** Confere os lançamentos extraídos contra os subtotais impressos por cartão. */
+export function auditarBlocos(
+  entries: StatementEntry[],
+  subtotais: StatementCardSubtotal[],
+): StatementBlockAudit[] {
+  const finais = new Set<string>();
+  for (const e of entries) if (e.card_last4) finais.add(e.card_last4);
+  for (const s of subtotais) finais.add(s.card_last4);
+  return [...finais].map((card) => {
+    const doBloco = entries.filter((e) => e.card_last4 === card);
+    const total = doBloco.reduce((s, e) => s + e.valor, 0);
+    const creditos = doBloco.filter((e) => e.valor < 0).reduce((s, e) => s + e.valor, 0);
+    const oficial = subtotais.find((s) => s.card_last4 === card)?.valor ?? null;
+    const diferenca = oficial === null ? null : Number((oficial - total).toFixed(2));
+    return {
+      card_last4: card,
+      subtotal_oficial: oficial,
+      total_extraido: Number(total.toFixed(2)),
+      quantidade: doBloco.length,
+      creditos: Number(creditos.toFixed(2)),
+      diferenca,
+      status:
+        diferenca === null
+          ? ("BLOCK_UNVERIFIED" as const)
+          : Math.abs(diferenca) <= 0.05
+            ? ("BLOCK_OK" as const)
+            : ("BLOCK_INCOMPLETE" as const),
+    };
+  });
+}
+
 
 // ------------------------------------------------------------------ utilidades
 
