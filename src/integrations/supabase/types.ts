@@ -694,6 +694,63 @@ export type Database = {
           },
         ]
       }
+      category_rules: {
+        Row: {
+          active: boolean
+          category_id: string
+          created_at: string
+          created_by: string | null
+          family_id: string
+          id: string
+          match_type: Database["public"]["Enums"]["category_rule_match"]
+          match_value: string
+          priority: number
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          family_id: string
+          id?: string
+          match_type: Database["public"]["Enums"]["category_rule_match"]
+          match_value: string
+          priority?: number
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          family_id?: string
+          id?: string
+          match_type?: Database["public"]["Enums"]["category_rule_match"]
+          match_value?: string
+          priority?: number
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "category_rules_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "category_rules_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           ativo: boolean
@@ -2097,6 +2154,7 @@ export type Database = {
       purchases: {
         Row: {
           bank_account_id: string | null
+          categoria_id: string | null
           created_at: string
           created_by: string | null
           credit_card_id: string | null
@@ -2122,6 +2180,7 @@ export type Database = {
         }
         Insert: {
           bank_account_id?: string | null
+          categoria_id?: string | null
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
@@ -2147,6 +2206,7 @@ export type Database = {
         }
         Update: {
           bank_account_id?: string | null
+          categoria_id?: string | null
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
@@ -2176,6 +2236,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchases_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
             referencedColumns: ["id"]
           },
           {
@@ -2735,6 +2802,11 @@ export type Database = {
         | "CANCELLED"
         | "ERROR"
         | "UNDONE"
+      category_rule_match:
+        | "EXACT_PRODUCT"
+        | "PRODUCT_CONTAINS"
+        | "EXACT_MERCHANT"
+        | "MERCHANT_CONTAINS"
       document_read_strategy:
         | "DANFE_PDF_TABULAR"
         | "NFCE_QRCODE"
@@ -3012,6 +3084,12 @@ export const Constants = {
         "CANCELLED",
         "ERROR",
         "UNDONE",
+      ],
+      category_rule_match: [
+        "EXACT_PRODUCT",
+        "PRODUCT_CONTAINS",
+        "EXACT_MERCHANT",
+        "MERCHANT_CONTAINS",
       ],
       document_read_strategy: [
         "DANFE_PDF_TABULAR",
