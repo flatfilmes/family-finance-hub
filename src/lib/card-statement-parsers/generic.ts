@@ -69,7 +69,7 @@ export function lerValor(texto: string): { valor: number | null; resto: string }
   if (!achados || achados.length === 0) return { valor: null, resto: texto };
   const bruto = achados[achados.length - 1] as string;
   const negativo = /-/.test(bruto) || /\bCR\b|\bC\b\s*$/.test(texto);
-  const valor = parseValorBr(bruto) * (negativo ? -1 : 1);
+  const valor = Math.abs(parseValorBr(bruto)) * (negativo ? -1 : 1);
   const idx = texto.lastIndexOf(bruto);
   const resto = (texto.slice(0, idx) + " " + texto.slice(idx + bruto.length)).trim();
   return { valor, resto };
