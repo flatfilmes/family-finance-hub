@@ -142,6 +142,8 @@ type Candidatos = {
   purchases: Database["public"]["Tables"]["purchases"]["Row"][];
   installments: Database["public"]["Tables"]["expense_installments"]["Row"][];
   recurring: Database["public"]["Tables"]["recurring_expenses"]["Row"][];
+  /** Compra de origem de cada parcelamento, para comparar o nome do estabelecimento. */
+  installmentPurchases: Record<string, { id: string; estabelecimento: string }>;
 };
 
 export type MatchResult = {
@@ -183,12 +185,34 @@ export async function fetchMatchCandidates(input: {
       .eq("credit_card_id", input.cardId),
   ]);
 
+  // As parcelas de meses anteriores podem apontar para compras fora da janela
+  // de datas acima; buscamos essas compras pelo id para comparar o nome.
+  const idsCompras = Array.from(
+    new Set((installments ?? []).map((p) => p.purchase_id).filter(Boolean) as string[]),
+  );
+  const installmentPurchases: Record<string, { id: string; estabelecimento: string }> = {};
+  for (const p of purchases ?? []) {
+    installmentPurchases[p.id] = { id: p.id, estabelecimento: p.estabelecimento };
+  }
+  const faltando = idsCompras.filter((id) => !installmentPurchases[id]);
+  if (faltando.length > 0) {
+    const { data: extras } = await supabase
+      .from("purchases")
+      .select("id, estabelecimento")
+      .in("id", faltando);
+    for (const p of extras ?? []) {
+      installmentPurchases[p.id] = { id: p.id, estabelecimento: p.estabelecimento };
+    }
+  }
+
   return {
     purchases: purchases ?? [],
     installments: installments ?? [],
     recurring: recurring ?? [],
+    installmentPurchases,
   };
 }
+
 
 /**
  * Classifica um lançamento da fatura contra o que já existe no sistema.
