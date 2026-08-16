@@ -264,17 +264,9 @@ export async function runBankStatementParserPipeline(file: Blob): Promise<BankPa
   const linhas = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
   const textos = [...linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean), ...itens];
   const detection = detectBankStatement(textos);
-  const requestedBank = detection.bank ?? "GENERICO";
-  const parser: BankParserSelection = {
-    status: "FOUND",
-    requestedBank,
-    name:
-      requestedBank === "BANCO_DO_BRASIL"
-        ? "EXTRATO_BANCO_DO_BRASIL_PDF"
-        : requestedBank === "ITAU"
-          ? "ITAU_BANK_STATEMENT"
-          : "EXTRATO_GENERICO_PDF",
-  };
+  const parser = selectBankStatementParser(detection.bank);
+  const requestedBank = parser.requestedBank ?? "GENERICO";
+
   const parsed =
     requestedBank === "BANCO_DO_BRASIL"
       ? parseBancoDoBrasilLines(linhas)
