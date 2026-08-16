@@ -76,7 +76,9 @@ function Dashboard() {
 
   const orcamento = useBudgetProgress(family?.id, undefined, escopo);
   const engine = useFinancialEngine(family?.id, escopo);
+  const caixa = useFreeCash(family?.id, escopo);
   const compromissos = useFutureCommitments(family?.id, escopo);
+
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
   const nomeEscopo = (members ?? []).find((m) => m.id === escopo)?.nome;
