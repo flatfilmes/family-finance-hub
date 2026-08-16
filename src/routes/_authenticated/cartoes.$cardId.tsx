@@ -233,7 +233,7 @@ function CartaoDetalhePage() {
           hint="Compara a fatura em aberto com o saldo das contas do titular."
         />
         <div className="grid gap-4 sm:grid-cols-3">
-          <Metric label="Fatura atual" value={formatCurrency(valorFaturaAberta)} />
+          <Metric label={faturaCiclo.label} value={formatCurrency(valorFaturaAberta)} />
           <Metric label="Saldo nas contas do titular" value={formatCurrency(saldoContas)} />
           <Metric
             label="Sobra após pagar"
