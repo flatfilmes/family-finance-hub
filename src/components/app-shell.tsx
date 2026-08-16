@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/minha-familia", label: "Minha Família", icon: Users },
+  
   { to: "/compras", label: "Compras", icon: ShoppingBasket },
   { to: "/bancos", label: "Bancos", icon: Landmark },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
