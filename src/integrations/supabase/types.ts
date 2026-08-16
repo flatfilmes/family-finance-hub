@@ -2851,6 +2851,14 @@ export type Database = {
         }
         Returns: string
       }
+      reprocess_account_checkpoints_only: {
+        Args: { _account_id: string }
+        Returns: Json
+      }
+      reprocess_bank_statement_checkpoints_only: {
+        Args: { _import_id: string }
+        Returns: Json
+      }
       reprocess_bank_statement_import: {
         Args: { _import_id: string; _tolerancia?: number }
         Returns: Json
