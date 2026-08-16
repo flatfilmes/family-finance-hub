@@ -13,6 +13,9 @@ import {
   resetFamilyData,
   type BackupResult,
   type ResetType,
+  inspectPurchasesCardsReset,
+  resetPurchasesAndCards,
+  type PurchasesCardsResetReport,
 } from "@/lib/family-backup";
 
 type Etapa = "fechado" | "backup" | "opcoes" | "confirmar";
@@ -134,6 +137,7 @@ function DangerZone({
   const [confirmacao, setConfirmacao] = useState("");
   const [totais, setTotais] = useState<{ label: string; total: number }[]>([]);
   const [executando, setExecutando] = useState(false);
+  const [resetCompras, setResetCompras] = useState(false);
 
   const nomeFamilia = family?.nome_da_familia ?? "";
   const alvo = tipo === "FAMILIA_COMPLETA" ? nomeFamilia : "RESETAR";
