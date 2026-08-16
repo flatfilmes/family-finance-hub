@@ -164,7 +164,7 @@ function MembroPage() {
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         <ArrowLeft className="size-4" />
-        Configurações · Família e membros
+        Configurações · Família e Finanças
       </Link>
 
       <PageHeader
