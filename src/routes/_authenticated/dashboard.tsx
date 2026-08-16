@@ -227,24 +227,13 @@ function Dashboard() {
                 to="/receitas"
                 loading={engine.isLoading}
               />
-              <StatCard
-                icon={<Receipt className="size-5" />}
-                label="Comprometido"
-                value={formatCurrency(engine.compromissos)}
-                hint={`Contas ${formatCurrency(engine.contasFixas)} · fatura atual ${formatCurrency(engine.faturaCartoes)} · parcelas futuras ${formatCurrency(engine.parcelasFuturas)}`}
-                to="/contas-fixas"
-                loading={engine.isLoading}
-              />
+              <ComprometidoCard caixa={caixa} />
               <GastosDoMesCard gasto={gastoMes} />
-
-              <StatCard
-                icon={<Wallet className="size-5" />}
-                label="Dinheiro disponível real"
-                value={formatCurrency(engine.disponivel)}
-                hint="Receita estimada - compromissos - gastos - reserva"
-                loading={engine.isLoading}
-              />
+              <DinheiroLivreCard caixa={caixa} />
             </div>
+
+            <ResumoCaixa caixa={caixa} />
+
 
             <CapacidadeCartoes familyId={family?.id} memberId={escopo} />
 
