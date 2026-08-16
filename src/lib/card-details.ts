@@ -12,6 +12,8 @@ import type { Purchase } from "@/lib/purchases";
 import type { CreditCard } from "@/lib/finance";
 import type { Expense } from "@/lib/expenses";
 import { isStatementConfirmed } from "@/lib/card-statements";
+import { resolveReviewType } from "@/lib/statement-types";
+
 
 
 export type Kind = "normais" | "parceladas" | "recorrentes";
@@ -353,6 +355,7 @@ export type LancamentoOficial = {
   estabelecimento_sugerido: string | null;
   valor: number | string;
   tipo_sugerido: string;
+  tipo_revisado?: string | null;
   parcela_atual: number | null;
   total_parcelas: number | null;
   categoria_sugerida_id: string | null;
@@ -362,6 +365,39 @@ export type LancamentoOficial = {
 };
 
 export type LinhaOficial = Omit<LinhaFatura, "kind"> & { kind: KindOficial; itemId: string };
+
+/**
+ * Natureza oficial de um lançamento confirmado.
+ *
+ * A classificação vigente é a do usuário (`tipo_revisado`), depois o vínculo
+ * com uma recorrência e por fim a leitura do PDF. Reclassificar só move o valor
+ * de bucket — o total da fatura nunca muda.
+ */
+export function kindOficialDoItem(item: LancamentoOficial): KindOficial {
+  const valor = Number(item.valor) || 0;
+  const revisado = resolveReviewType(item);
+  if (item.tipo_revisado) {
+    switch (revisado) {
+      case "RECORRENTE":
+        return "recorrentes";
+      case "PARCELADA":
+        return "parceladas";
+      case "TAXA":
+        return "taxas";
+      case "CREDITO":
+        return "creditos";
+      case "NORMAL":
+        return "normais";
+      default:
+        break; // IGNORAR cai na regra padrão para não sumir do total
+    }
+  }
+  if (item.recurring_expense_id_matched) return "recorrentes";
+  if (revisado === "TAXA") return "taxas";
+  if (revisado === "CREDITO" || valor < 0) return "creditos";
+  if (revisado === "PARCELADA") return "parceladas";
+  return "normais";
+}
 
 /**
  * Linhas da fatura fechada a partir dos lançamentos oficiais.
@@ -380,16 +416,8 @@ export function linhasOficiaisDaFatura(input: {
     const valor = Number(item.valor) || 0;
     const purchaseId = item.purchase_id_criada ?? item.purchase_id_matched ?? null;
     const compra = purchaseId ? (input.compraPorId?.get(purchaseId) ?? null) : null;
-    const kind: KindOficial =
-      item.tipo_sugerido === "TAXA" || item.tipo_sugerido === "JUROS"
-        ? "taxas"
-        : item.tipo_sugerido === "ESTORNO" || valor < 0
-          ? "creditos"
-          : item.recurring_expense_id_matched
-            ? "recorrentes"
-            : (item.total_parcelas ?? 1) > 1
-              ? "parceladas"
-              : "normais";
+    const kind: KindOficial = kindOficialDoItem(item);
+
     return {
       id: item.id,
       itemId: item.id,
