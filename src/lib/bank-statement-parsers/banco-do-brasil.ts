@@ -373,6 +373,13 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
     secao = detectarSecao(raw, secao);
 
+    // ESTADO TEMPORAL: toda linha que traz data na coluna "Dia" atualiza a data
+    // contábil corrente — mesmo quando ela não tem valor e é descartada. A data
+    // vale para os lançamentos seguintes até aparecer outra data da coluna Dia
+    // (inclusive na virada de página).
+    const dataColuna = dataDaColunaDia(linha, anoBase);
+    if (dataColuna) ultimaData = dataColuna;
+
     // Valor + sinal podem estar na mesma linha ou o sinal na linha seguinte.
     let alvo = raw;
     const proxima = linhas[i + 1]?.text.trim() ?? "";
@@ -384,19 +391,23 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
         raw,
         valor: null,
         page: linha.page ?? null,
-        reason: secao === "METADATA" ? "área informativa / comercial" : "sem valor com sinal",
+        reason: dataColuna
+          ? `célula da coluna "Dia" — data contábil ${dataColuna}`
+          : secao === "METADATA"
+            ? "área informativa / comercial"
+            : "sem valor com sinal",
       });
       continue;
     }
 
     const valor = lido.valor;
 
-    // DATA CONTÁBIL: a da própria linha; senão, a célula da coluna "Dia" mais
-    // próxima; só então a última data vista no bloco. Nunca a data do histórico.
-    const comData = DATA_INICIAL.test(raw);
-    const { data: dataNaLinha, resto } = comData
-      ? lerData(raw, anoBase)
-      : { data: null, resto: raw };
+    // DATA CONTÁBIL: só a coluna "Dia" (na própria linha, pela geometria ou pela
+    // última data vista). Nunca a data escrita dentro do histórico.
+    const dataLead = DATA_INICIAL.test(raw) ? lerData(raw, anoBase) : null;
+    // A data inicial só é removida do texto quando ela é a célula da coluna
+    // "Dia"; datas do histórico continuam no texto para alimentar o eventDate.
+    const resto = dataLead && dataColuna && dataLead.data === dataColuna ? dataLead.resto : raw;
 
 
     const descricaoNaLinha = resto
@@ -411,12 +422,10 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
 
     const ehSaldo = ehSaldoMetadata(descricao);
-    // Linha de saldo NUNCA pega data por geometria: "Saldo do dia" pertence ao
-    // último dia lançado antes dele (o PDF não repete a data nessa linha).
     const data: string | null = ehSaldo
-      ? dataNaLinha ?? ultimaData
-      : dataNaLinha ?? datasRecuperadas.get(i) ?? null;
-    if (data && !ehSaldo) ultimaData = data;
+      ? dataColuna ?? ultimaData
+      : dataColuna ?? datasRecuperadas.get(i) ?? ultimaData;
+
 
     if (ehSaldo) {
       const t = plano(descricao);
