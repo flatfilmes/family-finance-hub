@@ -122,6 +122,20 @@ export function diasEntre(a: string | null, b: string | null) {
 
 const centavos = (v: number) => Math.round(Math.abs(v) * 100);
 
+const semAcentoBaixo = (s: string) =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+/** Converte o nome de categoria sugerido pelo banco no id da categoria interna. */
+export function categoriaPorNome(
+  nome: string | null | undefined,
+  categorias: { id: string; nome: string }[],
+) {
+  if (!nome) return null;
+  const alvo = semAcentoBaixo(nome);
+  return categorias.find((c) => semAcentoBaixo(c.nome) === alvo)?.id ?? null;
+}
+
+
 // ------------------------------------------------------------------ motor de correspondência
 
 type Candidatos = {
@@ -377,7 +391,11 @@ export async function processStatementPdf(input: {
   categorias: { id: string; nome: string }[];
 }) {
   const { parsed } = input;
-  const totalExtraido = parsed.entries.reduce((acc, e) => acc + e.valor, 0);
+  // O total extraído considera apenas o consumo do ciclo: pagamento da fatura
+  // anterior é informativo e nunca entra na soma.
+  const totalExtraido = parsed.entries
+    .filter((e) => e.tipo_sugerido !== "PAGAMENTO")
+    .reduce((acc, e) => acc + e.valor, 0);
   const fingerprint = statementFingerprint({
     cardId: input.card.id,
     vencimento: parsed.data_vencimento,
@@ -407,8 +425,15 @@ export async function processStatementPdf(input: {
       parser: parsed.parser,
       fingerprint,
       status: "PROCESSING",
-      dados_brutos_json: { linhas: parsed.linhas.slice(0, 400), arquivo: input.file.name },
+      dados_brutos_json: {
+        linhas: parsed.linhas.slice(0, 400),
+        arquivo: input.file.name,
+        metadata: parsed.metadata ?? null,
+        subtotais: parsed.subtotais ?? [],
+        futuras: (parsed.futuras ?? []).slice(0, 200),
+      },
     })
+
     .select()
     .single();
   if (error) throw error;
@@ -446,14 +471,17 @@ export async function processStatementPdf(input: {
         parcela_atual: entry.parcela_atual,
         total_parcelas: entry.total_parcelas,
         tipo_sugerido: entry.tipo_sugerido,
+        card_last4: entry.card_last4 ?? null,
         categoria_sugerida_id:
           entry.tipo_sugerido === "COMPRA"
-            ? suggestCategoryId(entry.descricao_original, input.categorias)
+            ? (categoriaPorNome(entry.categoria_banco, input.categorias) ??
+              suggestCategoryId(entry.descricao_original, input.categorias))
             : null,
         ordem: index,
         ...resultado,
       };
     });
+
 
     if (rows.length > 0) {
       const { error: itemsError } = await supabase.from("card_statement_items").insert(rows);

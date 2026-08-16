@@ -294,6 +294,7 @@ export type Database = {
       }
       card_statement_items: {
         Row: {
+          card_last4: string | null
           categoria_sugerida_id: string | null
           confidence_score: number | null
           created_at: string
@@ -322,6 +323,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          card_last4?: string | null
           categoria_sugerida_id?: string | null
           confidence_score?: number | null
           created_at?: string
@@ -350,6 +352,7 @@ export type Database = {
           valor?: number
         }
         Update: {
+          card_last4?: string | null
           categoria_sugerida_id?: string | null
           confidence_score?: number | null
           created_at?: string
