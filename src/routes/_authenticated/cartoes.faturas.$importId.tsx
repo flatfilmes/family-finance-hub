@@ -410,6 +410,9 @@ function RevisarFaturaPage() {
                           />
                         )}
                         <p className="truncate text-sm font-bold">{item.descricao_original}</p>
+                        <StatusBadge tone={REVIEW_CLASS_TONES[classifyReviewItem(item)]}>
+                          {REVIEW_CLASS_LABELS[classifyReviewItem(item)]}
+                        </StatusBadge>
                         <StatusBadge tone={MATCH_TONES[item.match_status]}>
                           {MATCH_LABELS[item.match_status]}
                         </StatusBadge>
@@ -443,6 +446,22 @@ function RevisarFaturaPage() {
                           {formatDate(compraVinculada.data_compra)}
                         </p>
                       )}
+                      {item.recurring_expense_id_matched && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Recorrência já cadastrada:{" "}
+                          {recorrenteNome(item.recurring_expense_id_matched)} — será apenas
+                          associada, sem criar compra nova.
+                        </p>
+                      )}
+                      {item.installment_id_matched && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Continuação de parcelamento reconhecida
+                          {item.parcela_atual && item.total_parcelas
+                            ? ` (${item.parcela_atual}/${item.total_parcelas})`
+                            : ""}
+                          : o parcelamento existente será mantido.
+                        </p>
+                      )}
                       {item.match_status === "DIVERGENT" && (
                         <p className="mt-1 text-xs font-semibold text-destructive">
                           Valor cadastrado:{" "}
@@ -460,9 +479,10 @@ function RevisarFaturaPage() {
                       )}
                       {item.match_status === "POSSIBLE_MATCH" && (
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Encontramos uma possível compra correspondente.
+                          Encontramos uma possível correspondência.
                         </p>
                       )}
+
                       {item.user_action === "ERRO" && (
                         <p className="mt-1 text-xs font-semibold text-destructive">
                           {item.erro_mensagem}
