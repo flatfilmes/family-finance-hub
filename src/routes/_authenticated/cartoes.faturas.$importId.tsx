@@ -409,8 +409,11 @@ function RevisarFaturaPage() {
                           <StatusBadge tone="muted">{KIND_LABELS[item.tipo_sugerido]}</StatusBadge>
                         )}
                         {item.card_last4 && (
-                          <StatusBadge tone="muted">Final {item.card_last4}</StatusBadge>
+                          <span className="text-xs text-muted-foreground">
+                            •••• {item.card_last4}
+                          </span>
                         )}
+
 
                         {item.parcela_atual && item.total_parcelas && (
                           <StatusBadge tone="info">
