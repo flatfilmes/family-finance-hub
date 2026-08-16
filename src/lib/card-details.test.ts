@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isStatementConfirmed } from "@/lib/card-statements";
-import { obrigacaoAbertaDoCartao } from "@/lib/card-details";
+import { faturasFechadasEmAberto, obrigacaoAbertaDoCartao } from "@/lib/card-details";
 
 const invoice = {
   id: "invoice-aug",
