@@ -298,9 +298,14 @@ export async function createPurchase(input: {
   purchase: Omit<PurchaseInsert, "valor_total">;
   items: NewPurchaseItem[];
   parcelas?: number;
+  /** Posição atual da série quando a compra entra pelo meio (ex.: 3 em 3/6). */
+  parcelaInicial?: number;
+  /** Valor exato da parcela, quando conhecido (fatura importada). */
+  valorParcela?: number;
   periodicidade?: ExpenseRecurrence;
   cards?: CreditCard[];
 }) {
+
   const valorTotal = purchaseTotal(input.items);
   const { data: purchase, error } = await supabase
     .from("purchases")
