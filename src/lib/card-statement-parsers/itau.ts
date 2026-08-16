@@ -512,6 +512,21 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     });
   }
 
+  // telemetria de desenvolvimento (nunca exibida ao usuário)
+  if (import.meta.env?.DEV) {
+    console.debug("[ITAU_PDF] linhas", pdfLinhas.map((l) => ({
+      page: l.page, column: l.column, y: l.y, x: l.cells[0]?.x, rawText: l.text,
+    })));
+    console.debug("[ITAU_PDF] lançamentos", entries.map((e) => ({
+      parsedDate: e.data_lancamento,
+      description: e.descricao_normalizada,
+      installment: e.parcela_atual ? `${e.parcela_atual}/${e.total_parcelas}` : null,
+      value: e.valor,
+      ambiguo: e.ambiguo,
+      card_last4: e.card_last4,
+    })));
+  }
+
   return {
     parser: "ITAU_PDF",
     emissor: "ITAU",
