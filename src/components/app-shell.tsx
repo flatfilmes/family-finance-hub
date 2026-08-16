@@ -13,6 +13,7 @@ import {
   Landmark,
   Target,
   BarChart3,
+  History,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFamilies, useActiveFamilyId, useSetActiveFamily } from "@/hooks/useFamilyData";
@@ -26,6 +27,7 @@ const NAV = [
   { to: "/bancos", label: "Bancos", icon: Landmark },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/planejamento", label: "Planejamento", icon: Target },
+  { to: "/historico", label: "Histórico", icon: History },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;

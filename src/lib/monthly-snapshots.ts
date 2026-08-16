@@ -383,7 +383,7 @@ export async function reopenMonth(input: {
       fechado: false,
       reaberto_em: new Date().toISOString(),
       reaberto_por: input.userId,
-      motivo_reabertura: input.motivo ?? null,
+      motivo_reabertura: input.motivo || null,
     })
     .eq("family_id", input.familyId)
     .eq("ano", input.ano)
@@ -395,7 +395,7 @@ export async function reopenMonth(input: {
     ano: input.ano,
     mes: input.mes,
     acao: "REABRIR_MES",
-    motivo: input.motivo ?? null,
+    motivo: input.motivo || null,
     created_by: input.userId,
   });
   if (logError) throw logError;
