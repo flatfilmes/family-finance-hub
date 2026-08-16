@@ -1,3 +1,6 @@
+import { Landmark } from "lucide-react";
+import { SearchInput, matchesSearch } from "@/components/search-input";
+import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Field, PageHeader, inputClass } from "@/components/page-header";
 import { Metric } from "@/components/detail-page";
@@ -44,14 +47,18 @@ function BancosPage() {
   const [filtroMembro, setFiltroMembro] = useStickyState("bancos:membro", "");
   const [filtroBanco, setFiltroBanco] = useStickyState("bancos:banco", "");
   const [periodo, setPeriodo] = useStickyState("bancos:periodo", currentMonth());
+  const [busca, setBusca] = useStickyState("bancos:busca", "");
 
   if (!family) return <NoFamily />;
 
   const bancos = Array.from(new Set((accounts ?? []).map((a) => a.banco))).sort();
 
-  const lista = filterByMember(accounts ?? [], view.scoped(filtroMembro)).filter((a) =>
-    filtroBanco ? a.banco === filtroBanco : true,
+  const lista = filterByMember(accounts ?? [], view.scoped(filtroMembro)).filter(
+    (a) =>
+      (filtroBanco ? a.banco === filtroBanco : true) &&
+      matchesSearch(busca, a.banco, a.nome_conta),
   );
+  const temFiltro = Boolean(busca || filtroBanco || filtroMembro);
 
   const idsVisiveis = new Set(lista.map((a) => a.id));
   const movimentosVisiveis = (movimentos ?? []).filter(
@@ -100,6 +107,14 @@ function BancosPage() {
       </div>
 
       <Card className="mt-4">
+        <div className="mb-3">
+          <SearchInput
+            value={busca}
+            onChange={setBusca}
+            label="Buscar conta"
+            placeholder="Banco ou nome da conta"
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {view.isAdmin ? (
             <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
@@ -142,10 +157,36 @@ function BancosPage() {
         <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
       ) : lista.length === 0 ? (
         <Card className="mt-4">
-          <p className="text-sm text-muted-foreground">
-            Nenhuma conta bancária encontrada. Abra o perfil de uma pessoa em Configurações e
-            adicione a conta na aba “Contas bancárias”.
-          </p>
+          <EmptyState
+            icon={<Landmark className="size-5" />}
+            title={temFiltro ? "Nenhuma conta com esses filtros" : "Nenhuma conta bancária ainda"}
+            description={
+              temFiltro
+                ? "Ajuste a busca ou o filtro de banco para ver as contas da família."
+                : "As contas são cadastradas no perfil de cada pessoa, na aba “Contas bancárias”."
+            }
+            action={
+              temFiltro ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBusca("");
+                    setFiltroBanco("");
+                  }}
+                  className="min-h-11 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Limpar filtros
+                </button>
+              ) : (
+                <Link
+                  to="/configuracoes"
+                  className="inline-flex min-h-11 items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+                >
+                  Ir para Família e Finanças
+                </Link>
+              )
+            }
+          />
         </Card>
       ) : (
         <div className="mt-4 grid gap-4">
