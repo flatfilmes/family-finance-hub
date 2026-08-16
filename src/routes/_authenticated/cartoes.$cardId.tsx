@@ -222,30 +222,40 @@ function CartaoDetalhePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
-          label={faturaCiclo.label}
-          value={formatCurrency(faturaCiclo.valor)}
+          label="Fatura fechada"
+          value={formatCurrency(cicloFechado ? faturaFechadaCiclo.valor : 0)}
           hint={
-            faturaCiclo.vencimento
-              ? `Vence em ${formatDate(faturaCiclo.vencimento)}${faturaCiclo.oficial ? " · fatura oficial importada" : " · estimativa interna"}`
-              : undefined
+            cicloFechado
+              ? `Vence em ${formatDate(cicloFechado.invoice.data_vencimento)} · ${ESTADO_CICLO_LABELS[cicloFechado.estado]}`
+              : "Nenhum ciclo fechado"
           }
           big
         />
         <Metric
-          label="Limite utilizado"
-          value={formatCurrency(utilizado)}
-          hint={`Fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
+          label="Próxima fatura"
+          value={formatCurrency(totalProxima)}
+          hint={
+            cicloProximo
+              ? `Em formação · fecha ${formatDate(cicloProximo.invoice.data_fechamento)}`
+              : "Sem ciclo em formação"
+          }
           big
         />
-
+        <Metric
+          label="Parcelas futuras"
+          value={formatCurrency(restanteParcelas)}
+          hint="Soma das parcelas ainda não quitadas"
+          big
+        />
         <Metric
           label="Limite disponível"
           value={formatCurrency(disponivel)}
+          hint={`Utilizado ${formatCurrency(utilizado)} de ${formatCurrency(limite)} · fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
           tone={disponivel < 0 ? "danger" : "ok"}
           big
         />
-        <Metric label="Limite total" value={formatCurrency(limite)} big />
       </div>
+
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
         <div
