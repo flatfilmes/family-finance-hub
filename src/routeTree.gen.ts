@@ -29,6 +29,7 @@ import { Route as AuthenticatedCartoesIndexRouteImport } from './routes/_authent
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes.$cardId'
 import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authenticated/historico.index'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
+import { Route as AuthenticatedCartoesFaturasImportIdRouteImport } from './routes/_authenticated/cartoes.faturas.$importId'
 import { Route as AuthenticatedHistoricoAnoMesRouteImport } from './routes/_authenticated/historico.$ano.$mes'
 import { Route as AuthenticatedHistoricoFecharAnoMesRouteImport } from './routes/_authenticated/historico.fechar.$ano.$mes'
 
@@ -142,6 +143,12 @@ const AuthenticatedMembroMemberIdRoute =
     path: '/membro/$memberId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCartoesFaturasImportIdRoute =
+  AuthenticatedCartoesFaturasImportIdRouteImport.update({
+    id: '/cartoes/faturas/$importId',
+    path: '/cartoes/faturas/$importId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedHistoricoAnoMesRoute =
   AuthenticatedHistoricoAnoMesRouteImport.update({
     id: '/historico/$ano/$mes',
@@ -175,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/bancos/': typeof AuthenticatedBancosIndexRoute
   '/cartoes/': typeof AuthenticatedCartoesIndexRoute
   '/historico/': typeof AuthenticatedHistoricoIndexRoute
+  '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
   '/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
@@ -198,6 +206,7 @@ export interface FileRoutesByTo {
   '/bancos': typeof AuthenticatedBancosIndexRoute
   '/cartoes': typeof AuthenticatedCartoesIndexRoute
   '/historico': typeof AuthenticatedHistoricoIndexRoute
+  '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
   '/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
@@ -223,6 +232,7 @@ export interface FileRoutesById {
   '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
   '/_authenticated/cartoes/': typeof AuthenticatedCartoesIndexRoute
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
+  '/_authenticated/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/_authenticated/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
   '/_authenticated/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
@@ -248,6 +258,7 @@ export interface FileRouteTypes {
     | '/bancos/'
     | '/cartoes/'
     | '/historico/'
+    | '/cartoes/faturas/$importId'
     | '/historico/$ano/$mes'
     | '/historico/fechar/$ano/$mes'
   fileRoutesByTo: FileRoutesByTo
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/bancos'
     | '/cartoes'
     | '/historico'
+    | '/cartoes/faturas/$importId'
     | '/historico/$ano/$mes'
     | '/historico/fechar/$ano/$mes'
   id:
@@ -295,6 +307,7 @@ export interface FileRouteTypes {
     | '/_authenticated/bancos/'
     | '/_authenticated/cartoes/'
     | '/_authenticated/historico/'
+    | '/_authenticated/cartoes/faturas/$importId'
     | '/_authenticated/historico/$ano/$mes'
     | '/_authenticated/historico/fechar/$ano/$mes'
   fileRoutesById: FileRoutesById
@@ -448,6 +461,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedMembroMemberIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/cartoes/faturas/$importId': {
+      id: '/_authenticated/cartoes/faturas/$importId'
+      path: '/cartoes/faturas/$importId'
+      fullPath: '/cartoes/faturas/$importId'
+      preLoaderRoute: typeof AuthenticatedCartoesFaturasImportIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/historico/$ano/$mes': {
       id: '/_authenticated/historico/$ano/$mes'
       path: '/historico/$ano/$mes'
@@ -482,6 +502,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
   AuthenticatedCartoesIndexRoute: typeof AuthenticatedCartoesIndexRoute
   AuthenticatedHistoricoIndexRoute: typeof AuthenticatedHistoricoIndexRoute
+  AuthenticatedCartoesFaturasImportIdRoute: typeof AuthenticatedCartoesFaturasImportIdRoute
   AuthenticatedHistoricoAnoMesRoute: typeof AuthenticatedHistoricoAnoMesRoute
   AuthenticatedHistoricoFecharAnoMesRoute: typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
@@ -503,6 +524,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,
   AuthenticatedCartoesIndexRoute: AuthenticatedCartoesIndexRoute,
   AuthenticatedHistoricoIndexRoute: AuthenticatedHistoricoIndexRoute,
+  AuthenticatedCartoesFaturasImportIdRoute:
+    AuthenticatedCartoesFaturasImportIdRoute,
   AuthenticatedHistoricoAnoMesRoute: AuthenticatedHistoricoAnoMesRoute,
   AuthenticatedHistoricoFecharAnoMesRoute:
     AuthenticatedHistoricoFecharAnoMesRoute,

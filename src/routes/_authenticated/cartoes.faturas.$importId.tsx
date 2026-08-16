@@ -133,7 +133,7 @@ function RevisarFaturaPage() {
   };
 
   async function confirmarRevisao() {
-    if (!cartao) {
+    if (!cartao || !importacao) {
       setErro("Cartão da importação não encontrado.");
       return;
     }
@@ -260,7 +260,7 @@ function RevisarFaturaPage() {
           )}
         </div>
 
-        <SectionTitle>Lançamentos da fatura</SectionTitle>
+        <SectionTitle title="Lançamentos da fatura" />
 
         {filtradas.length === 0 ? (
           <EmptyState
