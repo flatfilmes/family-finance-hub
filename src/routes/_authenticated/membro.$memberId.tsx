@@ -49,9 +49,6 @@ const TABS = ["Dados pessoais", "Receitas", "Contas bancárias", "Cartões"] as 
 type Tab = (typeof TABS)[number];
 const PERMISSOES: FamilyPermission[] = ["ADMIN", "MEMBER", "VIEWER"];
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="mt-4 text-sm text-muted-foreground">{children}</p>;
-}
 
 function Row({ title, subtitle, value }: { title: string; subtitle: string; value: string }) {
   return (
