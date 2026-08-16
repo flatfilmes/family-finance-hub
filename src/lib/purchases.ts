@@ -38,6 +38,32 @@ export const PAYMENT_STATUS_LABELS: Record<PurchasePaymentStatus, string> = {
   CANCELADO: "Cancelado",
 };
 
+/**
+ * Rótulos curtos usados nas listagens (desktop, tablet e celular).
+ * Apenas apresentação — o significado financeiro continua o mesmo:
+ * "Cartão" segue sendo um compromisso até o pagamento da fatura.
+ */
+export const PAYMENT_STATUS_SHORT: Record<PurchasePaymentStatus, string> = {
+  PAGO: "Pago",
+  COMPROMETIDO: "Cartão",
+  PENDENTE: "Boleto",
+  PENDENTE_PAGAMENTO: "Pendente",
+  PARCIALMENTE_PAGA: "Parcial",
+  CANCELADO: "Cancelado",
+};
+
+/** Formas de pagamento em 1 ou 2 palavras, para os badges da lista. */
+export const PAYMENT_METHOD_SHORT: Record<PaymentMethodValue, string> = {
+  DINHEIRO: "Dinheiro",
+  PIX: "Pix",
+  DEBITO: "Débito",
+  CREDITO: "Cartão",
+  BOLETO: "Boleto",
+  TRANSFERENCIA: "Transferência",
+  OUTRO: "Outro",
+  A_DEFINIR: "A definir",
+};
+
 export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = {
   PAGO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   COMPROMETIDO: "bg-sky-500/15 text-sky-700 dark:text-sky-400",

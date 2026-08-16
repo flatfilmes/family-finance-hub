@@ -29,8 +29,9 @@ import {
 import {
   PAGAR_DEPOIS,
   PAYMENT_FILTER_LABELS,
+  PAYMENT_METHOD_SHORT,
   PAYMENT_STATUS_CLASSES,
-  PAYMENT_STATUS_LABELS,
+  PAYMENT_STATUS_SHORT,
   PURCHASE_KINDS,
   PURCHASE_KIND_HINTS,
   UNIDADES,
@@ -712,7 +713,7 @@ function Compras() {
                       </span>
                       <span className="block text-xs text-muted-foreground">
                         {formatDate(p.data_compra)} · {memberName(p.member_id)} ·{" "}
-                        {PAYMENT_METHOD_LABELS[p.forma_pagamento]} ·{" "}
+                        {PAYMENT_METHOD_SHORT[p.forma_pagamento]} ·{" "}
                         {PURCHASE_TYPE_LABELS[p.tipo_compra]}
                         {isPendentePagamento(p) &&
                           (p.data_prevista_pagamento
@@ -723,9 +724,10 @@ function Compras() {
                     </span>
                   </button>
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${PAYMENT_STATUS_CLASSES[p.status_pagamento]}`}
+                    className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${PAYMENT_STATUS_CLASSES[p.status_pagamento]}`}
+                    title={PAYMENT_STATUS_LABELS[p.status_pagamento]}
                   >
-                    {PAYMENT_STATUS_LABELS[p.status_pagamento]}
+                    {PAYMENT_STATUS_SHORT[p.status_pagamento]}
                   </span>
                   <span className="text-right">
                     <span className="block text-sm font-bold">
