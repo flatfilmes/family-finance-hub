@@ -373,23 +373,36 @@ export function buildBankAudit(input: {
   /** Saldo de referência informado pelo titular (cadastro da conta). */
   saldoReferencia?: { saldo: number; data: string } | null;
 }): BankAudit {
+  const checkpointsPorImport = groupCheckpointsByImport(input.checkpoints);
+  const periodoPorImport = new Map<string, ResolvedStatementPeriod>();
+
   const extratos: StatementPeriod[] = input.imports
     .filter((i) => i.status !== "CANCELLED" && i.status !== "ERROR")
-    .map((i) => ({
-      id: i.id,
-      nomeArquivo: i.nome_arquivo,
-      inicio: i.periodo_inicio,
-      fim: i.periodo_fim,
-      saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
-      saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
-      quantidade: i.quantidade_lancamentos ?? 0,
-      checkpointsPdf: Array.isArray(
-        (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
-      )
-        ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
-        : 0,
-      status: i.status,
-    }))
+    .map((i) => {
+      // O período NUNCA vem da data do saldo anterior: é o período do
+      // documento (ou, para importações antigas, os saldos do dia).
+      const periodo = resolveStatementPeriod(i, checkpointsPorImport.get(i.id) ?? []);
+      periodoPorImport.set(i.id, periodo);
+      return {
+        id: i.id,
+        nomeArquivo: i.nome_arquivo,
+        inicio: periodo.inicio,
+        fim: periodo.fim,
+        mesReferencia: periodo.mesReferencia,
+        aberturaData: periodo.aberturaData,
+        origemPeriodo: periodo.origem,
+        checkpointsDiarios: periodo.checkpointsDiarios.length,
+        saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
+        saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
+        quantidade: i.quantidade_lancamentos ?? 0,
+        checkpointsPdf: Array.isArray(
+          (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
+        )
+          ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
+          : 0,
+        status: i.status,
+      };
+    })
     .sort((a, b) => String(a.inicio ?? "").localeCompare(String(b.inicio ?? "")));
 
   const daConta = input.transactions
