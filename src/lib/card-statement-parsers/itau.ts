@@ -273,8 +273,9 @@ function montar(
   mesVencimento: number | null,
 ): StatementEntry | null {
   let descricao = descricaoBruta.replace(/\s+/g, " ").trim();
-  if (!descricao || ehRuido(descricao)) return null;
+  if (!descricao || ehRuido(descricao) || ehProibido(descricao)) return null;
   if (!/[A-Za-zÀ-ÿ]{3}/.test(descricao)) return null;
+
 
   let parcelaAtual: number | null = null;
   let totalParcelas: number | null = null;
