@@ -285,7 +285,7 @@ function ContaDetalhePage() {
         }
       />
 
-      {podeOperar && semMovimento && (
+      {podeOperar && contaNuncaInicializada && (
         <Card className="mb-4 border-primary/30 bg-primary/5">
           <SectionTitle
             title="Como você quer começar?"
