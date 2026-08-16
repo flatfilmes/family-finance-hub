@@ -500,10 +500,17 @@ function RevisarDocumento({
   const [dataCompra, setDataCompra] = useState(
     draft?.data_compra ?? doc.created_at.slice(0, 10),
   );
-  const [formaPagamento, setFormaPagamento] = useState<PaymentMethod>("PIX");
+  const [formaPagamento, setFormaPagamento] = useState<PaymentMethod | "">("");
   const [cartaoId, setCartaoId] = useState("");
   const [contaId, setContaId] = useState("");
   const [items, setItems] = useState<NewPurchaseItem[]>([linhaVazia()]);
+
+  const brutos = (extracao?.dados_brutos_json ?? null) as {
+    confianca?: Partial<Record<string, Confianca>>;
+    pagamento_descricao?: string | null;
+  } | null;
+  const confianca = brutos?.confianca ?? {};
+  const pagamentoLido = brutos?.pagamento_descricao ?? null;
 
   useEffect(() => {
     if (!itensExtraidos || itensExtraidos.length === 0) return;
@@ -519,7 +526,7 @@ function RevisarDocumento({
     );
   }, [itensExtraidos]);
 
-  // Preenchimento automático com o que foi lido do PDF.
+  // Preenchimento automático com o que foi lido do PDF (só o que foi identificado).
   useEffect(() => {
     if (!extracao) return;
     if (extracao.estabelecimento) setEstabelecimento((v) => v || extracao.estabelecimento!);
@@ -529,6 +536,7 @@ function RevisarDocumento({
       setFormaPagamento(extracao.forma_pagamento);
     }
   }, [extracao]);
+
 
   useEffect(() => {
     if (!itensPdf || itensPdf.length === 0) return;
