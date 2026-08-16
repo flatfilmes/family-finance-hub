@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { FileUp, Receipt } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, FileUp, Receipt } from "lucide-react";
+
 import { StatementImportDialog } from "@/components/statement-import-dialog";
 import { CardStatementImports } from "@/components/card-statement-imports";
 
@@ -24,12 +25,14 @@ import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
 import {
   ESTADO_CICLO_LABELS,
   KIND_OFICIAL_LABELS,
+  janelaDeCiclos,
   linhasOficiaisDaFatura,
   resumoOficialDaFatura,
   type EstadoCiclo,
   type KindOficial,
   type LinhaOficial,
 } from "@/lib/card-details";
+
 import { useStatementItems } from "@/hooks/useCardStatements";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
@@ -110,24 +113,43 @@ function CartaoDetalhePage() {
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
+  const [verHistorico, setVerHistorico] = useState(false);
+  const [mesesFuturos, setMesesFuturos] = useState(9);
+  const reguaRef = useRef<HTMLDivElement | null>(null);
+  const ancoraRef = useRef<HTMLButtonElement | null>(null);
+  const posicionou = useRef(false);
 
   // Derivação do ciclo antes dos returns: os lançamentos oficiais são lidos por hook.
   const cartaoSelecionado = dados.cards.find((c) => c.id === cardId) ?? null;
   const ciclos = dados.ciclosDe(cardId);
   const cicloFechado = ciclos.atual;
   const cicloProximo = ciclos.emFormacao;
-  // Navegação única: histórico (mais antigo → recente), fatura fechada e fatura em formação.
-  const selecionaveis = [
-    ...ciclos.historico.slice().reverse(),
-    ...(cicloFechado ? [cicloFechado] : []),
-    ...(cicloProximo ? [cicloProximo] : []),
-  ];
+  // Régua rebalanceada: pouco passado, ciclo atual e o futuro já comprometido.
+  const janela = janelaDeCiclos(ciclos.todos, {
+    passado: 2,
+    futuro: mesesFuturos,
+    verHistorico,
+  });
+  const selecionaveis = janela.visiveis;
   const cicloSelecionado =
-    selecionaveis.find((c) => c.invoice.id === cicloId) ?? cicloFechado ?? cicloProximo ?? null;
+    ciclos.todos.find((c) => c.invoice.id === cicloId) ?? cicloFechado ?? cicloProximo ?? null;
   const fatura = cicloSelecionado?.invoice ?? null;
   // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
   const faturaCiclo = dados.faturaDe(cardId, fatura);
   const itensOficiais = useStatementItems(faturaCiclo.importId ?? undefined);
+
+  // Ao abrir, o ciclo âncora fica no primeiro terço: mais futuro visível que passado.
+  useEffect(() => {
+    const regua = reguaRef.current;
+    const alvo = ancoraRef.current;
+    if (!regua || !alvo || posicionou.current) return;
+    posicionou.current = true;
+    regua.scrollLeft = Math.max(0, alvo.offsetLeft - regua.clientWidth / 3);
+  }, [selecionaveis.length]);
+
+  const rolar = (dir: -1 | 1) =>
+    reguaRef.current?.scrollBy({ left: dir * 480, behavior: "smooth" });
+
 
   if (!family) return <NoFamily />;
 
@@ -204,12 +226,25 @@ function CartaoDetalhePage() {
 
   const contasParaPagar = (accounts ?? []).filter((a) => a.ativo);
   const podePagar = !view.isViewer;
+  const projetado = estadoSelecionado === "PROJETADA";
   const podePagarEsteCiclo =
     podePagar &&
     !!fatura &&
     fatura.status !== "PAGA" &&
     estadoSelecionado !== "EM_FORMACAO" &&
+    !projetado &&
     Number(fatura.valor_total) > 0;
+
+  // Composição de um ciclo projetado: parcelas já conhecidas + recorrências previstas.
+  const parcelasDoCiclo = dados
+    .parcelasDoCartao(cartao.id)
+    .filter((p) => p.card_invoice_id === fatura?.id && p.status === "PENDENTE")
+    .reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0);
+  const recorrenciasProjetadas = cicloSelecionado
+    ? (dados.proximasDe(cartao.id).find((m) => m.key === cicloSelecionado.competencia)
+        ?.recorrencias ?? 0)
+    : 0;
+
 
   async function confirmarPagamento() {
     setErro("");
@@ -281,38 +316,101 @@ function CartaoDetalhePage() {
         </Card>
       ) : (
         <>
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
-            {selecionaveis.map((c) => {
-              const ativo = c.invoice.id === cicloSelecionado?.invoice.id;
-              return (
-                <button
-                  key={c.invoice.id}
-                  type="button"
-                  onClick={() => {
-                    setCicloId(c.invoice.id);
-                    setPagando(false);
-                  }}
-                  className={`min-w-[9.5rem] shrink-0 rounded-2xl border px-4 py-3 text-left transition ${
-                    ativo
-                      ? "border-primary bg-accent"
-                      : "border-border hover:bg-accent/50"
-                  }`}
-                >
-                  <span className="block text-xs font-semibold text-muted-foreground">
-                    {monthKeyLabel(c.competencia)}
-                  </span>
-                  <span className="mt-0.5 block text-base font-extrabold">
-                    {formatCurrency(c.valor)}
-                  </span>
-                  <span className="mt-1 block">
-                    <StatusBadge tone={toneEstado(c.estado)}>
-                      {ESTADO_CICLO_LABELS[c.estado]}
-                    </StatusBadge>
-                  </span>
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => rolar(-1)}
+              aria-label="Ciclos anteriores"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted sm:inline-flex"
+            >
+              <ChevronLeft className="size-4" />
+            </button>
+            <div
+              ref={reguaRef}
+              className="-mx-1 flex flex-1 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]"
+            >
+              {selecionaveis.map((c) => {
+                const ativo = c.invoice.id === cicloSelecionado?.invoice.id;
+                const ancora = c.invoice.id === janela.ancora?.invoice.id;
+                return (
+                  <button
+                    key={c.invoice.id}
+                    type="button"
+                    ref={ancora ? ancoraRef : undefined}
+                    onClick={() => {
+                      setCicloId(c.invoice.id);
+                      setPagando(false);
+                    }}
+                    className={`shrink-0 rounded-2xl border text-left transition ${
+                      ativo
+                        ? "min-w-[11rem] border-primary bg-accent px-4 py-3 shadow-soft"
+                        : "min-w-[9.5rem] border-border px-4 py-3 hover:bg-accent/50"
+                    }`}
+                  >
+                    <span
+                      className={`block text-xs font-semibold ${ativo ? "text-foreground" : "text-muted-foreground"}`}
+                    >
+                      {monthKeyLabel(c.competencia)}
+                    </span>
+                    <span
+                      className={`mt-0.5 block font-extrabold ${ativo ? "text-xl" : "text-base"}`}
+                    >
+                      {formatCurrency(c.valor)}
+                    </span>
+                    <span className="mt-1 block">
+                      <StatusBadge tone={toneEstado(c.estado)}>
+                        {ESTADO_CICLO_LABELS[c.estado]}
+                      </StatusBadge>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => rolar(1)}
+              aria-label="Próximos ciclos"
+              className="hidden size-9 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:bg-muted sm:inline-flex"
+            >
+              <ChevronRight className="size-4" />
+            </button>
           </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            {janela.ocultosPassado > 0 && (
+              <button
+                type="button"
+                onClick={() => setVerHistorico(true)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Ver histórico ({janela.ocultosPassado} ciclo
+                {janela.ocultosPassado > 1 ? "s" : ""} anteriores)
+              </button>
+            )}
+            {verHistorico && (
+              <button
+                type="button"
+                onClick={() => setVerHistorico(false)}
+                className="text-xs font-semibold text-muted-foreground hover:underline"
+              >
+                Ocultar histórico
+              </button>
+            )}
+            {janela.ocultosFuturo > 0 && (
+              <button
+                type="button"
+                onClick={() => setMesesFuturos((m) => m + 6)}
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                Ver mais meses futuros
+              </button>
+            )}
+            <span className="text-[11px] text-muted-foreground">
+              A régua prioriza o futuro comprometido: meses projetados aparecem só quando já existem
+              parcelas ou recorrências.
+            </span>
+          </div>
+
 
           {/* Bloco principal: tudo do ciclo selecionado em um único resumo. */}
           <Card className="mt-4">
@@ -327,13 +425,16 @@ function CartaoDetalhePage() {
                     Ciclo de {formatDate(fatura.data_inicio_ciclo)} a{" "}
                     {formatDate(fatura.data_fechamento)} · vencimento{" "}
                     {formatDate(fatura.data_vencimento)}
-                    {estadoSelecionado === "EM_FORMACAO"
-                      ? " · valor parcial, o ciclo ainda não fechou"
-                      : usarOficial
-                        ? " · fatura oficial importada"
-                        : " · valor calculado pelo sistema"}
+                    {projetado
+                      ? " · projeção, este ciclo ainda não existe como fatura"
+                      : estadoSelecionado === "EM_FORMACAO"
+                        ? " · valor parcial, o ciclo ainda não fechou"
+                        : usarOficial
+                          ? " · fatura oficial importada"
+                          : " · valor calculado pelo sistema"}
                   </p>
                 )}
+
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {estadoSelecionado && (
@@ -356,22 +457,40 @@ function CartaoDetalhePage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
-              <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
-              <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
-              {usarOficial && (
-                <>
-                  <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
-                  <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
-                </>
-              )}
-              <Metric
-                label={usarOficial ? "Total oficial da fatura" : "Total do ciclo"}
-                value={formatCurrency(totalCiclo)}
-                big
-              />
-            </div>
+            {projetado ? (
+              <>
+                <div className="mt-3 rounded-2xl bg-muted/50 p-4">
+                  <p className="text-sm font-bold">Projeção</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Valor estimado com base nas parcelas e recorrências já conhecidas. Este ciclo
+                    ainda não é uma fatura fechada e não pode ser pago.
+                  </p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <Metric label="Parcelas" value={formatCurrency(parcelasDoCiclo)} />
+                  <Metric label="Recorrências" value={formatCurrency(recorrenciasProjetadas)} />
+                  <Metric label="Valor previsto" value={formatCurrency(totalCiclo)} big />
+                </div>
+              </>
+            ) : (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
+                <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
+                <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
+                {usarOficial && (
+                  <>
+                    <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
+                    <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
+                  </>
+                )}
+                <Metric
+                  label={usarOficial ? "Total oficial da fatura" : "Total do ciclo"}
+                  value={formatCurrency(totalCiclo)}
+                  big
+                />
+              </div>
+            )}
+
             {usarOficial && (
               <p className="mt-2 text-[11px] text-muted-foreground">
                 Resumo montado a partir dos {itensDoCiclo.length} lançamentos da fatura importada e
