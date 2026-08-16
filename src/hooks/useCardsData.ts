@@ -131,6 +131,7 @@ export function useCardsData(familyId?: string) {
         comprasComParcelas,
         despesaPorId,
         compraPorId,
+        card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
       }),
     proximasDe: (cardId: string) =>
       proximasObrigacoes({
