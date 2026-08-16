@@ -91,11 +91,19 @@ function CartaoDetalhePage() {
 
   // Só ciclos reais (fechados/pagos/oficiais) e a fatura em formação entram no seletor.
   const ciclos = dados.ciclosDe(cartao.id);
+  const cicloFechado = ciclos.atual;
+  const cicloProximo = ciclos.emFormacao;
   const selecionaveis = [ciclos.atual, ciclos.emFormacao, ...ciclos.historico].filter(
     (c): c is NonNullable<typeof c> => !!c,
   );
+  // Aba operacional: fatura fechada, próxima em formação ou um ciclo do histórico.
+  const doHistorico = ciclos.historico.find((c) => c.invoice.id === faturaId) ?? null;
   const cicloSelecionado =
-    selecionaveis.find((c) => c.invoice.id === faturaId) ?? ciclos.atual ?? selecionaveis[0] ?? null;
+    (aba === "proxima" ? cicloProximo : aba === "historico" ? doHistorico : cicloFechado) ??
+    cicloFechado ??
+    cicloProximo ??
+    selecionaveis[0] ??
+    null;
   const fatura = cicloSelecionado?.invoice ?? null;
   const estadoSelecionado: EstadoCiclo | null = cicloSelecionado?.estado ?? null;
   const toneEstado = (estado: EstadoCiclo) =>
@@ -116,13 +124,23 @@ function CartaoDetalhePage() {
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "—";
 
+  // O que já está entrando na próxima fatura (ciclo em formação).
+  const linhasProxima = cicloProximo ? dados.linhasDe(cartao.id, cicloProximo.invoice) : [];
+  const somaProxima = (kind: Kind) =>
+    linhasProxima.filter((l) => l.kind === kind).reduce((acc, l) => acc + l.valor, 0);
+  const totalProxima = linhasProxima.reduce((acc, l) => acc + l.valor, 0);
+
   const proximas = dados.proximasDe(cartao.id);
   const parcelamentos = dados.parcelamentosDe(cartao.id);
   const recorrencias = dados.recorrenciasDoCartao(cartao.id);
+  // Restante comprometido = soma das parcelas ainda não quitadas (nunca o total original).
+  const restanteParcelas = parcelamentos.reduce((acc, p) => acc + p.restante, 0);
 
   // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
   const faturaCiclo = dados.faturaDe(cartao.id, fatura);
+  const faturaFechadaCiclo = dados.faturaDe(cartao.id, cicloFechado?.invoice ?? null);
   const composicao = dados.composicaoDe(cartao.id);
+
 
   // Capacidade de pagamento: mesma fórmula da visão geral, aplicada às contas do titular.
   const contasAutorizadas = filterByMember(accounts ?? [], cartao.member_id ?? "sem").filter(
