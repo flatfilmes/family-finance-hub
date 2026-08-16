@@ -166,6 +166,8 @@ export async function generateInstallments(input: {
   dataCompra: string;
   valorTotal: number;
   parcelas: number;
+  memberId?: string | null;
+  purchaseId?: string | null;
 }) {
   const total = Math.max(1, input.parcelas || 1);
   const valorParcela = Math.round((input.valorTotal / total) * 100) / 100;
@@ -186,6 +188,9 @@ export async function generateInstallments(input: {
       total_parcelas: total,
       valor_parcela: valorParcela,
       data_vencimento: cycle.data_vencimento,
+      member_id: input.memberId ?? null,
+      credit_card_id: input.card.id,
+      purchase_id: input.purchaseId ?? null,
     });
   }
 

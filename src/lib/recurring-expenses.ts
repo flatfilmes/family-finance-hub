@@ -49,16 +49,21 @@ export function monthlyValue(r: Pick<RecurringExpense, "valor" | "periodicidade"
   return (Number(r.valor) || 0) / (RECURRENCE_MONTHS[r.periodicidade] || 1);
 }
 
-/** Cobranças previstas de uma recorrência dentro de uma janela de meses. */
+/**
+ * Cobranças previstas de uma recorrência dentro de uma janela de meses.
+ * Recorrência cancelada não projeta competências após a data de cancelamento.
+ */
 export function chargesInMonths(r: RecurringExpense, meses: string[]) {
-  if (!r.ativo) return {} as Record<string, number>;
+  if (!r.ativo && !r.data_cancelamento) return {} as Record<string, number>;
   const passo = RECURRENCE_MONTHS[r.periodicidade] || 1;
   const resultado: Record<string, number> = {};
+  const fim = r.ativo ? null : r.data_cancelamento;
   let data = r.proxima_cobranca;
   const ultimo = meses[meses.length - 1];
   let guard = 0;
   while (data.slice(0, 7) <= (ultimo ?? "") && guard < 240) {
     const mes = data.slice(0, 7);
+    if (fim && data > fim) break;
     if (meses.includes(mes)) resultado[mes] = (resultado[mes] ?? 0) + (Number(r.valor) || 0);
     data = addMonths(data, passo);
     guard += 1;
@@ -74,6 +79,27 @@ export async function fetchRecurringExpenses(familyId: string) {
     .order("proxima_cobranca", { ascending: true });
   if (error) throw error;
   return data ?? [];
+}
+
+/**
+ * Cancela uma recorrência: mantém todo o histórico já gerado e apenas
+ * impede novas competências a partir da data de cancelamento.
+ */
+export async function cancelRecurringExpense(id: string, data = new Date().toISOString().slice(0, 10)) {
+  const { error } = await supabase
+    .from("recurring_expenses")
+    .update({ ativo: false, data_cancelamento: data })
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/** Reativa uma recorrência cancelada. */
+export async function reactivateRecurringExpense(id: string) {
+  const { error } = await supabase
+    .from("recurring_expenses")
+    .update({ ativo: true, data_cancelamento: null })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export async function toggleRecurringExpense(id: string, ativo: boolean) {

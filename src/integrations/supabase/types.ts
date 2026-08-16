@@ -610,11 +610,14 @@ export type Database = {
         Row: {
           card_invoice_id: string | null
           created_at: string
+          credit_card_id: string | null
           data_vencimento: string
           expense_id: string
           family_id: string
           id: string
+          member_id: string | null
           numero_parcela: number
+          purchase_id: string | null
           status: Database["public"]["Enums"]["installment_status"]
           total_parcelas: number
           updated_at: string
@@ -623,11 +626,14 @@ export type Database = {
         Insert: {
           card_invoice_id?: string | null
           created_at?: string
+          credit_card_id?: string | null
           data_vencimento: string
           expense_id: string
           family_id: string
           id?: string
+          member_id?: string | null
           numero_parcela?: number
+          purchase_id?: string | null
           status?: Database["public"]["Enums"]["installment_status"]
           total_parcelas?: number
           updated_at?: string
@@ -636,11 +642,14 @@ export type Database = {
         Update: {
           card_invoice_id?: string | null
           created_at?: string
+          credit_card_id?: string | null
           data_vencimento?: string
           expense_id?: string
           family_id?: string
           id?: string
+          member_id?: string | null
           numero_parcela?: number
+          purchase_id?: string | null
           status?: Database["public"]["Enums"]["installment_status"]
           total_parcelas?: number
           updated_at?: string
@@ -655,6 +664,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "expense_installments_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "expense_installments_expense_id_fkey"
             columns: ["expense_id"]
             isOneToOne: false
@@ -666,6 +682,20 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_installments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_installments_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
         ]
@@ -1453,6 +1483,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           credit_card_id: string | null
+          data_cancelamento: string | null
+          data_inicio: string
           family_id: string
           id: string
           member_id: string | null
@@ -1469,6 +1501,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
+          data_cancelamento?: string | null
+          data_inicio?: string
           family_id: string
           id?: string
           member_id?: string | null
@@ -1485,6 +1519,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
+          data_cancelamento?: string | null
+          data_inicio?: string
           family_id?: string
           id?: string
           member_id?: string | null
@@ -1644,6 +1680,10 @@ export type Database = {
         Returns: boolean
       }
       delete_demo_data: { Args: never; Returns: number }
+      ensure_invoice_for_due: {
+        Args: { _card_id: string; _venc: string }
+        Returns: string
+      }
       is_family_admin: {
         Args: { _family_id: string; _user_id: string }
         Returns: boolean
@@ -1659,6 +1699,10 @@ export type Database = {
       pay_card_invoice: {
         Args: { _bank_account_id: string; _data?: string; _invoice_id: string }
         Returns: string
+      }
+      sync_installment_invoices: {
+        Args: { _family_id?: string }
+        Returns: number
       }
     }
     Enums: {
