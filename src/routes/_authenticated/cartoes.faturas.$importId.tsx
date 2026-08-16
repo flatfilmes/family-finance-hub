@@ -287,7 +287,14 @@ function RevisarFaturaPage() {
       </Card>
 
       <Card className="mt-4">
-        <SectionTitle title="Conferência da fatura" />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <SectionTitle title="Conferência da fatura" />
+          {valorFatura > 0 && (
+            <StatusBadge tone={bateu ? "ok" : "warn"}>
+              {bateu ? "✓ Fatura confere" : "Diferença a revisar"}
+            </StatusBadge>
+          )}
+        </div>
         <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <Metric
             label="Total oficial da fatura"
