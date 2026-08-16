@@ -339,6 +339,9 @@ export function buildBankAudit(input: {
         String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")),
     );
   const porId = new Map(daConta.map((t) => [t.id, t]));
+  // Compra vira ledger por gatilho: o vínculo do item pode ser pela compra.
+  const porCompra = new Map<string, Transaction>();
+  for (const t of daConta) if (t.purchase_id && !porCompra.has(t.purchase_id)) porCompra.set(t.purchase_id, t);
 
   const periodoInicio = extratos.find((e) => e.inicio)?.inicio ?? daConta[0]?.data_movimento ?? null;
   const periodoFim =
