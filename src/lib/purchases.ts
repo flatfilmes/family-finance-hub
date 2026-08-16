@@ -508,8 +508,9 @@ export async function inspectPurchaseMerge(principalId: string, duplicadaId: str
     p_principal: principalId,
     p_duplicada: duplicadaId,
   });
-  if (error) throw new Error(error.message);
-  return data as unknown as PurchaseMergeReport;
+  if (error) throw new Error(friendlyDeleteError(error.message));
+  const relatorio = data as unknown as PurchaseMergeReport;
+  return { ...relatorio, bloqueios: normalizarBloqueios(relatorio.bloqueios) };
 }
 
 export async function mergeDuplicatePurchase(principalId: string, duplicadaId: string) {
@@ -517,7 +518,7 @@ export async function mergeDuplicatePurchase(principalId: string, duplicadaId: s
     p_principal: principalId,
     p_duplicada: duplicadaId,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyDeleteError(error.message));
   return data as unknown as { purchase_id: string; parcelas_transferidas: number };
 }
 
