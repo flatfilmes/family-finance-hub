@@ -3,7 +3,12 @@ import { useMemberName } from "@/components/member-select";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenseCategories } from "@/hooks/useExpenses";
-import { usePurchaseInstallments, usePurchaseItems } from "@/hooks/usePurchases";
+import {
+  usePurchaseInstallments,
+  usePurchaseItems,
+  useUpdatePurchaseItemCategory,
+} from "@/hooks/usePurchases";
+import { usePermissions } from "@/hooks/usePermissions";
 import { formatCurrency } from "@/lib/finance";
 import { PAYMENT_METHOD_LABELS, PURCHASE_TYPE_LABELS, formatDate } from "@/lib/expenses";
 import {
@@ -40,6 +45,11 @@ export function PurchaseDetail({ purchase, onClose }: { purchase: Purchase; onCl
   const { data: categorias } = useExpenseCategories();
   const { data: items, isLoading: loadingItems } = usePurchaseItems(purchase.id);
   const { data: parcelas } = usePurchaseInstallments(purchase.id);
+  const permissoes = usePermissions();
+  const atualizarCategoria = useUpdatePurchaseItemCategory(purchase.id);
+  const podeEditarCategoria =
+    permissoes.isAdmin ||
+    (permissoes.podeLancar && purchase.member_id === permissoes.myMemberId);
 
   const cartao = (cards ?? []).find((c) => c.id === purchase.credit_card_id);
   const conta = (contas ?? []).find((c) => c.id === purchase.bank_account_id);
@@ -145,8 +155,33 @@ export function PurchaseDetail({ purchase, onClose }: { purchase: Purchase; onCl
                       <td className="py-2 pr-3 font-semibold">
                         {formatCurrency(Number(i.valor_total))}
                       </td>
-                      <td className="py-2 text-muted-foreground">
-                        {categoriaNome(i.categoria_id)}
+                      <td className="py-2">
+                        {podeEditarCategoria ? (
+                          <select
+                            aria-label={`Categoria de ${i.descricao_produto}`}
+                            value={i.categoria_id ?? ""}
+                            disabled={atualizarCategoria.isPending}
+                            onChange={(e) =>
+                              atualizarCategoria.mutate({
+                                itemId: i.id,
+                                categoriaId: e.target.value || null,
+                                categoriaSugerida: i.categoria_sugerida ?? null,
+                              })
+                            }
+                            className="w-44 rounded-lg border border-input bg-background px-2 py-1.5 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+                          >
+                            <option value="">Sem categoria</option>
+                            {(categorias ?? []).map((c) => (
+                              <option key={c.id} value={c.id}>
+                                {c.nome}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {categoriaNome(i.categoria_id)}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
