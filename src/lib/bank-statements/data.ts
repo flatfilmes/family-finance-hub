@@ -99,8 +99,43 @@ export async function createBankStatementImport(input: {
     if (itensError) throw itensError;
   }
 
+  // Checkpoints de saldo: conferência do extrato, nunca movimentação.
+  const checkpoints = input.resumo.checkpoints ?? [];
+  if (checkpoints.length) {
+    const { error: checkError } = await supabase.from("bank_balance_checkpoints").insert(
+      checkpoints.map((c) => ({
+        family_id: input.familyId,
+        bank_account_id: input.bankAccountId,
+        member_id: input.memberId,
+        import_id: imp.id,
+        data: c.data,
+        saldo_informado: c.saldo,
+        origem: "EXTRATO_IMPORTADO",
+        rotulo: c.rotulo ?? null,
+        created_by: input.createdBy,
+      })),
+    );
+    if (checkError) throw checkError;
+  }
+
   return imp;
 }
+
+/** Saldos diários informados pelo banco, usados só para conferência. */
+export async function fetchBankBalanceCheckpoints(accountId: string) {
+  const { data, error } = await supabase
+    .from("bank_balance_checkpoints")
+    .select("*")
+    .eq("bank_account_id", accountId)
+    .order("data", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((c) => ({
+    data: c.data as string,
+    saldo: Number(c.saldo_informado),
+    rotulo: c.rotulo as string | null,
+  }));
+}
+
 
 /** Executa as ações revisadas. Idempotente: confirmar de novo não duplica nada. */
 export async function confirmBankStatementImport(importId: string) {
