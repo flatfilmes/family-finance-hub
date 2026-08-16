@@ -229,9 +229,8 @@ function RevisarExtrato() {
     ignoradas: por("IGNORE"),
     futuras: futuros.length,
   };
-  const criadas = rows.filter(
-    (l) => !ACOES_SEM_EFEITO.includes(l.acao) && l.acao !== "IGNORE",
-  ).length;
+
+
 
   const setAcao = (i: number, acao: ReviewAction) =>
     setLinhas(
