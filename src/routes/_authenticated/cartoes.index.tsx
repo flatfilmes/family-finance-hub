@@ -62,13 +62,19 @@ function CartoesPage() {
   const [busca, setBusca] = useStickyState("cartoes:busca", "");
   const [importando, setImportando] = useState(false);
   const importacoes = useStatementImports(family?.id);
-  const perms = usePermissions();
-  const excluir = useDeleteStatementImport(family?.id);
-  const [paraExcluir, setParaExcluir] = useState<StatementImport | null>(null);
 
   if (!family) return <NoFamily />;
 
   const bancos = Array.from(new Set(dados.cards.map((c) => c.banco))).sort();
+
+  // Resumo: apenas a última importação de cada cartão (a lista completa vive no cartão).
+  const ultimasPorCartao = dados.cards
+    .map((cartao) => ({
+      cartao,
+      imp: (importacoes.data ?? []).find((i) => i.credit_card_id === cartao.id),
+    }))
+    .filter((r): r is { cartao: (typeof dados.cards)[number]; imp: StatementImport } => !!r.imp);
+
 
   const lista = filterByMember(dados.cards, view.scoped(filtroMembro)).filter(
     (c) =>
