@@ -15,6 +15,7 @@ import {
   type ParserDryRunResult,
   type RawPdfDump,
 } from "@/lib/pdf-diagnostic";
+import { defaultDryRunForSource } from "@/lib/pdf-diagnostic/default-dry-runs";
 import { extractPdfText } from "@/lib/pdf-extract";
 
 type Aba =
@@ -34,7 +35,7 @@ type Aba =
  */
 export function PdfDiagnosticDialog({
   source,
-  parserDryRun,
+  parserDryRun: parserDryRunProp,
   file: fileInicial = null,
   onClose,
 }: {
@@ -43,6 +44,9 @@ export function PdfDiagnosticDialog({
   file?: File | null;
   onClose: () => void;
 }) {
+  // A tela nunca fica sem parser: quando o chamador não passa um dry run,
+  // usamos o parser real do módulo de origem (mesma função pura da importação).
+  const parserDryRun = parserDryRunProp ?? defaultDryRunForSource(source);
   const [file, setFile] = useState<File | null>(fileInicial);
   const [dump, setDump] = useState<RawPdfDump | null>(null);
   const [texto, setTexto] = useState<string[]>([]);
@@ -167,6 +171,8 @@ export function PdfDiagnosticDialog({
             <p className="mt-2 text-xs text-muted-foreground">Arquivo pronto: {file.name}</p>
           )}
 
+          {dump && <PipelineStatus dump={dump} rows={linhas.length} parser={parser} />}
+
           {erro && <p className="mt-3 text-sm font-semibold text-destructive">{erro}</p>}
 
           {dump && (
@@ -282,6 +288,80 @@ export function PdfDiagnosticDialog({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Faixa de status do pipeline: mostra exatamente onde a leitura parou. */
+function PipelineStatus({
+  dump,
+  rows,
+  parser,
+}: {
+  dump: RawPdfDump;
+  rows: number;
+  parser: ParserDryRunResult | null;
+}) {
+  const output = (parser?.output ?? null) as
+    | { validation?: { status?: string }; counts?: { checkpoints?: number } }
+    | null;
+  const counts = parser?.counts ?? null;
+  const okParser = !!parser && parser.status !== "PARSER_NOT_SELECTED" && !parser.error;
+  const validacao = output?.validation?.status ?? null;
+
+  const etapas = [
+    { label: "PDF.JS", valor: `${dump.items.length} items`, ok: dump.items.length > 0 },
+    { label: "ROWS", valor: `${rows} rows`, ok: rows > 0 },
+    {
+      label: "BANK DETECTION",
+      valor: parser?.bank ?? (parser ? "—" : "não executado"),
+      ok: !!parser?.bank && parser.bank !== "UNKNOWN",
+    },
+    {
+      label: "PARSER",
+      valor: parser ? `${parser.parser}${parser.version ? ` ${parser.version}` : ""}` : "null",
+      ok: okParser,
+    },
+    {
+      label: "OUTPUT",
+      valor: counts
+        ? `${counts.transactions} transações · ${counts.checkpoints} checkpoints`
+        : "—",
+      ok: !!counts && counts.transactions > 0,
+    },
+    {
+      label: "VALIDATION",
+      valor: validacao === "PARSED_STATEMENT_VALID" ? "PASS" : (validacao ?? "—"),
+      ok: validacao === "PARSED_STATEMENT_VALID",
+    },
+  ];
+
+  return (
+    <div className="mt-4 grid gap-2 sm:grid-cols-3">
+      {etapas.map((e) => (
+        <div
+          key={e.label}
+          className={`rounded-2xl border px-3 py-2 ${
+            e.ok ? "border-primary/40 bg-accent/40" : "border-destructive/40 bg-destructive/5"
+          }`}
+        >
+          <p className="text-[10px] font-bold tracking-wide text-muted-foreground">{e.label}</p>
+          <p className="text-xs font-semibold">
+            {e.ok ? "✓" : "✕"} {e.valor}
+          </p>
+        </div>
+      ))}
+      {parser?.error && (
+        <p className="sm:col-span-3 text-xs font-semibold text-destructive">
+          {parser.status ?? "PARSER_EXECUTION_FAILED"}
+          {parser.stage ? ` · etapa ${parser.stage}` : ""} — {parser.error}
+        </p>
+      )}
+      {parser?.status === "PARSER_NOT_SELECTED" && (
+        <p className="sm:col-span-3 text-xs font-semibold text-destructive">
+          PARSER_NOT_SELECTED — sinais encontrados: {parser.signals?.join(" | ") || "nenhum"}
+        </p>
+      )}
     </div>
   );
 }
