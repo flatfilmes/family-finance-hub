@@ -212,52 +212,91 @@ function RevisarFaturaPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Metric
-          label="Período da fatura"
-          value={
-            importacao.periodo_inicio && importacao.periodo_fim
-              ? `${formatDate(importacao.periodo_inicio)} a ${formatDate(importacao.periodo_fim)}`
-              : "Não identificado"
-          }
-        />
-        <Metric
-          label="Vencimento"
-          value={
-            importacao.data_vencimento ? formatDate(importacao.data_vencimento) : "Não identificado"
-          }
-          hint={
-            importacao.data_fechamento
-              ? `Fechamento em ${formatDate(importacao.data_fechamento)}`
-              : "Fechamento não identificado"
-          }
-        />
-        <Metric
-          label="Valor da fatura"
-          value={valorFatura > 0 ? formatCurrency(valorFatura) : "Não identificado"}
-        />
-        <Metric
-          label="Lançamentos atuais extraídos"
-          value={formatCurrency(totalExtraido)}
-          hint={
-            bateu
-              ? "Valores conferidos"
-              : valorFatura > 0
-                ? `Diferença de ${formatCurrency(Math.abs(diferenca))}`
-                : "Sem valor de fatura para comparar"
-          }
-          {...(bateu ? { tone: "ok" as const } : {})}
-        />
-      </div>
+      <Card>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-lg font-extrabold">
+              {cartao ? `${cartao.nome_cartao} · ${cartao.banco}` : "Cartão da importação"}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Titular: {formatOptional(importacao.titular)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Fatura
+            </p>
+            <p className="text-2xl font-extrabold">
+              {valorFatura > 0 ? formatCurrency(valorFatura) : "Não identificado"}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          <Metric
+            label="Vencimento"
+            value={
+              importacao.data_vencimento
+                ? formatDate(importacao.data_vencimento)
+                : "Não identificado"
+            }
+          />
+          <Metric
+            label="Fechamento"
+            value={
+              importacao.data_fechamento
+                ? formatDate(importacao.data_fechamento)
+                : "Não identificado"
+            }
+          />
+          <Metric
+            label="Lançamentos"
+            value={String(lista.length)}
+            hint={finais.length > 1 ? `${finais.length} finais de cartão usados` : "Cartão único"}
+          />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Esta é uma única obrigação financeira. Todos os lançamentos abaixo pertencem a esta
+          fatura, mesmo quando feitos por cartões adicionais ou virtuais.
+        </p>
+      </Card>
 
-      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Metric label="Créditos e ajustes" value={formatCurrency(creditos)} />
+      <Card className="mt-4">
+        <SectionTitle title="Conferência da fatura" />
+        <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <Metric
+            label="Total oficial da fatura"
+            value={valorFatura > 0 ? formatCurrency(valorFatura) : "Não identificado"}
+          />
+          <Metric label="Compras e saques válidos" value={formatCurrency(compras)} />
+          <Metric label="Créditos e estornos" value={formatCurrency(creditos)} />
+          <Metric label="Taxas e serviços" value={formatCurrency(taxas)} />
+          <Metric
+            label="Total reconhecido"
+            value={formatCurrency(totalExtraido)}
+            {...(bateu ? { tone: "ok" as const } : {})}
+          />
+          <Metric
+            label="Diferença"
+            value={formatCurrency(Math.abs(diferenca))}
+            hint={bateu ? "Valores conferidos" : "Revise os lançamentos abaixo"}
+          />
+        </div>
+      </Card>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <Metric
-          label="Futuro já comprometido"
-          value={futuroComprometido > 0 ? formatCurrency(futuroComprometido) : "Não identificado"}
-          hint="Parcelas de próximas faturas — fora desta fatura"
+          label="Próxima fatura"
+          value={proximaFatura > 0 ? formatCurrency(proximaFatura) : "Não identificado"}
         />
-        <Metric label="Diferença" value={formatCurrency(Math.abs(diferenca))} />
+        <Metric
+          label="Demais faturas"
+          value={demaisFaturas > 0 ? formatCurrency(demaisFaturas) : "Não identificado"}
+        />
+        <Metric
+          label="Total futuro comprometido"
+          value={futuroComprometido > 0 ? formatCurrency(futuroComprometido) : "Não identificado"}
+          hint="Fora desta fatura"
+        />
       </div>
 
       {foraDeControle && (
@@ -283,31 +322,6 @@ function RevisarFaturaPage() {
         </Card>
       )}
 
-      {finais.length > 0 && (
-        <Card className="mt-4">
-          <SectionTitle title="Subtotais por cartão" />
-          <ul className="mt-2 divide-y divide-border">
-            {finais.map((final) => {
-              const soma = somaDoCartao(final);
-              const impresso = subtotaisPdf.find((s) => s.card_last4 === final)?.valor ?? null;
-              const confere = impresso === null || Math.abs(impresso - soma) < 0.01;
-              return (
-                <li key={final} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="font-semibold">Cartão final {final}</span>
-                  <span className="flex items-center gap-2">
-                    {formatCurrency(soma)}
-                    {impresso !== null && (
-                      <StatusBadge tone={confere ? "ok" : "warn"}>
-                        {confere ? "Confere" : `PDF: ${formatCurrency(impresso)} — revisão necessária`}
-                      </StatusBadge>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      )}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <Metric label="Conciliados" value={String(conta("MATCHED"))} />
