@@ -11,6 +11,7 @@
 import type { ParsedBankStatement } from "@/lib/bank-statements/types";
 import { readBankStatementPdf } from "./generic";
 import { BB_PARSER_ID, readBancoDoBrasilPdf } from "./banco-do-brasil";
+import { ITAU_BANK_PARSER_ID, readItauBankStatementPdf } from "./itau";
 
 export type BankStatementParser = {
   id: string;
@@ -33,8 +34,16 @@ export const BANCO_DO_BRASIL_PARSER: BankStatementParser = {
   ler: readBancoDoBrasilPdf,
 };
 
+export const ITAU_BANK_PARSER: BankStatementParser = {
+  id: ITAU_BANK_PARSER_ID,
+  nome: "Extrato Itaú (PDF)",
+  formatos: ["PDF"],
+  ler: readItauBankStatementPdf,
+};
+
 export const BANK_STATEMENT_PARSERS: BankStatementParser[] = [
   BANCO_DO_BRASIL_PARSER,
+  ITAU_BANK_PARSER,
   GENERIC_PDF_PARSER,
 ];
 
@@ -45,3 +54,4 @@ export function selectBankStatementParser(_fileName?: string): BankStatementPars
 
 export * from "./generic";
 export * from "./banco-do-brasil";
+export * from "./itau";

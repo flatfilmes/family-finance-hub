@@ -24,6 +24,7 @@ import { useCardInvoices } from "@/hooks/useCardInvoices";
 import { useTransactions } from "@/hooks/useTransactions";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useIncomes } from "@/hooks/useFinanceData";
+import { useBankStatementItems } from "@/hooks/useBankStatements";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 import {
@@ -35,6 +36,8 @@ import {
   confirmBankStatementImport,
   createBankStatementImport,
   reconcileMovement,
+  buildExistingMovementKeys,
+  marcarDuplicados,
   type ReviewAction,
   type StatementDraftRow,
 } from "@/lib/bank-statements";
@@ -125,6 +128,8 @@ function RevisarExtrato() {
   const { data: invoices } = useCardInvoices(familyId);
   const { data: transactions } = useTransactions(familyId);
   const { data: incomes } = useIncomes(familyId);
+  // Extratos sobrepostos: o que já foi lido em outro documento não repete.
+  const { data: itensExistentes } = useBankStatementItems(accountId);
 
   const draft = useMemo(() => loadStatementDraft(accountId), [accountId]);
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
@@ -137,7 +142,9 @@ function RevisarExtrato() {
   const rows = useMemo<StatementDraftRow[]>(() => {
     if (linhas) return linhas;
     if (!draft) return [];
-    return draft.resumo.movimentos.map((m) => {
+    const jaExistentes = buildExistingMovementKeys(itensExistentes ?? []);
+    const duplicados = marcarDuplicados(draft.resumo.movimentos, jaExistentes);
+    return draft.resumo.movimentos.map((m, idx) => {
       const sugestao = reconcileMovement(m, {
         accountId,
         purchases: purchases ?? [],
@@ -146,6 +153,18 @@ function RevisarExtrato() {
         transactions: transactions ?? [],
         incomes: incomes ?? [],
       });
+      if (duplicados[idx]) {
+        return {
+          ...m,
+          sugestao: {
+            ...sugestao,
+            matchStatus: "MATCHED" as const,
+            motivo: "Já lido em outro extrato desta conta (período sobreposto).",
+          },
+          acao: "IGNORE" as ReviewAction,
+          incluir: false,
+        };
+      }
       return {
         ...m,
         sugestao,
@@ -153,7 +172,17 @@ function RevisarExtrato() {
         incluir: !ACOES_SEM_EFEITO.includes(sugestao.reviewAction),
       };
     });
-  }, [linhas, draft, accountId, purchases, invoices, accounts, transactions, incomes]);
+  }, [
+    linhas,
+    draft,
+    accountId,
+    purchases,
+    invoices,
+    accounts,
+    transactions,
+    incomes,
+    itensExistentes,
+  ]);
 
   const confirmar = useMutation({
     mutationFn: async () => {
@@ -268,6 +297,11 @@ function RevisarExtrato() {
       ? `Período ${resumo.periodoInicio ? formatDate(resumo.periodoInicio) : "?"} – ${
           resumo.periodoFim ? formatDate(resumo.periodoFim) : "?"
         }`
+      : null,
+    resumo.saldoReferenciaAtual
+      ? `Saldo atual informado no documento em ${formatDate(
+          resumo.saldoReferenciaAtual.data,
+        )}: ${formatCurrency(resumo.saldoReferenciaAtual.saldo)} (fora do período)`
       : null,
     `Arquivo ${draft.nomeArquivo}`,
   ].filter(Boolean) as string[];
