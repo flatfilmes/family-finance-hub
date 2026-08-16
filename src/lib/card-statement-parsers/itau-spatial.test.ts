@@ -169,7 +169,7 @@ describe("ITAU_PDF espacial — seções verticais e blocos comerciais", () => {
 
   it("próximas faturas ficam fora da fatura atual", () => {
     expect(desc.some((d) => d.includes("D1 ATACADO"))).toBe(false);
-    expect(p4.futuras.some((f) => f.descricao_original.includes("D1 ATACADO"))).toBe(true);
+    expect(p4.futuras?.some((f) => f.descricao_original.includes("D1 ATACADO"))).toBe(true);
   });
 
   it("limites, CET e simulação da direita não viram lançamento", () => {
