@@ -290,6 +290,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       .trim();
   });
   const historicosRecuperados = recuperarHistoricos(linhas, descricaoDaLinha);
+  const datasRecuperadas = recuperarDatas(linhas, descricaoDaLinha, anoBase);
 
   const movimentos: ParsedBankMovement[] = [];
   const futuros: ParsedBankMovement[] = [];
