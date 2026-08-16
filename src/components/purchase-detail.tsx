@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { X } from "lucide-react";
+import { RegistrarPagamentoDialog } from "@/components/purchase-payment";
 import { useMemberName } from "@/components/member-select";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCreditCards } from "@/hooks/useFinanceData";
@@ -14,6 +16,7 @@ import { PAYMENT_METHOD_LABELS, PURCHASE_TYPE_LABELS, formatDate } from "@/lib/e
 import {
   PAYMENT_STATUS_CLASSES,
   PAYMENT_STATUS_LABELS,
+  isPendentePagamento,
   isRecorrente,
   proximaCobranca,
   type Purchase,
@@ -60,6 +63,7 @@ export function PurchaseDetail({ purchase, onClose }: { purchase: Purchase; onCl
   const pagas = listaParcelas.filter((p) => p.status === "PAGO").length;
   const proximas = listaParcelas.filter((p) => p.status !== "PAGO").slice(0, 6);
   const recorrente = isRecorrente(purchase.tipo_compra);
+  const [pagando, setPagando] = useState(false);
 
   return (
     <div
