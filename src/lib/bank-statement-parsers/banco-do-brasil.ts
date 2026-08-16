@@ -273,7 +273,12 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     saldoInicial,
     saldoFinal: saldoFinal ?? saldoRotulado,
     movimentos,
+    // Um checkpoint por dia: o último saldo impresso é o que vale.
+    checkpoints: [...new Map(checkpoints.map((c) => [c.data, c])).values()].sort((a, b) =>
+      a.data.localeCompare(b.data),
+    ),
     futuros,
+
     identificacao: {
       banco: "Banco do Brasil",
       agencia: buscar(textos, /ag[êe]ncia[:\s]+([\d.\-]{3,10})/i),
