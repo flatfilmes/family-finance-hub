@@ -391,3 +391,94 @@ export function faturasFechadasEmAberto(input: {
 
   return [...porCiclo.values()].sort((a, b) => (a.vencimento < b.vencimento ? -1 : 1));
 }
+
+// ---------- Ciclos reais x projeções ----------
+
+export type EstadoCiclo = "PAGA" | "VENCIDA" | "FECHADA" | "EM_FORMACAO" | "PROJETADA";
+
+export const ESTADO_CICLO_LABELS: Record<EstadoCiclo, string> = {
+  PAGA: "Paga",
+  VENCIDA: "Vencida",
+  FECHADA: "Fechada",
+  EM_FORMACAO: "Em formação",
+  PROJETADA: "Projetada",
+};
+
+export type CicloClassificado<T> = {
+  invoice: T;
+  competencia: string;
+  estado: EstadoCiclo;
+  /** true quando o ciclo já se materializou (fechado, pago ou com documento oficial). */
+  real: boolean;
+  oficial: boolean;
+  valor: number;
+};
+
+type InvoiceBase = {
+  id: string;
+  credit_card_id: string;
+  status: string;
+  data_fechamento: string;
+  data_vencimento: string;
+  valor_total: number | string;
+};
+
+/**
+ * Classifica os ciclos de um cartão:
+ * - fechamento já passou (ou status FECHADA/PAGA, ou importação confirmada) => ciclo real;
+ * - primeiro ciclo ainda não fechado => fatura em formação;
+ * - demais ciclos futuros => apenas projeção de parcelas, nunca "fatura aberta".
+ */
+export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
+  invoices: T[];
+  imports: ImportacaoFatura[];
+  hoje?: Date;
+}): CicloClassificado<T>[] {
+  const hoje = input.hoje ?? new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const ordenadas = input.invoices
+    .slice()
+    .sort((a, b) => (a.data_vencimento < b.data_vencimento ? -1 : 1));
+
+  let emFormacaoUsada = false;
+  return ordenadas.map((invoice) => {
+    const oficialImport = importacaoOficialDoCiclo({
+      cardId: invoice.credit_card_id,
+      invoice,
+      imports: input.imports,
+    });
+    const valor = oficialImport
+      ? Number(oficialImport.valor_total_fatura) || 0
+      : Number(invoice.valor_total) || 0;
+    const fechou = invoice.data_fechamento <= hojeIso;
+    const real = fechou || invoice.status === "FECHADA" || invoice.status === "PAGA" || !!oficialImport;
+
+    let estado: EstadoCiclo;
+    if (invoice.status === "PAGA") estado = "PAGA";
+    else if (real) estado = invoice.data_vencimento < hojeIso ? "VENCIDA" : "FECHADA";
+    else if (!emFormacaoUsada) {
+      estado = "EM_FORMACAO";
+      emFormacaoUsada = true;
+    } else estado = "PROJETADA";
+
+    return {
+      invoice,
+      competencia: invoice.data_vencimento.slice(0, 7),
+      estado,
+      real,
+      oficial: !!oficialImport,
+      valor,
+    };
+  });
+}
+
+/** Agrupa os ciclos nas seções da página do cartão. */
+export function agruparCiclos<T extends InvoiceBase>(ciclos: CicloClassificado<T>[]) {
+  const reais = ciclos.filter((c) => c.estado !== "PROJETADA" && c.estado !== "EM_FORMACAO");
+  const emFormacao = ciclos.find((c) => c.estado === "EM_FORMACAO") ?? null;
+  const projecoes = ciclos.filter((c) => c.estado === "PROJETADA");
+  const emAberto = reais.filter((c) => c.estado !== "PAGA");
+  const atual = emAberto[0] ?? reais[reais.length - 1] ?? null;
+  const historico = reais.filter((c) => c.invoice.id !== atual?.invoice.id).reverse();
+  return { atual, emFormacao, historico, projecoes, reais };
+}
