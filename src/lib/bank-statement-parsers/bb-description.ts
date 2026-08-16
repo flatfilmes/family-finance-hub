@@ -48,7 +48,7 @@ const OPERACOES = [
 ];
 
 /** Token puramente técnico (Lote / Documento / código do banco). */
-const SO_NUMERO = /^[\d.\-]+$/;
+const SO_NUMERO = /^\d[\d.\-]*$/;
 /** Data ou data+hora citada dentro do histórico ("04/01 12:48"). */
 const DATA_HORA_NO_INICIO = /^\d{2}\/\d{2}(?:\/\d{2,4})?(?:\s+\d{2}:\d{2})?\s*/;
 
