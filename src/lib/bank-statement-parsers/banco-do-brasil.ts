@@ -211,7 +211,29 @@ function recuperarHistoricos(
 export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
   const anoBase = new Date().getFullYear();
-
+  /**
+   * Pré-passo: quais linhas são financeiras (data/valor com sinal) e qual
+   * texto de histórico veio junto. `null` = linha não financeira,
+   * `""` = financeira sem histórico no mesmo Y (precisa recuperar).
+   */
+  const descricaoDaLinha: Array<string | null> = linhas.map((linha, i) => {
+    const raw = linha.text.replace(/\s+/g, " ").trim();
+    if (!raw) return null;
+    let alvo = raw;
+    const proxima = linhas[i + 1]?.text.trim() ?? "";
+    if (!lerValorComSinal(alvo) && SINAL_SOZINHO.test(proxima)) alvo = `${raw} ${proxima}`;
+    const lido = lerValorComSinal(alvo);
+    if (!lido) return null;
+    const { resto } = DATA_INICIAL.test(raw) ? lerData(raw, anoBase) : { resto: raw };
+    return resto
+      .replace(lido.bruto, " ")
+      .replace(VALOR_COM_SINAL, " ")
+      .replace(SINAL_ANTES_DO_VALOR, " ")
+      .replace(/\(\s*[+-]\s*\)/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  });
+  const historicosRecuperados = recuperarHistoricos(linhas, descricaoDaLinha);
 
   const movimentos: ParsedBankMovement[] = [];
   const futuros: ParsedBankMovement[] = [];
@@ -224,6 +246,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
   let ultimaData: string | null = null;
   let saldoInicial: number | null = null;
   let saldoFinal: number | null = null;
+
 
   for (let i = 0; i < linhas.length; i++) {
     const linha = linhas[i]!;
