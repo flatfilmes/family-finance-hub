@@ -229,10 +229,21 @@ export function parseItauSpatial(
     RIGHT: { column: "RIGHT", section: "IGNORADA", cardLast4: null, jaViuLancamentos: false },
   };
 
+  const consumidas = new Set<SpatialRow>();
+  for (const pagina of pages) {
   for (const column of ["LEFT", "RIGHT"] as const) {
-    const rows = rowsPorColuna[column].sort((a, b) => a.page - b.page || b.y - a.y);
+    const rows = rowsPorColuna[column]
+      .filter((r) => r.page === pagina.page)
+      .sort((a, b) => b.y - a.y);
     const estado = estados[column];
-    const consumidas = new Set<SpatialRow>();
+    // A coluna DIREITA continua o fluxo de leitura da esquerda na mesma página.
+    // O inverso nunca acontece: um bloco comercial da direita jamais altera a esquerda.
+    if (column === "RIGHT") {
+      if (estado.section === "IGNORADA") estado.section = estados.LEFT.section;
+      if (!estado.cardLast4) estado.cardLast4 = estados.LEFT.cardLast4;
+      estado.jaViuLancamentos = estado.jaViuLancamentos || estados.LEFT.jaViuLancamentos;
+    }
+
 
     for (const row of rows) {
       const texto = row.text;
