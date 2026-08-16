@@ -113,24 +113,43 @@ function CartaoDetalhePage() {
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
+  const [verHistorico, setVerHistorico] = useState(false);
+  const [mesesFuturos, setMesesFuturos] = useState(9);
+  const reguaRef = useRef<HTMLDivElement | null>(null);
+  const ancoraRef = useRef<HTMLButtonElement | null>(null);
+  const posicionou = useRef(false);
 
   // Derivação do ciclo antes dos returns: os lançamentos oficiais são lidos por hook.
   const cartaoSelecionado = dados.cards.find((c) => c.id === cardId) ?? null;
   const ciclos = dados.ciclosDe(cardId);
   const cicloFechado = ciclos.atual;
   const cicloProximo = ciclos.emFormacao;
-  // Navegação única: histórico (mais antigo → recente), fatura fechada e fatura em formação.
-  const selecionaveis = [
-    ...ciclos.historico.slice().reverse(),
-    ...(cicloFechado ? [cicloFechado] : []),
-    ...(cicloProximo ? [cicloProximo] : []),
-  ];
+  // Régua rebalanceada: pouco passado, ciclo atual e o futuro já comprometido.
+  const janela = janelaDeCiclos(ciclos.todos, {
+    passado: 2,
+    futuro: mesesFuturos,
+    verHistorico,
+  });
+  const selecionaveis = janela.visiveis;
   const cicloSelecionado =
-    selecionaveis.find((c) => c.invoice.id === cicloId) ?? cicloFechado ?? cicloProximo ?? null;
+    ciclos.todos.find((c) => c.invoice.id === cicloId) ?? cicloFechado ?? cicloProximo ?? null;
   const fatura = cicloSelecionado?.invoice ?? null;
   // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
   const faturaCiclo = dados.faturaDe(cardId, fatura);
   const itensOficiais = useStatementItems(faturaCiclo.importId ?? undefined);
+
+  // Ao abrir, o ciclo âncora fica no primeiro terço: mais futuro visível que passado.
+  useEffect(() => {
+    const regua = reguaRef.current;
+    const alvo = ancoraRef.current;
+    if (!regua || !alvo || posicionou.current) return;
+    posicionou.current = true;
+    regua.scrollLeft = Math.max(0, alvo.offsetLeft - regua.clientWidth / 3);
+  }, [selecionaveis.length]);
+
+  const rolar = (dir: -1 | 1) =>
+    reguaRef.current?.scrollBy({ left: dir * 480, behavior: "smooth" });
+
 
   if (!family) return <NoFamily />;
 
