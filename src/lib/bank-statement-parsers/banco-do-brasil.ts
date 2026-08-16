@@ -244,7 +244,16 @@ function recuperarHistoricos(
       return null;
     })();
 
-    const corte = bloco.findIndex((idx) => comecaComOperacaoBb(texto(idx)));
+    const distancia = (idx: number, alvo: number | null) =>
+      alvo === null ? Number.POSITIVE_INFINITY : Math.abs(linhas[idx]!.y - linhas[alvo]!.y);
+    // O corte é a linha de OPERAÇÃO que abre o próximo lançamento: ela precisa
+    // estar mais perto do lançamento seguinte do que do anterior — assim uma
+    // operação impressa logo ABAIXO do valor ("Pagto cartão crédito") continua
+    // pertencendo ao lançamento que a gerou.
+    const corte = bloco.findIndex(
+      (idx) => comecaComOperacaoBb(texto(idx)) && distancia(idx, seguinte) <= distancia(idx, anterior),
+    );
+
 
     bloco.forEach((idx, pos) => {
       let dono: number | null;
