@@ -533,7 +533,14 @@ function RevisarDocumento({
   const [items, setItems] = useState<NewPurchaseItem[]>([linhaVazia()]);
 
   const brutos = (extracao?.dados_brutos_json ?? null) as {
-    confianca?: Partial<Record<string, Confianca>>;
+    confianca?: {
+      estabelecimento?: Confianca;
+      data_compra?: Confianca;
+      valor_total?: Confianca;
+      forma_pagamento?: Confianca;
+      items?: Confianca;
+    };
+
     pagamento_descricao?: string | null;
   } | null;
   const confianca = brutos?.confianca ?? {};
