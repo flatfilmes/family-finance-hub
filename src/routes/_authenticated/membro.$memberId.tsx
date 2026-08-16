@@ -96,7 +96,8 @@ function MembroPage() {
   const { data: family } = useFamily();
   const { data: members } = useMembers(family?.id);
   const { data: profiles } = useMemberProfiles(family?.id);
-  const { isAdmin } = usePermissions();
+  const { isAdmin, isViewer, myMemberId } = usePermissions();
+  const podeGerenciar = isAdmin || (!isViewer && myMemberId === memberId);
 
   const { data: incomes } = useIncomes(family?.id);
   const { data: accounts } = useBankAccounts(family?.id);
@@ -104,6 +105,17 @@ function MembroPage() {
 
   const [tab, setTab] = useState<Tab>("Dados pessoais");
   const [cadastro, setCadastro] = useState<"receita" | "conta" | "cartao" | null>(null);
+  const [editIncome, setEditIncome] = useState<Income | null>(null);
+  const [editAccount, setEditAccount] = useState<BankAccount | null>(null);
+  const [editCard, setEditCard] = useState<CreditCard | null>(null);
+  const [ajusteConta, setAjusteConta] = useState<BankAccount | null>(null);
+  const [confirmacao, setConfirmacao] = useState<{
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    blocked?: boolean;
+    run?: () => Promise<void>;
+  } | null>(null);
   const [nome, setNome] = useState("");
   const [relacionamento, setRelacionamento] = useState("");
 
@@ -157,6 +169,31 @@ function MembroPage() {
     onSuccess: () => {
       toast.success("Permissão atualizada.");
       queryClient.invalidateQueries({ queryKey: ["members", family?.id] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const invalidarFinancas = () => {
+    for (const key of [
+      "incomes",
+      "bank-accounts",
+      "credit-cards",
+      "transactions",
+      "card-invoices",
+      "purchases",
+    ]) {
+      queryClient.invalidateQueries({ queryKey: [key, family?.id] });
+    }
+  };
+
+  const executarAcao = useMutation({
+    mutationFn: async () => {
+      await confirmacao?.run?.();
+    },
+    onSuccess: () => {
+      toast.success("Ação concluída.");
+      invalidarFinancas();
+      setConfirmacao(null);
     },
     onError: (e: Error) => toast.error(e.message),
   });
