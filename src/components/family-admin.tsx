@@ -45,7 +45,6 @@ export function FamilyAdmin() {
     mutationFn: () =>
       createFamily({
         nome: nomeFamilia.trim(),
-        ownerId: user!.id,
         ownerNome: profile?.nome_completo || "Responsável",
       }),
     onSuccess: () => {
