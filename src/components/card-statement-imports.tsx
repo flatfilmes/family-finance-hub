@@ -343,6 +343,12 @@ export function CardStatementImports({
                   {imp.data_vencimento ? ` · vence em ${formatDate(imp.data_vencimento)}` : ""} ·{" "}
                   {imp.nome_arquivo}
                 </p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {imp.confirmado_em
+                    ? `Confirmada em ${new Date(imp.confirmado_em).toLocaleString("pt-BR")}`
+                    : `Enviada em ${new Date(imp.created_at).toLocaleString("pt-BR")}`}{" "}
+                  · id {imp.id.slice(0, 8)}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge tone={tone(imp.status)}>
@@ -356,21 +362,61 @@ export function CardStatementImports({
                   {imp.status === "CONFIRMED" ? "Ver detalhes" : "Revisar"}
                 </Link>
                 {perms.isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => setParaExcluir(imp)}
-                    title={
-                      podeExcluirImportacao(imp.status)
-                        ? "Excluir fatura importada"
-                        : "Para excluir esta fatura processada, primeiro desfaça/cancele a revisão."
-                    }
-                    aria-label={`Excluir fatura ${imp.nome_arquivo}`}
-                    className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setMenuAberto(menuAberto === imp.id ? null : imp.id)}
+                      aria-label={`Ações da fatura ${imp.nome_arquivo}`}
+                      aria-expanded={menuAberto === imp.id}
+                      className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </button>
+                    {menuAberto === imp.id && (
+                      <>
+                        <button
+                          type="button"
+                          aria-hidden
+                          tabIndex={-1}
+                          className="fixed inset-0 z-10 cursor-default"
+                          onClick={() => setMenuAberto(null)}
+                        />
+                        <div className="absolute right-0 z-20 mt-1 w-60 overflow-hidden rounded-2xl border border-border bg-card shadow-lg">
+                          {podeDesfazerImportacao(imp.status) ? (
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold hover:bg-muted"
+                              onClick={() => {
+                                setMenuAberto(null);
+                                setParaDesfazer(imp);
+                              }}
+                            >
+                              <RotateCcw className="size-4" /> Desfazer importação
+                            </button>
+                          ) : null}
+                          <button
+                            type="button"
+                            disabled={!podeExcluirImportacao(imp.status)}
+                            title={
+                              podeExcluirImportacao(imp.status)
+                                ? "Excluir o registro desta importação"
+                                : "Desfaça a importação antes de excluir."
+                            }
+                            className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-semibold text-destructive hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => {
+                              setMenuAberto(null);
+                              setParaExcluir(imp);
+                            }}
+                          >
+                            <Trash2 className="size-4" /> Excluir importação
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 )}
               </div>
+
             </li>
           ))}
         </ul>
