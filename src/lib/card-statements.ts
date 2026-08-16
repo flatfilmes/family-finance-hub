@@ -756,6 +756,71 @@ export async function cancelStatementImport(id: string) {
   if (error) throw error;
 }
 
+// ------------------------------------------------------- desfazer importação
+
+/** Relatório do que será revertido — nada é alterado no banco. */
+export type UndoReport = {
+  import_id: string;
+  status: ImportStatus;
+  ja_desfeita: boolean;
+  nome_arquivo: string;
+  confirmado_em: string | null;
+  quantidade_lancamentos: number;
+  compras_criadas_exclusivas: number;
+  compras_compartilhadas: number;
+  compras_associadas: number;
+  parcelas: number;
+  taxas: number;
+  creditos: number;
+  ignorados: number;
+  bloqueios: {
+    purchase_id: string;
+    estabelecimento: string;
+    valor: number;
+    motivos: string[];
+  }[];
+  exige_revisao_manual: boolean;
+};
+
+export type UndoResult = {
+  resultado: "UNDONE" | "ALREADY_UNDONE";
+  import_id: string;
+  compras_removidas?: number;
+  compras_preservadas?: number;
+  compras_bloqueadas?: number;
+  vinculos_removidos?: number;
+};
+
+/** Só faz sentido desfazer o que já foi confirmado (cancelar é para revisão pendente). */
+export function podeDesfazerImportacao(status: ImportStatus) {
+  return status === "CONFIRMED";
+}
+
+export async function inspectUndoStatementImport(importId: string): Promise<UndoReport> {
+  const { data, error } = await supabase.rpc("inspect_card_statement_import_undo", {
+    p_import_id: importId,
+  });
+  if (error) throw error;
+  return data as unknown as UndoReport;
+}
+
+/**
+ * Reverte apenas os efeitos exclusivos desta importação, de forma transacional.
+ * Compras de nota fiscal, compras usadas por outra importação e qualquer
+ * histórico bancário confirmado são sempre preservados.
+ */
+export async function undoStatementImport(
+  importId: string,
+  aceitarPendencias = false,
+): Promise<UndoResult> {
+  const { data, error } = await supabase.rpc("undo_card_statement_import", {
+    p_import_id: importId,
+    p_aceitar_pendencias: aceitarPendencias,
+  });
+  if (error) throw error;
+  return data as unknown as UndoResult;
+}
+
 /** Faturas confirmadas geraram efeito real: não podem ser apagadas direto. */
 export function podeExcluirImportacao(status: ImportStatus) {
   return status !== "CONFIRMED";
