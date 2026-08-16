@@ -409,8 +409,11 @@ export function buildBankAudit(input: {
   for (const it of itens) {
     const mes = it.data_movimento?.slice(0, 7) ?? "";
     const valor = Number(it.valor) || 0;
+    const compra = it.purchase_id_criada ?? it.purchase_id_matched ?? null;
     const ligada = it.transaction_id_criada ?? it.transaction_id_matched ?? null;
-    const tx = ligada ? porId.get(ligada) ?? null : null;
+    const tx =
+      (ligada ? porId.get(ligada) ?? null : null) ??
+      (compra ? porCompra.get(compra) ?? null : null);
 
     if (!tx) {
       faltantesPorMes.set(mes, [
