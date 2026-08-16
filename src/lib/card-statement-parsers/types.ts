@@ -52,7 +52,13 @@ export type StatementMetadata = {
   data_emissao?: string | null;
   total_fatura_anterior?: number | null;
   pagamento_anterior?: number | null;
+  /** Pagamento da fatura anterior — histórico, nunca lançamento. */
+  previous_invoice_payment?: { data: string | null; valor: number } | null;
   lancamentos_atuais?: number | null;
+  /** Total oficial impresso pela fatura, usado só para conferência. */
+  expected_invoice_total?: number | null;
+  /** Cotação de câmbio informada pela fatura (não é cobrança). */
+  dolar_conversao?: number | null;
   limite_credito?: number | null;
   limite_disponivel?: number | null;
   limite_utilizado?: number | null;
@@ -60,6 +66,7 @@ export type StatementMetadata = {
   future_invoices_amount?: number | null;
   future_commitments_total?: number | null;
 };
+
 
 /** Subtotal impresso pelo banco por cartão (usado só para validação). */
 export type StatementCardSubtotal = { card_last4: string; valor: number };
