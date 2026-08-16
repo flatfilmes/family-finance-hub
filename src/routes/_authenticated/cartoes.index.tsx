@@ -1,19 +1,14 @@
 import { useState } from "react";
-import { CreditCard, FileUp, Trash2 } from "lucide-react";
-import { toast } from "sonner";
-import { FormDialog } from "@/components/form-dialog";
-import { usePermissions } from "@/hooks/usePermissions";
+import { CreditCard, FileUp } from "lucide-react";
 import { StatementImportDialog } from "@/components/statement-import-dialog";
-import { useDeleteStatementImport, useStatementImports } from "@/hooks/useCardStatements";
-import {
-  IMPORT_STATUS_LABELS,
-  podeExcluirImportacao,
-  type StatementImport,
-} from "@/lib/card-statements";
+import { competenciaImportacao } from "@/components/card-statement-imports";
+import { useStatementImports } from "@/hooks/useCardStatements";
+import { IMPORT_STATUS_LABELS, type StatementImport } from "@/lib/card-statements";
 import { StatusBadge } from "@/components/status-badge";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { TONE_DOTS, usageTone } from "@/lib/status";
+
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Field, PageHeader, PrimaryButton, inputClass } from "@/components/page-header";
 import { Badge, Metric } from "@/components/detail-page";
