@@ -526,10 +526,15 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       if (nova === "COMPRAS" || nova === "INTERNACIONAL" || nova === "SERVICOS") {
         jaViuLancamentos = true;
       }
+      // internacionais e produtos/serviços não pertencem ao subtotal de um final
+      if (nova === "INTERNACIONAL" || nova === "SERVICOS" || nova === "FUTURAS") {
+        cardLast4 = null;
+      }
       limpaPendente();
       rejeitar("section_header");
       continue;
     }
+
 
     // blindagem: limites, simulações e ofertas nunca viram lançamento nem trocam de cartão
     if (ehProibido(linha)) {
