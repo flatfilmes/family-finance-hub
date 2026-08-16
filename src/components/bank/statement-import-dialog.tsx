@@ -79,6 +79,8 @@ export function BankStatementDialog({
   const { data: incomes } = useIncomes(familyId);
 
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [lote, setLote] = useState<File[]>([]);
+  const [progresso, setProgresso] = useState<{ feito: number; total: number } | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
   const [duplicado, setDuplicado] = useState(false);
   const [resumo, setResumo] = useState<ParsedBankStatement | null>(null);
@@ -86,6 +88,61 @@ export function BankStatementDialog({
   const [saldoLido, setSaldoLido] = useState<number | null>(null);
   const [textoDetectado, setTextoDetectado] = useState("");
   const [diagnostico, setDiagnostico] = useState(0);
+
+  /**
+   * Vários PDFs: cada arquivo passa sozinho pelo parser (nunca concatenados).
+   * O resultado vai para a tela de revisão do lote, sem gravar nada.
+   */
+  const lerLote = useMutation({
+    mutationFn: async (files: File[]) => {
+      setProgresso({ feito: 0, total: files.length });
+      const memoria = new Map<string, File>();
+      const resultados = await parseStatementFilesIndependently(
+        files,
+        async (file) => {
+          const fp = await statementFingerprint(file);
+          const jaImportado = await findExistingStatementImport(account!.id, fp);
+          const parsed = await readBankStatementPdf(file);
+          return {
+            nomeArquivo: file.name,
+            fingerprint: fp,
+            jaImportado: !!jaImportado,
+            parsed,
+            erro: null,
+          };
+        },
+        (feito, total) => setProgresso({ feito, total }),
+      );
+      resultados.forEach((r, i) => {
+        const f = files[i];
+        if (f) {
+          memoria.set(r.id, f);
+          r.nomeArquivo = r.nomeArquivo === `arquivo ${i + 1}` ? f.name : r.nomeArquivo;
+        }
+      });
+      const ordenados = sortBatchFiles(resultados);
+      saveStatementBatchDraft(
+        { accountId: account!.id, criadoEm: new Date().toISOString(), arquivos: ordenados },
+        memoria,
+      );
+      return ordenados;
+    },
+    onSuccess: (arquivos) => {
+      setProgresso(null);
+      const comErro = arquivos.filter((a) => a.status === "ERRO").length;
+      if (comErro) toast.warning(`${comErro} arquivo(s) com problema. Revise no lote.`);
+      onClose();
+      navigate({
+        to: "/bancos/$accountId/extratos/lote",
+        params: { accountId: account!.id },
+      });
+    },
+    onError: (e: Error) => {
+      setProgresso(null);
+      toast.error(e.message);
+    },
+  });
+
 
   const reconciliar = (parsed: ParsedBankStatement): StatementDraftRow[] =>
     parsed.movimentos.map((m) => {
