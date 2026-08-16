@@ -694,7 +694,7 @@ export function buildBankAudit(input: {
   );
   const semAssociacao: PendingItem[] = [];
   const semCategoria: PendingItem[] = [];
-  const pagamentosCartaoSemFatura: Transaction[] = [];
+  const pagamentosCartaoSemFatura: CardPaymentPending[] = [];
   const invoiceIds = new Set(input.cardInvoiceIds ?? []);
 
   for (const t of daConta) {
