@@ -482,14 +482,17 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     return null;
   })();
 
-  const datas = movimentos.map((m) => m.data).filter((d): d is string => !!d).sort();
-
   return {
     parser: BB_PARSER_ID,
-    periodoInicio: periodoOficial?.inicio ?? datas[0] ?? null,
-    periodoFim: periodoOficial?.fim ?? datas[datas.length - 1] ?? null,
+    // Período vem EXCLUSIVAMENTE do cabeçalho oficial. Sem cabeçalho o extrato
+    // fica sem período e é bloqueado pela validação — nunca inferimos das
+    // movimentações, do saldo anterior ou do saldo do dia.
+    periodoInicio: periodoOficial?.inicio ?? null,
+    periodoFim: periodoOficial?.fim ?? null,
     saldoInicial,
+    saldoInicialData,
     saldoFinal: saldoFinal ?? saldoRotulado,
+    saldoFinalData: saldoFinalData ?? periodoOficial?.fim ?? null,
     movimentos,
     // Um checkpoint por dia: o último saldo impresso é o que vale.
     checkpoints: [...new Map(checkpoints.map((c) => [c.data, c])).values()].sort((a, b) =>
