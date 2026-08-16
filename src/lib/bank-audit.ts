@@ -450,10 +450,10 @@ export function buildBankAudit(input: {
     const sobreposicao = proximo.inicio! <= anterior.fim!;
 
     // Extratos mensais consecutivos cobrem o mês inteiro mesmo quando o PDF
-    // começa no primeiro dia COM movimento. Só há lacuna real quando falta um
-    // mês inteiro entre os dois documentos.
-    const mesAnterior = anterior.fim!.slice(0, 7);
-    const mesProximo = proximo.inicio!.slice(0, 7);
+    // começa no primeiro dia COM movimento. A distância é medida entre os
+    // MESES DE REFERÊNCIA dos documentos — nunca entre datas de saldo anterior.
+    const mesAnterior = anterior.mesReferencia ?? anterior.fim!.slice(0, 7);
+    const mesProximo = proximo.mesReferencia ?? proximo.inicio!.slice(0, 7);
     const mesesDeDistancia =
       (Number(mesProximo.slice(0, 4)) - Number(mesAnterior.slice(0, 4))) * 12 +
       (Number(mesProximo.slice(5, 7)) - Number(mesAnterior.slice(5, 7)));
