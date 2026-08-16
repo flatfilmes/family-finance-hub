@@ -389,12 +389,118 @@ export type Database = {
           },
         ]
       }
+      document_test_cases: {
+        Row: {
+          arquivo_referencia: string | null
+          created_at: string
+          data_esperada: string | null
+          document_type_id: string
+          estabelecimento_esperado: string | null
+          id: string
+          nome_teste: string
+          observacoes: string | null
+          pagamento_esperado: string | null
+          quantidade_itens_esperada: number | null
+          resultado: Database["public"]["Enums"]["document_test_status"]
+          ultimo_teste_em: string | null
+          updated_at: string
+          valor_esperado: number | null
+        }
+        Insert: {
+          arquivo_referencia?: string | null
+          created_at?: string
+          data_esperada?: string | null
+          document_type_id: string
+          estabelecimento_esperado?: string | null
+          id?: string
+          nome_teste: string
+          observacoes?: string | null
+          pagamento_esperado?: string | null
+          quantidade_itens_esperada?: number | null
+          resultado?: Database["public"]["Enums"]["document_test_status"]
+          ultimo_teste_em?: string | null
+          updated_at?: string
+          valor_esperado?: number | null
+        }
+        Update: {
+          arquivo_referencia?: string | null
+          created_at?: string
+          data_esperada?: string | null
+          document_type_id?: string
+          estabelecimento_esperado?: string | null
+          id?: string
+          nome_teste?: string
+          observacoes?: string | null
+          pagamento_esperado?: string | null
+          quantidade_itens_esperada?: number | null
+          resultado?: Database["public"]["Enums"]["document_test_status"]
+          ultimo_teste_em?: string | null
+          updated_at?: string
+          valor_esperado?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_test_cases_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_types: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string
+          estrategia_leitura: Database["public"]["Enums"]["document_read_strategy"]
+          id: string
+          nome: string
+          prioridade: number
+          requires_ocr: boolean
+          status_inicial: Database["public"]["Enums"]["document_test_status"]
+          supports_qr_code: boolean
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao?: string
+          estrategia_leitura?: Database["public"]["Enums"]["document_read_strategy"]
+          id?: string
+          nome: string
+          prioridade?: number
+          requires_ocr?: boolean
+          status_inicial?: Database["public"]["Enums"]["document_test_status"]
+          supports_qr_code?: boolean
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string
+          estrategia_leitura?: Database["public"]["Enums"]["document_read_strategy"]
+          id?: string
+          nome?: string
+          prioridade?: number
+          requires_ocr?: boolean
+          status_inicial?: Database["public"]["Enums"]["document_test_status"]
+          supports_qr_code?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           chave_documento: string | null
           codigo_externo: string | null
           created_at: string
           created_by: string | null
+          document_type_confidence: number
+          document_type_id: string | null
           family_id: string
           id: string
           member_id: string | null
@@ -411,6 +517,8 @@ export type Database = {
           codigo_externo?: string | null
           created_at?: string
           created_by?: string | null
+          document_type_confidence?: number
+          document_type_id?: string | null
           family_id: string
           id?: string
           member_id?: string | null
@@ -427,6 +535,8 @@ export type Database = {
           codigo_externo?: string | null
           created_at?: string
           created_by?: string | null
+          document_type_confidence?: number
+          document_type_id?: string | null
           family_id?: string
           id?: string
           member_id?: string | null
@@ -439,6 +549,13 @@ export type Database = {
           url_arquivo?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "documents_document_type_id_fkey"
+            columns: ["document_type_id"]
+            isOneToOne: false
+            referencedRelation: "document_types"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documents_family_id_fkey"
             columns: ["family_id"]
@@ -1547,6 +1664,12 @@ export type Database = {
     Enums: {
       bank_account_type: "CORRENTE" | "POUPANCA" | "PAGAMENTO" | "INVESTIMENTO"
       budget_period: "MENSAL"
+      document_read_strategy:
+        | "DANFE_PDF_TABULAR"
+        | "NFCE_QRCODE"
+        | "OCR_CUPOM"
+        | "OCR_GENERICO"
+        | "MANUAL"
       document_status:
         | "ENVIADO"
         | "PROCESSANDO"
@@ -1554,6 +1677,12 @@ export type Database = {
         | "CONFIRMADO"
         | "ERRO"
         | "REJEITADO"
+      document_test_status:
+        | "AGUARDANDO_TESTE"
+        | "EM_TESTE"
+        | "APROVADO"
+        | "FALHOU"
+        | "REGRESSAO"
       document_type:
         | "NOTA_FISCAL"
         | "QR_CODE"
@@ -1756,6 +1885,13 @@ export const Constants = {
     Enums: {
       bank_account_type: ["CORRENTE", "POUPANCA", "PAGAMENTO", "INVESTIMENTO"],
       budget_period: ["MENSAL"],
+      document_read_strategy: [
+        "DANFE_PDF_TABULAR",
+        "NFCE_QRCODE",
+        "OCR_CUPOM",
+        "OCR_GENERICO",
+        "MANUAL",
+      ],
       document_status: [
         "ENVIADO",
         "PROCESSANDO",
@@ -1763,6 +1899,13 @@ export const Constants = {
         "CONFIRMADO",
         "ERRO",
         "REJEITADO",
+      ],
+      document_test_status: [
+        "AGUARDANDO_TESTE",
+        "EM_TESTE",
+        "APROVADO",
+        "FALHOU",
+        "REGRESSAO",
       ],
       document_type: [
         "NOTA_FISCAL",
