@@ -41,7 +41,7 @@ export function useBudgetProgress(familyId?: string, monthArg?: string, memberId
 
   const items: BudgetProgress[] = (budgets.data ?? []).map((b) => {
     const planejado = Number(b.valor_planejado) || 0;
-    const gasto = gastoPorCategoria.get(b.category_id ?? "sem-categoria") ?? 0;
+    const gasto = gastoPorCategoria.get(b.category_id ?? SEM_CATEGORIA) ?? 0;
     const percentual = planejado > 0 ? (gasto / planejado) * 100 : gasto > 0 ? 100 : 0;
     return {
       id: b.id,
@@ -73,6 +73,6 @@ export function useBudgetProgress(familyId?: string, monthArg?: string, memberId
     diferenca: totalPlanejado - totalGasto,
     percentualGeral,
     statusGeral: budgetStatus(percentualGeral),
-    isLoading: budgets.isLoading || expenses.isLoading,
+    isLoading: budgets.isLoading || consumo.isLoading,
   };
 }
