@@ -177,13 +177,31 @@ function DangerZone({
       <p className="mt-1 text-sm text-muted-foreground">
         Estas ações podem remover permanentemente os dados financeiros da família.
       </p>
-      <button
-        onClick={abrir}
-        disabled={!familyId}
-        className="mt-4 rounded-full bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-      >
-        Resetar dados da família
-      </button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          onClick={abrir}
+          disabled={!familyId}
+          className="rounded-full bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+        >
+          Resetar dados da família
+        </button>
+        <button
+          onClick={() => setResetCompras(true)}
+          disabled={!familyId}
+          className="rounded-full border border-destructive/50 px-6 py-2.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
+        >
+          Resetar Compras e Cartões
+        </button>
+      </div>
+
+      {resetCompras && (
+        <PurchasesCardsResetDialog
+          familyId={familyId}
+          onGerarBackup={onGerarBackup}
+          onClose={() => setResetCompras(false)}
+        />
+      )}
+
 
       {etapa !== "fechado" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
