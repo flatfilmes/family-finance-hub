@@ -107,7 +107,7 @@ function Configuracoes() {
     <div>
       <PageHeader
         title="Configurações"
-        subtitle="Central de cadastro e administração: família, estrutura financeira e sistema."
+        subtitle="Central de cadastro e administração da família e do sistema."
       />
 
       <div className="mb-5 flex flex-wrap gap-2">
@@ -126,117 +126,164 @@ function Configuracoes() {
         ))}
       </div>
 
-      {secao === "Família e membros" && (
+      {secao === "Família e Finanças" && (
         <>
-          <FamilyAdmin />
-          <Card className="mt-4">
-            <h2 className="text-base font-bold">Perfis e permissões</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              O perfil financeiro (Administrador familiar, Membro, Dependente, Visualizador) e a
-              permissão de acesso de cada pessoa são definidos dentro de “Gerenciar perfil” → Dados
-              pessoais.
-            </p>
-          </Card>
-        </>
-      )}
-
-      {secao === "Estrutura financeira" && (
-        <>
-          <Card>
-            <h2 className="text-base font-bold">Receitas, contas e cartões</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Cada receita, conta bancária e cartão pertence a uma pessoa. O cadastro é feito no
-              perfil do membro; o uso (movimentação, fatura e análise) fica nas páginas Bancos,
-              Cartões e Dashboard.
-            </p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {(members ?? []).map((m) => (
-                <Link
-                  key={m.id}
-                  to="/membro/$memberId"
-                  params={{ memberId: m.id }}
-                  className="rounded-2xl border border-border px-4 py-3 transition-colors hover:bg-muted"
-                >
-                  <p className="text-sm font-bold">{m.nome}</p>
-                  <p className="text-xs text-muted-foreground">
-                    Receitas · Contas bancárias · Cartões
-                  </p>
-                </Link>
-              ))}
-              {(members ?? []).length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Cadastre membros em “Família e membros”.
-                </p>
-              )}
-            </div>
-          </Card>
-
-          <Card className="mt-4 max-w-xl">
-            <h2 className="text-base font-bold">Cadastros da família</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Perfil financeiro da família e contas fixas compartilhadas.
-            </p>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                to="/perfil-financeiro"
-                className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          <div className="mb-4 flex flex-wrap gap-2">
+            {BLOCOS.map((b) => (
+              <button
+                key={b}
+                onClick={() => setBloco(b)}
+                className={
+                  b === bloco
+                    ? "rounded-xl border border-primary bg-primary/10 px-3.5 py-2 text-xs font-semibold text-primary"
+                    : "rounded-xl border border-border px-3.5 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+                }
               >
-                Perfil financeiro
-              </Link>
-              <Link
-                to="/contas-fixas"
-                className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-              >
-                Contas fixas
-              </Link>
-            </div>
-          </Card>
+                {b}
+              </button>
+            ))}
+          </div>
 
-          {family && (
-            <Card className="mt-4 max-w-xl">
-              <h2 className="text-base font-bold">Parâmetros financeiros</h2>
+          {bloco === "Família e membros" && <FamilyAdmin />}
+
+          {bloco === "Receitas, contas e cartões" && (
+            <Card>
+              <h2 className="text-base font-bold">Receitas, contas e cartões</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Usados pelo cálculo de quanto a família pode gastar.
+                Aqui fica apenas o cadastro, sempre vinculado a uma pessoa. Movimentação bancária
+                fica em Bancos, faturas em Cartões e análise no Dashboard.
               </p>
-              <form
-                className="mt-4 space-y-4"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  saveSettings.mutate();
-                }}
-              >
-                <Field label="Percentual de reserva (%)">
-                  <input
-                    required
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="1"
-                    value={reserva}
-                    onChange={(e) => setReserva(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Limite de alerta do cartão (% do limite)">
-                  <input
-                    required
-                    type="number"
-                    min={0}
-                    max={100}
-                    step="1"
-                    value={alertaCartao}
-                    onChange={(e) => setAlertaCartao(e.target.value)}
-                    className={inputClass}
-                  />
-                </Field>
-                <PrimaryButton type="submit" disabled={saveSettings.isPending}>
-                  {saveSettings.isPending ? "Salvando..." : "Salvar parâmetros"}
-                </PrimaryButton>
-              </form>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {(members ?? []).map((m) => (
+                  <Link
+                    key={m.id}
+                    to="/membro/$memberId"
+                    params={{ memberId: m.id }}
+                    className="rounded-2xl border border-border px-4 py-3 transition-colors hover:bg-muted"
+                  >
+                    <p className="text-sm font-bold">{m.nome}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Receitas · Contas bancárias · Cartões
+                    </p>
+                  </Link>
+                ))}
+                {(members ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    Cadastre membros em “Família e membros”.
+                  </p>
+                )}
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link
+                  to="/contas-fixas"
+                  className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+                >
+                  Contas fixas da família
+                </Link>
+              </div>
+            </Card>
+          )}
+
+          {bloco === "Perfil financeiro" && (
+            <>
+              <Card className="max-w-xl">
+                <h2 className="text-base font-bold">Perfil financeiro da família</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Objetivo financeiro, dependentes e renda principal.
+                </p>
+                <Link
+                  to="/perfil-financeiro"
+                  className="mt-4 inline-block rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+                >
+                  Abrir perfil financeiro
+                </Link>
+              </Card>
+
+              {family && (
+                <Card className="mt-4 max-w-xl">
+                  <h2 className="text-base font-bold">Parâmetros financeiros</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Reserva de segurança e alerta de uso do cartão.
+                  </p>
+                  <form
+                    className="mt-4 space-y-4"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      saveSettings.mutate();
+                    }}
+                  >
+                    <Field label="Percentual de reserva (%)">
+                      <input
+                        required
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="1"
+                        value={reserva}
+                        onChange={(e) => setReserva(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Limite de alerta do cartão (% do limite)">
+                      <input
+                        required
+                        type="number"
+                        min={0}
+                        max={100}
+                        step="1"
+                        value={alertaCartao}
+                        onChange={(e) => setAlertaCartao(e.target.value)}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <PrimaryButton type="submit" disabled={saveSettings.isPending}>
+                      {saveSettings.isPending ? "Salvando..." : "Salvar parâmetros"}
+                    </PrimaryButton>
+                  </form>
+                </Card>
+              )}
+            </>
+          )}
+
+          {bloco === "Permissões" && (
+            <Card>
+              <h2 className="text-base font-bold">Permissões de acesso</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Quem pode visualizar e quem pode alterar os dados da família. A permissão e o perfil
+                de cada pessoa são editados em “Gerenciar perfil” → Dados pessoais.
+              </p>
+              <ul className="mt-4 divide-y divide-border">
+                {(members ?? []).map((m) => (
+                  <li key={m.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-bold">{m.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {PERMISSION_DESCRIPTIONS[m.permissao]}
+                      </p>
+                    </div>
+                    <span className="whitespace-nowrap rounded-full bg-muted px-3 py-1 text-xs font-semibold">
+                      {PERMISSION_LABELS[m.permissao]}
+                    </span>
+                    <Link
+                      to="/membro/$memberId"
+                      params={{ memberId: m.id }}
+                      className="whitespace-nowrap rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold transition-colors hover:bg-muted"
+                    >
+                      Gerenciar perfil
+                    </Link>
+                  </li>
+                ))}
+                {(members ?? []).length === 0 && (
+                  <li className="py-3 text-sm text-muted-foreground">
+                    Nenhuma pessoa cadastrada ainda.
+                  </li>
+                )}
+              </ul>
             </Card>
           )}
         </>
       )}
+
 
       {secao === "Sistema" && (
         <>
