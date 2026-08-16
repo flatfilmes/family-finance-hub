@@ -348,15 +348,40 @@ function diffDays(a: string, b: string) {
 /**
  * Data escondida no texto do histórico (ex.: "Pix - Enviado 26/01 12:45").
  * É METADATA: nunca substitui a data contábil, apenas sinaliza inconsistência.
+ *
+ * Sem ano no texto, o ano é inferido pelo PERÍODO do extrato — na virada de
+ * ano, "31/12" pertence ao ano anterior e "04/01" ao ano do fechamento.
  */
-function dataNoHistorico(descricao: string, anoBase: string): string | null {
+function dataNoHistorico(
+  descricao: string,
+  periodoInicio: string,
+  periodoFim: string,
+): string | null {
   const m = descricao.match(/(\d{2})\/(\d{2})(?:\/(\d{2,4}))?/);
   if (!m) return null;
   const dia = m[1]!;
   const mes = m[2]!;
-  const ano = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : anoBase;
-  const iso = `${ano}-${mes}-${dia}`;
-  return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
+  const valida = (iso: string) =>
+    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
+
+  if (m[3]) {
+    const ano = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return valida(`${ano}-${mes}-${dia}`);
+  }
+
+  const anos = [...new Set([periodoInicio.slice(0, 4), periodoFim.slice(0, 4)])];
+  const candidatos = anos
+    .map((ano) => valida(`${ano}-${mes}-${dia}`))
+    .filter((iso): iso is string => !!iso);
+  if (!candidatos.length) return null;
+  // Ano mais próximo do período do extrato.
+  const distancia = (iso: string) =>
+    iso < periodoInicio
+      ? Math.abs(diffDays(iso, periodoInicio))
+      : iso > periodoFim
+        ? Math.abs(diffDays(periodoFim, iso))
+        : 0;
+  return candidatos.sort((a, b) => distancia(a) - distancia(b))[0]!;
 }
 
 export function buildBankAudit(input: {
