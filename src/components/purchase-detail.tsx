@@ -122,8 +122,34 @@ export function PurchaseDetail({ purchase, onClose }: { purchase: Purchase; onCl
                 {PAYMENT_STATUS_LABELS[purchase.status_pagamento]}
               </span>
             </div>
+            <Info
+              label="Previsão de pagamento"
+              value={
+                purchase.data_prevista_pagamento
+                  ? formatDate(purchase.data_prevista_pagamento)
+                  : "—"
+              }
+            />
+            <Info
+              label="Pagamento realizado em"
+              value={
+                purchase.data_pagamento_real ? formatDate(purchase.data_pagamento_real) : "—"
+              }
+            />
           </div>
+          {isPendentePagamento(purchase) && podeEditarCategoria && (
+            <button
+              type="button"
+              onClick={() => setPagando(true)}
+              className="mt-4 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Registrar pagamento
+            </button>
+          )}
         </Section>
+        {pagando && (
+          <RegistrarPagamentoDialog purchase={purchase} onClose={() => setPagando(false)} />
+        )}
 
         <Section title="Produtos">
           {loadingItems ? (
