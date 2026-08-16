@@ -667,7 +667,14 @@ function ContaDetalhePage() {
   );
 }
 
+/** Último dia do mês de referência (YYYY-MM) em ISO. */
+function ultimoDiaDoMes(periodo: string) {
+  const [ano, mes] = periodo.split("-").map(Number);
+  return new Date(Date.UTC(ano!, mes!, 0)).toISOString().slice(0, 10);
+}
+
 function Linha({ label, valor }: { label: string; valor: number }) {
+
   return (
     <li className="flex items-center justify-between gap-3 py-2.5">
       <span className="text-sm text-muted-foreground">{label}</span>
