@@ -23,7 +23,13 @@ import {
   type ItauDetection,
   type ItauPipelineDiagnostics,
 } from "@/lib/bank-statement-parsers/itau";
-import { runBankStatementParserPipeline } from "./parse";
+import {
+  describeParserError,
+  runObservableBankStatementParser,
+  type BankParserExecutionInput,
+  type ParserInternalStage,
+} from "./parse";
+
 import { toCanonicalStatement, type CanonicalStatement } from "./canonical";
 import { validateStatement, type StatementValidation } from "./validate";
 import { goldenFor, type GoldenStatement } from "./golden";
