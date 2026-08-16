@@ -679,9 +679,13 @@ function CartaoDetalhePage() {
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold">{monthKeyLabel(m.key)}</span>
                     <span className="block text-xs text-muted-foreground">
-                      Projetado · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
+                      {cicloProximo && m.key === cicloProximo.competencia
+                        ? "Em formação · detalhado acima"
+                        : "Projetado"}{" "}
+                      · parcelamentos {formatCurrency(m.parcelas)} · recorrências{" "}
                       {formatCurrency(m.recorrencias)}
                     </span>
+
                   </span>
                   <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
                 </li>
