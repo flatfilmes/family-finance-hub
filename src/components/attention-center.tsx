@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
+
 import { BellRing, CheckCircle2 } from "lucide-react";
 import { Card } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -85,6 +86,9 @@ export function AttentionCenter({
   );
 }
 
+/** Link solto: as rotas de destino vêm da lista de pendências. */
+const AnyLink = Link as unknown as React.ComponentType<Record<string, unknown>>;
+
 function Linha({
   item,
   podeAgir,
@@ -125,12 +129,13 @@ function Linha({
               </button>
             )
           : item.acao.to && (
-              <Link
-                {...({ to: item.acao.to, params: item.acao.params } as unknown as Record<string, unknown>)}
+              <AnyLink
+                to={item.acao.to}
+                params={item.acao.params}
                 className={acaoClass}
               >
                 {item.acao.label}
-              </Link>
+              </AnyLink>
             )}
       </div>
     </li>
