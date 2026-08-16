@@ -1,51 +1,56 @@
-import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Bug } from "lucide-react";
-import { PdfDiagnosticDialog } from "@/components/pdf-diagnostic/pdf-diagnostic-dialog";
 import { useFamily } from "@/hooks/useFamilyData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { pdfDiagnosticFlagEnabled } from "@/lib/pdf-diagnostic/availability";
+import { setDiagnosticFile } from "@/lib/pdf-diagnostic/file-handoff";
 import type { DiagnosticSource, ParserDryRun } from "@/lib/pdf-diagnostic";
 
 /**
- * Botão discreto "Modo diagnóstico PDF", reutilizável por qualquer fluxo de
- * leitura de PDF. Só aparece para ADMIN em desenvolvimento ou família demo.
+ * Botão "Modo diagnóstico PDF". Não abre mais modal: leva para a página
+ * dedicada de diagnóstico, entregando o arquivo em memória para que o parser
+ * real seja executado lá (dry run, sem persistência).
  */
 export function PdfDiagnosticButton({
   source,
-  parserDryRun,
   file = null,
+  accountId,
+  // Mantido por compatibilidade: a página usa o dry run real da origem.
+  parserDryRun: _parserDryRun,
   className = "",
 }: {
   source: DiagnosticSource;
-  parserDryRun?: ParserDryRun;
   file?: File | null;
+  accountId?: string;
+  parserDryRun?: ParserDryRun;
   className?: string;
 }) {
   const perms = usePermissions();
   const { data: family } = useFamily();
-  const [aberto, setAberto] = useState(false);
+  const navigate = useNavigate();
 
   const disponivel =
     perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo || pdfDiagnosticFlagEnabled());
   if (!disponivel) return null;
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => setAberto(true)}
-        className={`inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent ${className}`}
-      >
-        <Bug className="size-4" /> Modo diagnóstico PDF
-      </button>
-      {aberto && (
-        <PdfDiagnosticDialog
-          source={source}
-          {...(parserDryRun ? { parserDryRun } : {})}
-          file={file}
-          onClose={() => setAberto(false)}
-        />
-      )}
-    </>
+    <button
+      type="button"
+      onClick={() => {
+        if (file) setDiagnosticFile(file, source);
+        if (accountId)
+          void navigate({
+            to: "/bancos/$accountId/diagnostico-parser",
+            params: { accountId },
+          });
+        else void navigate({
+            to: "/dev/bank-parser-diagnostics",
+            search: { import: undefined },
+          });
+      }}
+      className={`inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent ${className}`}
+    >
+      <Bug className="size-4" /> Modo diagnóstico PDF
+    </button>
   );
 }

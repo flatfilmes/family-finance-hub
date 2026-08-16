@@ -348,8 +348,8 @@ function RevisarExtrato() {
       <div className="-mt-3 mb-6 flex flex-wrap items-center gap-3">
         <p className="text-xs text-muted-foreground">{metadata.join(" · ")}</p>
         <Link
-          to="/dev/bank-parser-diagnostics"
-          search={{ import: "draft" }}
+          to="/bancos/$accountId/diagnostico-parser"
+          params={{ accountId }}
           className="text-xs font-semibold text-primary underline-offset-2 hover:underline"
         >
           Ver diagnóstico
