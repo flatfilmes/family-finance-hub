@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchConsumptionItems,
+  fetchInstallmentsByPurchases,
   fetchProducts,
   fetchPurchaseInstallments,
   fetchPurchaseItems,
@@ -8,6 +9,17 @@ import {
   fetchPurchases,
   updatePurchaseItemCategory,
 } from "@/lib/purchases";
+
+/** Parcelas de um conjunto de compras, para exibir a parcela do período na lista. */
+export function usePurchaseInstallmentsByPurchases(purchaseIds: string[]) {
+  const key = purchaseIds.slice().sort().join(",");
+  return useQuery({
+    queryKey: ["purchase-installments-summary", key],
+    queryFn: () => fetchInstallmentsByPurchases(purchaseIds),
+    enabled: purchaseIds.length > 0,
+  });
+}
+
 
 export function useProducts() {
   return useQuery({ queryKey: ["products"], queryFn: fetchProducts });

@@ -1,20 +1,20 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Users, User } from "lucide-react";
 import { usePermissions, scopeMemberId, type ViewMode } from "@/hooks/usePermissions";
 
 /**
  * Estado do modo de visualização (Família / Minha).
  * Quem não é administrador familiar abre sempre em "Minha" e não pode alternar.
+ * O modo é sempre derivado da permissão atual — nunca fixado durante o carregamento,
+ * senão o administrador ficava preso na visão individual e os filtros por pessoa
+ * pareciam não funcionar.
  */
 export function useViewMode() {
   const perms = usePermissions();
   const [mode, setMode] = useState<ViewMode>("familia");
 
-  useEffect(() => {
-    if (!perms.isLoading && !perms.canSwitchView) setMode("minha");
-  }, [perms.isLoading, perms.canSwitchView]);
-
   const effectiveMode: ViewMode = perms.canSwitchView ? mode : "minha";
+
 
   return {
     ...perms,

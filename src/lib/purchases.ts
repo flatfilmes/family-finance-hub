@@ -132,6 +132,60 @@ export async function fetchPurchaseInstallments(purchaseId: string) {
   return data ?? [];
 }
 
+export type PurchaseInstallment = {
+  purchase_id: string;
+  numero_parcela: number;
+  total_parcelas: number;
+  valor_parcela: number;
+  data_vencimento: string;
+  status: string;
+};
+
+/** Parcelas de várias compras de uma vez, para o resumo do histórico. */
+export async function fetchInstallmentsByPurchases(
+  purchaseIds: string[],
+): Promise<PurchaseInstallment[]> {
+  if (purchaseIds.length === 0) return [];
+  const { data: expenses, error } = await supabase
+    .from("expenses")
+    .select("id, purchase_id")
+    .in("purchase_id", purchaseIds);
+  if (error) throw error;
+  const porExpense = new Map<string, string>();
+  for (const e of expenses ?? []) if (e.purchase_id) porExpense.set(e.id, e.purchase_id);
+  const ids = [...porExpense.keys()];
+  if (ids.length === 0) return [];
+  const { data, error: parcelasError } = await supabase
+    .from("expense_installments")
+    .select("expense_id, numero_parcela, total_parcelas, valor_parcela, data_vencimento, status")
+    .in("expense_id", ids)
+    .order("numero_parcela", { ascending: true });
+  if (parcelasError) throw parcelasError;
+  return (data ?? []).map((p) => ({
+    purchase_id: porExpense.get(p.expense_id) ?? "",
+    numero_parcela: p.numero_parcela,
+    total_parcelas: p.total_parcelas,
+    valor_parcela: Number(p.valor_parcela) || 0,
+    data_vencimento: p.data_vencimento,
+    status: p.status as string,
+  }));
+}
+
+/**
+ * Parcela que representa o período visualizado:
+ * com mês escolhido, a que vence nele; sem mês, a primeira ainda não paga.
+ */
+export function parcelaDoPeriodo(parcelas: PurchaseInstallment[], mes = "") {
+  if (parcelas.length === 0) return null;
+  const ordenadas = [...parcelas].sort((a, b) => a.numero_parcela - b.numero_parcela);
+  if (mes) {
+    const doMes = ordenadas.find((p) => p.data_vencimento.startsWith(mes));
+    if (doMes) return doMes;
+  }
+  return ordenadas.find((p) => p.status !== "PAGO") ?? ordenadas[ordenadas.length - 1] ?? null;
+}
+
+
 /** Tipos de compra que se repetem todo mês. */
 export function isRecorrente(tipo: string) {
   return tipo === "COMPRA_RECORRENTE" || tipo === "CONTA_RECORRENTE";
