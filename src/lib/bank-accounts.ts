@@ -49,3 +49,42 @@ export async function deleteBankAccount(id: string) {
   const { error } = await supabase.from("bank_accounts").delete().eq("id", id);
   if (error) throw error;
 }
+
+export type BankAccountUpdate = Database["public"]["Tables"]["bank_accounts"]["Update"];
+
+/** Atualiza dados cadastrais da conta. O saldo nunca é alterado por aqui. */
+export async function updateBankAccount(id: string, input: BankAccountUpdate) {
+  const { saldo_atual: _ignored, ...cadastrais } = input;
+  const { error } = await supabase.from("bank_accounts").update(cadastrais).eq("id", id);
+  if (error) throw error;
+}
+
+/** Arquiva/reativa a conta preservando todo o histórico financeiro. */
+export async function archiveBankAccount(id: string, ativo: boolean) {
+  const { error } = await supabase.rpc("archive_bank_account", { _account_id: id, _ativo: ativo });
+  if (error) throw error;
+}
+
+/** Exclui a conta somente quando não existe nenhuma movimentação vinculada. */
+export async function deleteBankAccountIfUnused(id: string) {
+  const { error } = await supabase.rpc("delete_bank_account_if_unused", { _account_id: id });
+  if (error) throw error;
+}
+
+/**
+ * Corrige o saldo da conta gerando um lançamento auditável de ajuste
+ * com a diferença entre o saldo do sistema e o saldo informado.
+ */
+export async function adjustBankAccountBalance(input: {
+  accountId: string;
+  novoSaldo: number;
+  motivo?: string;
+}) {
+  const { data, error } = await supabase.rpc("adjust_bank_account_balance", {
+    _account_id: input.accountId,
+    _novo_saldo: input.novoSaldo,
+    ...(input.motivo ? { _motivo: input.motivo } : {}),
+  });
+  if (error) throw error;
+  return data as string;
+}
