@@ -134,3 +134,101 @@ describe("Banco do Brasil — sinal antes do valor e sem marca do banco", () => 
     expect(r.futuros).toHaveLength(1);
   });
 });
+
+/**
+ * RAW espacial real: no PDF do BB o histórico de alguns lançamentos ocupa DUAS
+ * linhas de texto (Y diferente da data/valor). Antes, esses três lançamentos
+ * (Água, IOF e CELESC) eram descartados por "sem descrição reconhecível",
+ * criando divergência de R$ 643,32.
+ */
+const linhaFinanceira = (y: number, data: string, valor: string): PdfLine => ({
+  y,
+  text: `${data} ${valor}`,
+  cells: [
+    { x: 60, text: data },
+    { x: 450, text: valor },
+  ],
+  page: 1,
+});
+const linhaHistorico = (y: number, text: string): PdfLine => ({
+  y,
+  text,
+  cells: [{ x: 265, text }],
+  page: 1,
+});
+const linhaSimples = (y: number, text: string): PdfLine => ({
+  y,
+  text,
+  cells: [{ x: 60, text }],
+  page: 1,
+});
+
+const EXTRATO_ESPACIAL: PdfLine[] = [
+  linhaSimples(760, "Extrato de Conta Corrente"),
+  linhaSimples(750, "Agência: 3540-8 Conta: 12211-4"),
+  linhaSimples(740, "Lançamentos"),
+  linhaFinanceira(700, "30/07/2026", "Saldo Anterior 269,64 (+)"),
+  linhaFinanceira(680, "03/08/2026", "PIX RECEBIDO VALDIR PAULO M 5.000,00 (+)"),
+  linhaHistorico(661.86, "Pagamento Fatura de Água"),
+  linhaFinanceira(656.04, "03/08/2026", "52,44 (-)"),
+  linhaHistorico(650.22, "TUBARAO SANEAMENTO"),
+  linhaHistorico(636.0, "Cobrança de I.O.F."),
+  linhaFinanceira(630.0, "03/08/2026", "0,06 (-)"),
+  linhaHistorico(624.0, "IOF Saldo Devedor Conta"),
+  linhaSimples(614, "Saldo do dia 5.217,14 (+)"),
+  linhaFinanceira(600, "05/08/2026", "PIX RECEBIDO FULLGAZ COM 250,00 (+)"),
+  linhaHistorico(586.0, "Pagamento de Boleto"),
+  linhaFinanceira(580.0, "05/08/2026", "590,82 (-)"),
+  linhaHistorico(574.0, "CELESC DISTRIBUICAO S.A"),
+  linhaSimples(564, "Saldo do dia 4.876,32 (+)"),
+  linhaFinanceira(550, "11/08/2026", "PIX ENVIADO Carlos Eduardo Pardal Gil 77,00 (-)"),
+  linhaSimples(540, "Saldo do dia 4.799,32 (+)"),
+  linhaFinanceira(530, "12/08/2026", "Pagto cartão crédito 4,32 (-)"),
+  linhaSimples(520, "Saldo do dia 4.795,00 (+)"),
+  linhaSimples(510, "S A L D O 4.795,00 (+)"),
+  linhaSimples(490, "Lançamentos Futuros"),
+  linhaFinanceira(480, "20/08/2026", "CLARO RESIDENCIAL 110,28 (-)"),
+  linhaSimples(460, "Informações Adicionais"),
+  linhaSimples(450, "Despesas IOF de simulação 15,42 (-)"),
+];
+
+describe("Banco do Brasil — histórico em duas linhas (RAW espacial)", () => {
+  const r = parseBancoDoBrasilLines(EXTRATO_ESPACIAL);
+  const entradas = r.movimentos.filter((m) => m.valor > 0).reduce((a, m) => a + m.valor, 0);
+  const saidas = r.movimentos
+    .filter((m) => m.valor < 0)
+    .reduce((a, m) => a + Math.abs(m.valor), 0);
+  const achar = (re: RegExp) => r.movimentos.find((m) => re.test(m.descricaoOriginal));
+
+  it("recupera as 7 movimentações realizadas", () => {
+    expect(r.movimentos).toHaveLength(7);
+    expect(r.movimentos.filter((m) => m.valor > 0)).toHaveLength(2);
+    expect(r.movimentos.filter((m) => m.valor < 0)).toHaveLength(5);
+  });
+
+  it("fecha o saldo do extrato sem ajuste artificial", () => {
+    expect(r.saldoInicial).toBe(269.64);
+    expect(Number(entradas.toFixed(2))).toBe(5250);
+    expect(Number(saidas.toFixed(2))).toBe(724.64);
+    expect(Number((r.saldoInicial! + entradas - saidas).toFixed(2))).toBe(4795);
+    expect(r.saldoFinal).toBe(4795);
+  });
+
+  it("recupera Água, IOF e CELESC com histórico de duas linhas", () => {
+    const agua = achar(/TUBARAO/i);
+    expect(agua?.valor).toBe(-52.44);
+    expect(agua?.descricaoOriginal).toMatch(/Pagamento Fatura de Água/i);
+    const iof = achar(/IOF Saldo Devedor/i);
+    expect(iof?.valor).toBe(-0.06);
+    const celesc = achar(/CELESC/i);
+    expect(celesc?.valor).toBe(-590.82);
+    expect(celesc?.descricaoOriginal).toMatch(/Pagamento de Boleto/i);
+  });
+
+  it("mantém saldos do dia como checkpoints e futuro separado", () => {
+    expect(r.checkpoints?.map((c) => c.saldo)).toEqual([5217.14, 4876.32, 4799.32, 4795]);
+    expect(r.futuros).toHaveLength(1);
+    expect(r.futuros?.[0]?.valor).toBe(-110.28);
+    expect(r.movimentos.some((m) => /simula/i.test(m.descricaoOriginal))).toBe(false);
+  });
+});
