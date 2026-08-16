@@ -22,12 +22,16 @@ import {
   MATCH_LABELS,
   MATCH_TONES,
   IMPORT_STATUS_LABELS,
+  REVIEW_CLASS_LABELS,
+  REVIEW_CLASS_TONES,
+  classifyReviewItem,
   formatOptional,
   type MatchStatus,
   type StatementItem,
 } from "@/lib/card-statements";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
+import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 
 export const Route = createFileRoute("/_authenticated/cartoes/faturas/$importId")({
   head: () => ({
@@ -145,6 +149,8 @@ function RevisarFaturaPage() {
   const comprasDoCartao = (purchases ?? []).filter(
     (p) => p.credit_card_id === importacao.credit_card_id,
   );
+  const recorrenteNome = (id: string | null) =>
+    (recorrencias.data ?? []).find((r) => r.id === id)?.nome ?? "recorrência cadastrada";
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "Sem categoria";
 
