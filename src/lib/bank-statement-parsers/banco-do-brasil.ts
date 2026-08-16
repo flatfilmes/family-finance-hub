@@ -377,7 +377,12 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     // contábil corrente — mesmo quando ela não tem valor e é descartada. A data
     // vale para os lançamentos seguintes até aparecer outra data da coluna Dia
     // (inclusive na virada de página).
-    const dataColuna = dataDaColunaDia(linha, anoBase);
+    const dataLead = DATA_INICIAL.test(raw) ? lerData(raw, anoBase) : null;
+    const dataGeometrica = dataDaColunaDia(linha, anoBase);
+    // Sem geometria (texto puro), a data no início da linha é a coluna "Dia".
+    // Com geometria, só vale se estiver mesmo à esquerda da coluna Histórico.
+    const leadEhColunaDia = !!dataLead && (linha.cells.length ? dataLead.data === dataGeometrica : true);
+    const dataColuna = dataGeometrica ?? (leadEhColunaDia ? dataLead!.data : null);
     if (dataColuna) ultimaData = dataColuna;
 
     // Valor + sinal podem estar na mesma linha ou o sinal na linha seguinte.
@@ -402,12 +407,9 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
     const valor = lido.valor;
 
-    // DATA CONTÁBIL: só a coluna "Dia" (na própria linha, pela geometria ou pela
-    // última data vista). Nunca a data escrita dentro do histórico.
-    const dataLead = DATA_INICIAL.test(raw) ? lerData(raw, anoBase) : null;
-    // A data inicial só é removida do texto quando ela é a célula da coluna
-    // "Dia"; datas do histórico continuam no texto para alimentar o eventDate.
-    const resto = dataLead && dataColuna && dataLead.data === dataColuna ? dataLead.resto : raw;
+    // A data inicial só sai do texto quando é a célula da coluna "Dia"; datas do
+    // histórico continuam no texto para alimentar o eventDate.
+    const resto = leadEhColunaDia ? dataLead!.resto : raw;
 
 
     const descricaoNaLinha = resto
@@ -422,9 +424,11 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
 
     const ehSaldo = ehSaldoMetadata(descricao);
+    // DATA CONTÁBIL = coluna "Dia". Nunca a data escrita dentro do histórico.
     const data: string | null = ehSaldo
       ? dataColuna ?? ultimaData
       : dataColuna ?? datasRecuperadas.get(i) ?? ultimaData;
+
 
 
     if (ehSaldo) {
