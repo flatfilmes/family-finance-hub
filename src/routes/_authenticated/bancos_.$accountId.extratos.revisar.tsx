@@ -422,7 +422,11 @@ function RevisarExtrato() {
                       {MATCH_LABELS[l.sugestao.matchStatus]}
                     </td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {l.sugestao.alvoLabel ?? (atencao ? "Possível correspondência" : "—")}
+                      {l.sugestao.debug.candidateTransaction ??
+                        l.sugestao.debug.candidatePurchase ??
+                        l.sugestao.debug.candidateIncome ??
+                        l.sugestao.debug.candidateInvoice ??
+                        (atencao ? "Possível correspondência" : "—")}
                     </td>
                     <td
                       className={`whitespace-nowrap px-4 py-3 text-right font-bold ${
