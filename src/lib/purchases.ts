@@ -59,6 +59,8 @@ export type NewPurchaseItem = {
   unidade: string;
   valor_unitario: string;
   categoria_id: string;
+  /** Categoria sugerida automaticamente (base do aprendizado futuro). */
+  categoria_sugerida?: string;
 };
 
 export function itemTotal(item: Pick<NewPurchaseItem, "quantidade" | "valor_unitario">) {
@@ -187,6 +189,8 @@ export async function createPurchase(input: {
       valor_unitario: Number(i.valor_unitario) || 0,
       valor_total: itemTotal(i),
       categoria_id: i.categoria_id || null,
+      categoria_sugerida: i.categoria_sugerida || null,
+      categoria_ajustada: !!i.categoria_sugerida && i.categoria_sugerida !== (i.categoria_id || null),
     }));
     const { error: itemsError } = await supabase.from("purchase_items").insert(rows);
     if (itemsError) throw itemsError;
@@ -255,3 +259,24 @@ export async function deletePurchase(id: string) {
   if (error) throw error;
 }
 
+/**
+ * Altera apenas a categoria de um item de compra já confirmada.
+ * Nunca toca em valor, quantidade ou pagamento.
+ */
+export async function updatePurchaseItemCategory(input: {
+  itemId: string;
+  categoriaId: string | null;
+  categoriaSugerida?: string | null;
+}) {
+  const { error } = await supabase
+    .from("purchase_items")
+    .update({
+      categoria_id: input.categoriaId,
+      categoria_ajustada:
+        input.categoriaSugerida != null
+          ? input.categoriaSugerida !== input.categoriaId
+          : true,
+    })
+    .eq("id", input.itemId);
+  if (error) throw error;
+}
