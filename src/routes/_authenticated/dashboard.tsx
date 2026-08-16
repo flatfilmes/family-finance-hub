@@ -666,6 +666,76 @@ function CapacidadeCartoes({
   );
 }
 
+/**
+ * Gasto real da competência: compras parceladas entram pela parcela do mês,
+ * pagamento de fatura não é recontado e cada recorrência aparece uma única vez.
+ */
+function GastosDoMesCard({ gasto }: { gasto: ReturnType<typeof useMonthlySpending> }) {
+  const linhas = [
+    { label: "Pix / Débito / Dinheiro", valor: gasto.caixa },
+    { label: "Cartão à vista", valor: gasto.cartaoAVista },
+    { label: "Parcelas do mês", valor: gasto.parcelasDoMes },
+    { label: "Recorrências", valor: gasto.recorrencias },
+    { label: "Contas recorrentes", valor: gasto.contasRecorrentes },
+  ];
+  return (
+    <Card className="p-5">
+      <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+        <ShoppingCart className="size-5" />
+      </span>
+      <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        Gastos realizados no mês
+      </p>
+      <p className="mt-1 text-2xl font-extrabold tracking-tight">
+        {gasto.isLoading ? "—" : formatCurrency(gasto.total)}
+      </p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Competência de {monthLabel(gasto.month)}
+      </p>
+      <Dialog>
+        <DialogTrigger className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+          Ver composição
+          <ArrowRight className="size-3.5" />
+        </DialogTrigger>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Composição de {monthLabel(gasto.month)}</DialogTitle>
+            <DialogDescription>
+              Somente o impacto real da competência. Parcelamentos entram pela parcela do mês.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 text-sm">
+            {linhas.map((l) => (
+              <li key={l.label} className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground">{l.label}</span>
+                <strong>{formatCurrency(l.valor)}</strong>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-4 border-t border-border pt-2">
+              <span className="font-semibold">Total</span>
+              <strong>{formatCurrency(gasto.total)}</strong>
+            </li>
+          </ul>
+          <div className="mt-2 space-y-2 rounded-2xl bg-muted/50 p-3 text-xs">
+            <p className="font-semibold uppercase tracking-wide text-muted-foreground">
+              Fora do gasto do mês
+            </p>
+            <p className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Parcelamentos futuros</span>
+              <strong>{formatCurrency(gasto.parcelasFuturas)}</strong>
+            </p>
+            <p className="flex items-center justify-between gap-4">
+              <span className="text-muted-foreground">Valor contratado em parcelamentos</span>
+              <strong>{formatCurrency(gasto.valorContratadoParcelamentos)}</strong>
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
+
 function StatCard({
   icon,
   label,
