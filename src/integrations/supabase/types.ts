@@ -2811,6 +2811,10 @@ export type Database = {
         Args: { p_duplicada: string; p_principal: string }
         Returns: Json
       }
+      normalize_bank_opening_balances: {
+        Args: { _account_id: string }
+        Returns: Json
+      }
       pay_card_invoice: {
         Args: { _bank_account_id: string; _data?: string; _invoice_id: string }
         Returns: string
@@ -2846,6 +2850,10 @@ export type Database = {
           _valor: number
         }
         Returns: string
+      }
+      reprocess_bank_statement_import: {
+        Args: { _import_id: string; _tolerancia?: number }
+        Returns: Json
       }
       reset_family_completely: {
         Args: { _backup_created?: boolean; _family_id: string }

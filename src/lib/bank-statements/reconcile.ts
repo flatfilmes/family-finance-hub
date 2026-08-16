@@ -50,6 +50,19 @@ export type ReconcileContext = {
 const diasEntre = (a: string, b: string) =>
   Math.abs(new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()) / 86_400_000;
 
+/**
+ * DATA É CRITÉRIO FORTE.
+ *
+ * Tolerância padrão de conciliação automática: a data contábil do extrato e a
+ * data do registro no sistema não podem estar a mais de 2 dias de distância.
+ * Semanas ou meses de diferença nunca podem virar MATCHED automático.
+ */
+export const TOLERANCIA_DIAS = 2;
+
+/** Distância aceitável para associar automaticamente (exige data no extrato). */
+const dentroDaJanela = (dataItem: string | null, dataRegistro: string, tol = TOLERANCIA_DIAS) =>
+  !!dataItem && diasEntre(dataRegistro, dataItem) <= tol;
+
 const parecido = (a: string, b: string) => {
   const x = semAcento(a).toUpperCase();
   const y = semAcento(b).toUpperCase();
@@ -58,6 +71,7 @@ const parecido = (a: string, b: string) => {
 };
 
 const perto = (a: number, b: number) => Math.abs(a - b) <= 0.02;
+
 
 /** Sugere o estado de conciliação e a ação de revisão de um lançamento. */
 export function reconcileMovement(
@@ -69,14 +83,17 @@ export function reconcileMovement(
   const texto = semAcento(mov.descricaoOriginal).toLowerCase();
 
   // 0. O próprio ledger já tem esta movimentação nesta conta.
-  const jaNoLedger = contexto.transactions.find(
+  //    Conta + sentido + valor são obrigatórios; a DATA decide se é MATCHED.
+  const mesmoSentido = (t: (typeof contexto.transactions)[number]) =>
+    (mov.valor < 0 && t.tipo !== "ENTRADA") || (mov.valor > 0 && t.tipo !== "SAIDA");
+  const candidatosLedger = contexto.transactions.filter(
     (t) =>
       t.bank_account_id === contexto.accountId &&
       t.status !== "CANCELADA" &&
       perto(Number(t.valor), valor) &&
-      (!data || diasEntre(t.data_movimento, data) <= 2) &&
-      ((mov.valor < 0 && t.tipo !== "ENTRADA") || (mov.valor > 0 && t.tipo !== "SAIDA")),
+      mesmoSentido(t),
   );
+  const jaNoLedger = candidatosLedger.find((t) => dentroDaJanela(data, t.data_movimento));
   if (jaNoLedger) {
     return {
       matchStatus: "MATCHED",
@@ -87,39 +104,46 @@ export function reconcileMovement(
       debug: { candidateTransaction: jaNoLedger.id, score: 92, decision: "MATCHED no ledger" },
     };
   }
+  // Mesmo valor, mas em outra data: NUNCA associa sozinho.
+  const distanteNoLedger = candidatosLedger[0];
 
   // 1. Pagamento de fatura de cartão.
   const pareceCartao =
     texto.includes("cartao") || texto.includes("fatura") || texto.includes("card");
   if (mov.valor < 0 && pareceCartao) {
     const fatura = contexto.invoices.find(
-      (f) => perto(Number(f.valor_total), valor) && (!data || diasEntre(f.data_vencimento, data) <= 7),
+      (f) =>
+        perto(Number(f.valor_total), valor) &&
+        !!data &&
+        diasEntre(f.data_vencimento, data) <= 7,
     );
     if (fatura) {
       const paga = fatura.status === "PAGA";
+      const noPrazo = dentroDaJanela(data, fatura.data_vencimento);
       return {
-        matchStatus: paga ? "MATCHED" : "POSSIBLE_MATCH",
-        reviewAction: paga ? "ASSOCIATE_EXISTING" : "MATCH_CARD_PAYMENT",
-        confidence: paga ? 95 : 82,
+        matchStatus: paga && noPrazo ? "MATCHED" : "POSSIBLE_MATCH",
+        reviewAction: paga && noPrazo ? "ASSOCIATE_EXISTING" : "MATCH_CARD_PAYMENT",
+        confidence: paga && noPrazo ? 95 : 70,
         cardInvoiceId: fatura.id,
-        motivo: paga
-          ? "Pagamento desta fatura já registrado no sistema"
-          : "Corresponde a uma fatura em aberto — será associado ao pagamento da fatura",
+        motivo:
+          paga && noPrazo
+            ? "Pagamento desta fatura já registrado no sistema"
+            : "Corresponde a uma fatura — confirme antes de associar (data fora da tolerância)",
         debug: {
           candidateInvoice: fatura.id,
-          score: paga ? 95 : 82,
+          score: paga && noPrazo ? 95 : 70,
           decision: "CARD_PAYMENT_MATCH",
         },
       };
     }
   }
 
-  // 2. Compra já lançada e paga por esta conta.
+  // 2. Compra já lançada e paga por esta conta (a data precisa bater).
   const compra = contexto.purchases.find(
     (p) =>
       p.bank_account_id === contexto.accountId &&
       perto(Number(p.valor_total), valor) &&
-      (!data || diasEntre(p.data_pagamento_real ?? p.data_compra, data) <= 3),
+      dentroDaJanela(data, p.data_pagamento_real ?? p.data_compra, 3),
   );
   if (compra && mov.valor < 0) {
     const forte = parecido(mov.descricaoOriginal, compra.estabelecimento);
@@ -148,7 +172,7 @@ export function reconcileMovement(
       t.bank_account_id &&
       t.bank_account_id !== contexto.accountId &&
       perto(Number(t.valor), valor) &&
-      (!data || diasEntre(t.data_movimento, data) <= 2),
+      dentroDaJanela(data, t.data_movimento),
   );
   if (outraConta || contraparte || mov.tipo === "TRANSFERENCIA") {
     const destino = outraConta?.id ?? contraparte?.bank_account_id ?? undefined;
@@ -165,28 +189,43 @@ export function reconcileMovement(
     };
   }
 
-  // 4. Recebimento de uma receita cadastrada.
-  if (mov.valor > 0) {
+  // 4. Recebimento de uma receita cadastrada — só com data compatível.
+  if (mov.valor > 0 && data) {
+    const diaDoMes = new Date(`${data}T00:00:00`).getDate();
     const receita = contexto.incomes.find((r) => {
       if (!r.ativo) return false;
-      const mesmoValor = perto(Number(r.valor), valor);
-      const mesmoDia = data && r.dia_recebimento
-        ? Math.abs(Number(new Date(`${data}T00:00:00`).getDate()) - r.dia_recebimento) <= 3
-        : false;
-      return mesmoValor || (mesmoDia && parecido(mov.descricaoOriginal, r.descricao));
+      if (!perto(Number(r.valor), valor)) return false;
+      // Data é critério forte: sem dia de recebimento compatível, não associa.
+      return r.dia_recebimento ? Math.abs(diaDoMes - r.dia_recebimento) <= 3 : false;
     });
     if (receita) {
-      const forte = perto(Number(receita.valor), valor);
       return {
-        matchStatus: forte ? "MATCHED" : "POSSIBLE_MATCH",
+        matchStatus: "POSSIBLE_MATCH",
         reviewAction: "MATCH_INCOME",
-        confidence: forte ? 88 : 60,
+        confidence: 70,
         incomeId: receita.id,
-        motivo: `Recebimento da receita "${receita.descricao}" — não cria outra receita fixa`,
-        debug: { candidateIncome: receita.id, score: forte ? 88 : 60, decision: "INCOME_MATCH" },
+        motivo: `Parece o recebimento da receita "${receita.descricao}" — confirme na revisão`,
+        debug: { candidateIncome: receita.id, score: 70, decision: "INCOME_MATCH" },
       };
     }
   }
+
+  // 4b. Mesmo valor e sentido, porém em data distante: nunca MATCHED automático.
+  if (distanteNoLedger) {
+    return {
+      matchStatus: "POSSIBLE_MATCH",
+      reviewAction: mov.valor < 0 ? "CREATE_PURCHASE" : "CREATE_TRANSACTION",
+      confidence: 30,
+      motivo: `Existe um lançamento igual em ${distanteNoLedger.data_movimento}, fora da tolerância de ${TOLERANCIA_DIAS} dias — não é o mesmo movimento`,
+      debug: {
+        candidateTransaction: distanteNoLedger.id,
+        score: 30,
+        decision: "CROSS_DATE_REJECTED",
+        rejectionReason: "data fora da janela de conciliação",
+      },
+    };
+  }
+
 
   // 5. Tarifas, juros e estornos.
   if (mov.tipo === "TARIFA" || mov.tipo === "JUROS") {
