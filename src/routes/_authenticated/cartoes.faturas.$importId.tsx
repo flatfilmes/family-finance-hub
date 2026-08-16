@@ -24,6 +24,7 @@ import {
   KIND_LABELS,
   IMPORT_STATUS_LABELS,
   formatOptional,
+  invoiceCheck,
   needsAttention,
   resolveReviewAction,
   reviewSummary,
@@ -114,20 +115,14 @@ function RevisarFaturaPage() {
   }
 
   const resumo = reviewSummary(lista);
-  const atuais = lista.filter((i) => i.tipo_sugerido !== "PAGAMENTO");
-  const totalExtraido = atuais.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
-  const soma = (filtrar: (i: StatementItem) => boolean) =>
-    atuais.filter(filtrar).reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
-  const compras = soma((i) => i.tipo_sugerido === "COMPRA" && Number(i.valor) > 0);
-  const creditos = soma((i) => Number(i.valor) < 0 || i.tipo_sugerido === "ESTORNO");
-  const taxas = soma(
-    (i) =>
-      Number(i.valor) > 0 &&
-      (i.tipo_sugerido === "TAXA" || i.tipo_sugerido === "JUROS" || i.tipo_sugerido === "AJUSTE"),
-  );
   const valorFatura = Number(importacao.valor_total_fatura) || 0;
-  const diferenca = valorFatura - totalExtraido;
-  const bateu = Math.abs(diferenca) < 0.01 && valorFatura > 0;
+  const conferencia = invoiceCheck(lista, valorFatura);
+  const compras = conferencia.compras;
+  const creditos = conferencia.creditos;
+  const taxas = conferencia.taxas;
+  const totalExtraido = conferencia.totalReconhecido;
+  const diferenca = conferencia.diferenca;
+  const bateu = conferencia.confere;
   // Segurança: soma muito acima da fatura indica leitura de limites/simulações.
   const foraDeControle =
     valorFatura > 0 &&
@@ -300,7 +295,26 @@ function RevisarFaturaPage() {
           />
           <Metric label="Compras e saques válidos" value={formatCurrency(compras)} />
           <Metric label="Créditos e estornos" value={formatCurrency(creditos)} />
-          <Metric label="Taxas e serviços" value={formatCurrency(taxas)} />
+          <div>
+            <Metric label="Taxas e serviços" value={formatCurrency(taxas)} />
+            {conferencia.detalheTaxas.length > 0 && (
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer font-semibold">Ver detalhamento</summary>
+                <ul className="mt-2 space-y-1">
+                  {conferencia.detalheTaxas.map((linha, i) => (
+                    <li key={`${linha.descricao}-${i}`} className="flex justify-between gap-3">
+                      <span className="truncate">{linha.descricao}</span>
+                      <span className="font-semibold">{formatCurrency(linha.valor)}</span>
+                    </li>
+                  ))}
+                  <li className="flex justify-between gap-3 border-t border-border pt-1 font-bold text-foreground">
+                    <span>Total</span>
+                    <span>{formatCurrency(taxas)}</span>
+                  </li>
+                </ul>
+              </details>
+            )}
+          </div>
           <Metric
             label="Total reconhecido"
             value={formatCurrency(totalExtraido)}
