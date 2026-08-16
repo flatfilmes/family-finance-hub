@@ -16,7 +16,9 @@ import {
   type CardInvoice,
   type ExpenseInstallment,
 } from "@/lib/card-invoices";
-import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
+import { RECURRENCE_LABELS, chargesInMonths } from "@/lib/recurring-expenses";
+import { useRecurringExpenseActions } from "@/hooks/useRecurringExpenses";
+import type { RecurringExpense } from "@/lib/recurring-expenses";
 import { useMemberName } from "@/components/member-select";
 import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
@@ -87,6 +89,7 @@ function CartoesPage() {
   const { data: faturas } = useCardInvoices(family?.id);
   const { data: parcelas } = useInstallments(family?.id);
   const { data: recorrentes } = useRecurringExpenses(family?.id);
+  const recorrenciaActions = useRecurringExpenseActions(family?.id);
 
   const [filtroMembro, setFiltroMembro] = useState("");
   const view = useViewMode();
@@ -139,17 +142,29 @@ function CartoesPage() {
   const faturasDoCartao = (cardId: string) =>
     (faturas ?? []).filter((i) => i.credit_card_id === cardId);
 
-  /** Próximas faturas do cartão (parcelas pendentes por mês de vencimento). */
+  const recorrenciasDoCartao = (cardId: string) =>
+    (recorrentes ?? []).filter((r) => r.credit_card_id === cardId);
+
+  /**
+   * Próximas faturas do cartão: parcelas futuras já registradas + projeção das
+   * recorrências ativas. Nunca soma o valor total da compra parcelada.
+   */
   const proximasObrigacoes = (cardId: string) => {
     const doCartao = (parcelas ?? []).filter(
       (p) =>
         p.status === "PENDENTE" && faturasDoCartao(cardId).some((i) => i.id === p.card_invoice_id),
     );
-    return upcomingInstallmentMonths(doCartao, 3);
+    const base = upcomingInstallmentMonths(doCartao, 3);
+    const meses = base.map((m) => m.key);
+    const ativas = recorrenciasDoCartao(cardId).filter((r) => r.ativo);
+    return base.map((m) => {
+      const recorrente = ativas.reduce(
+        (acc, r) => acc + (chargesInMonths(r, meses)[m.key] ?? 0),
+        0,
+      );
+      return { ...m, parcelas: m.total, recorrencias: recorrente, total: m.total + recorrente };
+    });
   };
-
-  const recorrenciasDoCartao = (cardId: string) =>
-    (recorrentes ?? []).filter((r) => r.credit_card_id === cardId && r.ativo);
 
   /** Linhas da fatura: parcelas ligadas à fatura + compras ainda sem parcela gerada. */
   const linhasDaFatura = (cardId: string, invoice: CardInvoice | null): LinhaFatura[] => {
@@ -392,6 +407,8 @@ function CartoesPage() {
             linhas={(invoice) => linhasDaFatura(cartao.id, invoice)}
             proximas={proximasObrigacoes(cartao.id)}
             recorrencias={recorrenciasDoCartao(cartao.id)}
+            onCancelarRecorrencia={(id) => void recorrenciaActions.cancel.mutateAsync(id)}
+            onReativarRecorrencia={(id) => void recorrenciaActions.reactivate.mutateAsync(id)}
             categorias={categorias ?? []}
             memberName={memberName}
             contas={contasAtivas}
@@ -418,6 +435,8 @@ function DetalheCartao({
   contas,
   podePagar,
   pagar,
+  onCancelarRecorrencia,
+  onReativarRecorrencia,
 }: {
   titular: string;
   limite: number;
@@ -425,13 +444,15 @@ function DetalheCartao({
   faturaAtual: CardInvoice | null;
   faturas: CardInvoice[];
   linhas: (invoice: CardInvoice | null) => LinhaFatura[];
-  proximas: { key: string; total: number }[];
-  recorrencias: { id: string; nome: string; valor: number; periodicidade: string; proxima_cobranca: string }[];
+  proximas: { key: string; total: number; parcelas: number; recorrencias: number }[];
+  recorrencias: RecurringExpense[];
   categorias: { id: string; nome: string }[];
   memberName: (memberId: string | null) => string;
   contas: { id: string; banco: string; nome_conta: string; saldo_atual: number }[];
   podePagar: boolean;
   pagar: ReturnType<typeof usePayCardInvoice>;
+  onCancelarRecorrencia: (id: string) => void;
+  onReativarRecorrencia: (id: string) => void;
 }) {
   const [faturaId, setFaturaId] = useState(faturaAtual?.id ?? faturas[0]?.id ?? "");
   const [filtroTipo, setFiltroTipo] = useState("");
@@ -594,14 +615,21 @@ function DetalheCartao({
           <p className="text-xs font-semibold text-muted-foreground">Próximas faturas</p>
           <ul className="mt-2 divide-y divide-border">
             {proximas.map((m) => (
-              <li key={m.key} className="flex items-center justify-between py-2">
-                <span className="text-sm">{monthKeyLabel(m.key)}</span>
+              <li key={m.key} className="flex items-center justify-between gap-3 py-2">
+                <span className="min-w-0">
+                  <span className="block text-sm">{monthKeyLabel(m.key)}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Parcelas {formatCurrency(m.parcelas)} · recorrências{" "}
+                    {formatCurrency(m.recorrencias)}
+                  </span>
+                </span>
                 <span className="text-sm font-bold">{formatCurrency(m.total)}</span>
               </li>
             ))}
           </ul>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Considera apenas parcelas e compromissos já registrados.
+            Considera parcelas futuras já registradas e recorrências ativas. Compras que ainda não
+            existem não entram na projeção.
           </p>
         </div>
         <div className="rounded-2xl border border-border p-4">
@@ -617,11 +645,35 @@ function DetalheCartao({
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold">{r.nome}</span>
                     <span className="block text-xs text-muted-foreground">
-                      {RECURRENCE_LABELS[r.periodicidade as keyof typeof RECURRENCE_LABELS]} ·
-                      próxima {formatDate(r.proxima_cobranca)}
+                      {RECURRENCE_LABELS[r.periodicidade]} ·{" "}
+                      {r.ativo
+                        ? `próxima ${formatDate(r.proxima_cobranca)}`
+                        : `cancelada em ${r.data_cancelamento ? formatDate(r.data_cancelamento) : "—"}`}
                     </span>
                   </span>
-                  <span className="text-sm font-bold">{formatCurrency(Number(r.valor) || 0)}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-sm font-bold">
+                      {formatCurrency(Number(r.valor) || 0)}
+                    </span>
+                    {podePagar &&
+                      (r.ativo ? (
+                        <button
+                          type="button"
+                          onClick={() => onCancelarRecorrencia(r.id)}
+                          className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                        >
+                          Cancelar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onReativarRecorrencia(r.id)}
+                          className="rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                        >
+                          Reativar
+                        </button>
+                      ))}
+                  </span>
                 </li>
               ))}
             </ul>
