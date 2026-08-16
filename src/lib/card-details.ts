@@ -568,6 +568,34 @@ type InvoiceBase = {
 };
 
 /**
+ * REGRA ÚNICA do valor exibido de um ciclo:
+ * - importação CONFIRMED do ciclo  => valor oficial da fatura (nunca substituído
+ *   por soma de compras/parcelas/recorrências);
+ * - ciclo em formação              => estimativa interna do ciclo;
+ * - ciclos futuros                 => projeção (parcelas/recorrências previstas).
+ */
+export function getCycleDisplayValue(input: {
+  cardId: string;
+  invoice: { data_vencimento: string; data_fechamento: string; valor_total: number | string } | null;
+  imports: ImportacaoFatura[];
+  estado: EstadoCiclo;
+}): { valor: number; fonte: FonteValorCiclo; importId: string | null } {
+  const oficial = importacaoOficialDoCiclo(input);
+  if (oficial) {
+    return {
+      valor: Number(oficial.valor_total_fatura) || 0,
+      fonte: "OFFICIAL_STATEMENT",
+      importId: oficial.id,
+    };
+  }
+  return {
+    valor: Number(input.invoice?.valor_total ?? 0) || 0,
+    fonte: input.estado === "PROJETADA" ? "PROJECTED" : "ESTIMATED",
+    importId: null,
+  };
+}
+
+/**
  * Classifica os ciclos de um cartão:
  * - fechamento já passou (ou status FECHADA/PAGA, ou importação confirmada) => ciclo real;
  * - primeiro ciclo ainda não fechado => fatura em formação;
@@ -591,9 +619,6 @@ export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
       invoice,
       imports: input.imports,
     });
-    const valor = oficialImport
-      ? Number(oficialImport.valor_total_fatura) || 0
-      : Number(invoice.valor_total) || 0;
     const fechou = invoice.data_fechamento <= hojeIso;
     const real = fechou || invoice.status === "FECHADA" || invoice.status === "PAGA" || !!oficialImport;
 
@@ -605,16 +630,26 @@ export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
       emFormacaoUsada = true;
     } else estado = "PROJETADA";
 
+    // Fonte de verdade única — a fatura oficial confirmada sempre prevalece.
+    const display = getCycleDisplayValue({
+      cardId: invoice.credit_card_id,
+      invoice,
+      imports: input.imports,
+      estado,
+    });
+
     return {
       invoice,
       competencia: invoice.data_vencimento.slice(0, 7),
       estado,
       real,
       oficial: !!oficialImport,
-      valor,
+      valor: display.valor,
+      fonte: display.fonte,
     };
   });
 }
+
 
 /** Agrupa os ciclos nas seções da página do cartão. */
 export function agruparCiclos<T extends InvoiceBase>(ciclos: CicloClassificado<T>[]) {
