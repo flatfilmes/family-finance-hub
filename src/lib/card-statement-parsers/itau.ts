@@ -199,6 +199,51 @@ function ehProibido(texto: string) {
   return TERMOS_PROIBIDOS.some((t) => p.includes(t));
 }
 
+/**
+ * Linhas que existem apenas para conferência (subtotais, totais, cotação de
+ * câmbio, projeções, pagamento da fatura anterior). Viram metadata e NUNCA
+ * podem virar `card_statement_item`.
+ */
+const TERMOS_METADATA = [
+  "pagamento efetuado",
+  "pagamentos efetuados",
+  "dolar de conversao",
+  "dolar conversao",
+  "cotacao do dolar",
+  "total transacoes inter",
+  "total lancamentos inter",
+  "total transacoes internacionais",
+  "total lancamentos internacionais",
+  "total dos lancamentos atuais",
+  "total de lancamentos atuais",
+  "total dos lancamentos",
+  "total desta fatura",
+  "total da fatura anterior",
+  "lancamentos atuais",
+  "proxima fatura",
+  "proximas faturas",
+  "demais faturas",
+  "total para proximas faturas",
+  "subtotal",
+  "lancamentos no cartao",
+  "limite total",
+  "limite disponivel",
+  "limite utilizado",
+  "limite de saque",
+  "limite para saque",
+];
+
+/** Moedas estrangeiras: a linha "MOUNTAIN VIEW 26,40 USD" é detalhe, não cobrança. */
+const MOEDA_ESTRANGEIRA = /\b(usd|eur|gbp|us\$|dolar|euro)\b/;
+
+export function ehMetadataItau(texto: string) {
+  const p = plano(texto);
+  if (TERMOS_METADATA.some((t) => p.includes(t))) return true;
+  if (MOEDA_ESTRANGEIRA.test(p)) return true;
+  return false;
+}
+
+
 
 // ------------------------------------------------------------------ categorias do banco
 
