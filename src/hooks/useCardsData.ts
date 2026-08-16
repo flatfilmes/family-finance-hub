@@ -141,8 +141,35 @@ export function useCardsData(familyId?: string) {
           card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
           recorrencias: recorrenciasDoCartao(cardId),
           parcelas: parcelasDoCartao(cardId),
+        }).map((c) => {
+          // Régua e detalhe usam a MESMA composição: sem fatura oficial, o valor
+          // do ciclo inclui as parcelas projetadas a partir do último PDF.
+          if (c.fonte === "OFFICIAL_STATEMENT") return c;
+          const projetadas = projecaoParcelasDe(cardId, c);
+          if (projetadas.length === 0) return c;
+          return {
+            ...c,
+            valor: buildCardCycleComposition({
+              ciclo: c,
+              itensOficiais: null,
+              linhasInternas: mesclarParcelasProjetadas(
+                linhasDaFatura({
+                  invoice: (c.invoice as CardInvoice | undefined) ?? null,
+                  parcelas: parcelas.data ?? [],
+                  comprasDoCartao: comprasDoCartao(cardId),
+                  comprasComParcelas,
+                  despesaPorId,
+                  compraPorId,
+                  card: (cards.data ?? []).find((x) => x.id === cardId) ?? null,
+                }).map((l) => ({ ...l, itemId: l.id })),
+                projetadas,
+              ),
+              compraPorId,
+            }).total,
+          };
         }),
       ),
+
     /** Parcelas já contratadas projetadas no ciclo, a partir da fatura oficial. */
     projecaoParcelasDe,
     /**
