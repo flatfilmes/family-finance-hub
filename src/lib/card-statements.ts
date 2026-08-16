@@ -377,7 +377,11 @@ export async function processStatementPdf(input: {
   categorias: { id: string; nome: string }[];
 }) {
   const { parsed } = input;
-  const totalExtraido = parsed.entries.reduce((acc, e) => acc + e.valor, 0);
+  // O total extraído considera apenas o consumo do ciclo: pagamento da fatura
+  // anterior é informativo e nunca entra na soma.
+  const totalExtraido = parsed.entries
+    .filter((e) => e.tipo_sugerido !== "PAGAMENTO")
+    .reduce((acc, e) => acc + e.valor, 0);
   const fingerprint = statementFingerprint({
     cardId: input.card.id,
     vencimento: parsed.data_vencimento,
@@ -407,8 +411,15 @@ export async function processStatementPdf(input: {
       parser: parsed.parser,
       fingerprint,
       status: "PROCESSING",
-      dados_brutos_json: { linhas: parsed.linhas.slice(0, 400), arquivo: input.file.name },
+      dados_brutos_json: {
+        linhas: parsed.linhas.slice(0, 400),
+        arquivo: input.file.name,
+        metadata: parsed.metadata ?? null,
+        subtotais: parsed.subtotais ?? [],
+        futuras: (parsed.futuras ?? []).slice(0, 200),
+      },
     })
+
     .select()
     .single();
   if (error) throw error;
