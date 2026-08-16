@@ -207,6 +207,62 @@ function recuperarHistoricos(
   return resultado;
 }
 
+/** Linha que contém SOMENTE uma data — é a célula da coluna "Dia". */
+const SO_DATA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?$/;
+
+function isoDaCelula(texto: string, anoBase: number): string | null {
+  const m = texto.replace(/\s+/g, "").match(SO_DATA);
+  if (!m) return null;
+  const ano = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : String(anoBase);
+  const iso = `${ano}-${m[2]}-${m[1]}`;
+  return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
+}
+
+/**
+ * DATA CONTÁBIL = coluna "Dia" do extrato (posting date).
+ *
+ * Quando a linha financeira não traz a data no próprio texto, ela está impressa
+ * numa célula à esquerda (coluna "Dia"), no mesmo bloco vertical. Recuperamos
+ * essa célula pela geometria — nunca pela data escrita dentro do histórico
+ * ("Pix - Enviado 26/01 12:45"), que é data do evento, não do lançamento.
+ */
+function recuperarDatas(
+  linhas: PdfLine[],
+  descricaoDaLinha: Array<string | null>,
+  anoBase: number,
+): Map<number, string> {
+  const celulas = linhas
+    .map((linha, index) => ({ linha, index, iso: isoDaCelula(linha.text, anoBase) }))
+    .filter((c): c is { linha: PdfLine; index: number; iso: string } => {
+      if (!c.iso) return false;
+      if (c.linha.cells.length) {
+        const inicio = Math.min(...c.linha.cells.map((x) => x.x));
+        if (inicio >= HISTORICO_X_MIN) return false;
+      }
+      return true;
+    });
+
+  const resultado = new Map<number, string>();
+  if (!celulas.length) return resultado;
+
+  for (let i = 0; i < linhas.length; i++) {
+    if (descricaoDaLinha[i] === null) continue; // não é linha financeira
+    const linha = linhas[i]!;
+    if (DATA_INICIAL.test(linha.text.replace(/\s+/g, " ").trim())) continue; // já tem data
+
+    const mesmaPagina = celulas.filter((c) => (c.linha.page ?? 1) === (linha.page ?? 1));
+    if (!mesmaPagina.length) continue;
+    const maisProxima = mesmaPagina.reduce((melhor, atual) =>
+      Math.abs(atual.linha.y - linha.y) < Math.abs(melhor.linha.y - linha.y) ? atual : melhor,
+    );
+    if (Math.abs(maisProxima.linha.y - linha.y) <= HISTORICO_Y_MAX) {
+      resultado.set(i, maisProxima.iso);
+    }
+  }
+
+  return resultado;
+}
+
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
 export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
