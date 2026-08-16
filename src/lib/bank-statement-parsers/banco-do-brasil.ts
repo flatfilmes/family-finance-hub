@@ -18,7 +18,7 @@ import { extractPdfLines, parseValorBr, type PdfCell, type PdfLine } from "@/lib
 import { lerData, semAcento } from "@/lib/card-statement-parsers/generic";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "@/lib/bank-statements/types";
 import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
-import { montarDescricaoBb, removerColunasTecnicas } from "./bb-description";
+import { comecaComOperacaoBb, montarDescricaoBb, removerColunasTecnicas } from "./bb-description";
 
 export const BB_PARSER_ID = "EXTRATO_BANCO_DO_BRASIL_PDF";
 
