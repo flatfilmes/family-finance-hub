@@ -332,8 +332,10 @@ export function parseItauBankStatementLines(linhas: PdfLine[]): ParsedBankStatem
 
   return {
     parser: ITAU_BANK_PARSER_ID,
-    periodoInicio: periodoInicio ?? realizados[0]?.data ?? null,
-    periodoFim: periodoFim ?? realizados[realizados.length - 1]?.data ?? null,
+    // Identidade temporal: SOMENTE "período de visualização". Sem esse texto o
+    // extrato fica sem período — nunca inferimos a partir dos movimentos.
+    periodoInicio,
+    periodoFim,
     saldoInicial,
     saldoFinal,
     saldoReferenciaAtual,
