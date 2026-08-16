@@ -14,6 +14,8 @@ import { cycleForDate, generateInstallments } from "@/lib/card-invoices";
 import { suggestCategoryId } from "@/lib/category-suggest";
 import type { CreditCard } from "@/lib/finance";
 import { normalizeDescricao, type ParsedStatement, type StatementEntry } from "@/lib/card-statement-parsers";
+import { resolveReviewType, type ReviewType } from "@/lib/statement-types";
+import { fetchStatementTypeRules, tipoPorRegra } from "@/lib/statement-type-rules";
 import type { Tone } from "@/lib/status";
 
 export type StatementImport = Database["public"]["Tables"]["card_statement_imports"]["Row"];
@@ -586,6 +588,7 @@ export type ReviewAction =
   | "ASSOCIATE_EXISTING"
   | "POSSIBLE_MATCH"
   | "CREATE_PURCHASE"
+  | "CREATE_RECURRING"
   | "REGISTER_FEE"
   | "REGISTER_CREDIT"
   | "IGNORE";
@@ -594,6 +597,7 @@ const REVIEW_ACTIONS: ReviewAction[] = [
   "ASSOCIATE_EXISTING",
   "POSSIBLE_MATCH",
   "CREATE_PURCHASE",
+  "CREATE_RECURRING",
   "REGISTER_FEE",
   "REGISTER_CREDIT",
   "IGNORE",
@@ -603,6 +607,7 @@ export const ACTION_BADGES: Record<ReviewAction, string> = {
   ASSOCIATE_EXISTING: "Compra encontrada",
   POSSIBLE_MATCH: "Possível correspondência",
   CREATE_PURCHASE: "Nova compra",
+  CREATE_RECURRING: "Nova recorrência",
   REGISTER_FEE: "Taxa",
   REGISTER_CREDIT: "Crédito/estorno",
   IGNORE: "Ignorado",
@@ -612,6 +617,7 @@ export const ACTION_TONES: Record<ReviewAction, Tone> = {
   ASSOCIATE_EXISTING: "ok",
   POSSIBLE_MATCH: "warn",
   CREATE_PURCHASE: "info",
+  CREATE_RECURRING: "ok",
   REGISTER_FEE: "muted",
   REGISTER_CREDIT: "muted",
   IGNORE: "muted",
@@ -621,6 +627,8 @@ export const ACTION_HELP: Record<ReviewAction, string> = {
   ASSOCIATE_EXISTING: "Compra existente — será associada ao confirmar.",
   POSSIBLE_MATCH: "Encontramos uma possível correspondência. Revise antes de confirmar.",
   CREATE_PURCHASE: "Nova compra — será criada ao confirmar.",
+  CREATE_RECURRING:
+    "Nova recorrência — a cobrança do mês será criada e a assinatura passa a ser reconhecida nas próximas faturas.",
   REGISTER_FEE: "Taxa da fatura — será registrada como encargo ao confirmar.",
   REGISTER_CREDIT: "Crédito/estorno — será registrado com valor negativo ao confirmar.",
   IGNORE: "Ignorado — não será importado.",
@@ -630,8 +638,11 @@ type ReviewItemLike = Pick<
   StatementItem,
   | "match_status"
   | "tipo_sugerido"
+  | "tipo_revisado"
   | "valor"
   | "decisao"
+  | "parcela_atual"
+  | "total_parcelas"
   | "installment_id_matched"
   | "recurring_expense_id_matched"
   | "purchase_id_matched"
@@ -645,29 +656,32 @@ export function userChoice(item: Pick<StatementItem, "decisao">): ReviewAction |
     : null;
 }
 
-/** Ação vigente do lançamento: escolha do usuário ou o padrão inteligente. */
+/**
+ * Ação vigente do lançamento.
+ *
+ * Ordem de decisão: escolha explícita de ação > tipo corrigido pela pessoa >
+ * padrão inteligente vindo da leitura do PDF e da conciliação.
+ */
 export function resolveReviewAction(item: ReviewItemLike): ReviewAction {
   const escolha = userChoice(item);
   if (escolha) return escolha;
-  if (item.match_status === "IGNORED") return "IGNORE";
 
-  const valor = Number(item.valor) || 0;
-  if (item.tipo_sugerido === "PAGAMENTO") return "IGNORE";
-  if (item.tipo_sugerido === "ESTORNO" || valor < 0) return "REGISTER_CREDIT";
-  if (
-    item.tipo_sugerido === "TAXA" ||
-    item.tipo_sugerido === "JUROS" ||
-    item.tipo_sugerido === "AJUSTE"
-  ) {
-    return "REGISTER_FEE";
+  const tipo = resolveReviewType(item);
+  if (tipo === "IGNORAR") return "IGNORE";
+  if (tipo === "TAXA") return "REGISTER_FEE";
+  if (tipo === "CREDITO") return "REGISTER_CREDIT";
+  if (tipo === "RECORRENTE") {
+    return item.recurring_expense_id_matched ? "ASSOCIATE_EXISTING" : "CREATE_RECURRING";
   }
 
+  if (item.match_status === "IGNORED") return "IGNORE";
   if (item.match_status === "MATCHED") return "ASSOCIATE_EXISTING";
   if (item.match_status === "POSSIBLE_MATCH" || item.match_status === "DIVERGENT") {
     return "POSSIBLE_MATCH";
   }
   return "CREATE_PURCHASE";
 }
+
 
 /**
  * Precisa de atenção = ambiguidade real.
