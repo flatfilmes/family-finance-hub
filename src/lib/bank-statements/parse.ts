@@ -43,11 +43,26 @@ export type BankParserSelection = {
   name: string | null;
 };
 
+/** Registry único de parsers: a chave é EXATAMENTE o valor devolvido pela detecção. */
+export const BANK_STATEMENT_PARSERS: Record<DetectedBank, string> = {
+  BANCO_DO_BRASIL: "EXTRATO_BANCO_DO_BRASIL_PDF",
+  ITAU: "ITAU_BANK_STATEMENT",
+  GENERICO: "EXTRATO_GENERICO_PDF",
+};
+
+/** Seleção do parser a partir da chave detectada (sem inventar identificadores). */
+export function selectBankStatementParser(bank: DetectedBank | null): BankParserSelection {
+  const chave = bank ?? "GENERICO";
+  const name = BANK_STATEMENT_PARSERS[chave] ?? null;
+  return { status: name ? "FOUND" : "NOT_FOUND", requestedBank: chave, name };
+}
+
 export type BankParserPipelineResult = {
   detection: BankDetectionResult;
   parser: BankParserSelection;
   parsed: ParsedBankStatement;
 };
+
 
 const MOEDA = /-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}|-?\s?\d+,\d{2}/g;
 
