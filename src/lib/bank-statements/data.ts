@@ -136,6 +136,7 @@ export async function fetchBankBalanceCheckpoints(accountId: string) {
     data: c.data as string,
     saldo: Number(c.saldo_informado),
     rotulo: c.rotulo as string | null,
+    importId: (c.import_id as string | null) ?? null,
   }));
 }
 
