@@ -311,7 +311,7 @@ function montar(
   const tipo = ambiguo ? "OUTRO" : classificar(descricao, valor, secao);
   const limpo = limparEstabelecimento(descricao);
   return {
-    ambiguo: ambiguo || undefined,
+    ambiguo,
     data_lancamento: data,
     descricao_original: descricaoBruta.replace(/\s+/g, " ").trim(),
     descricao_normalizada: normalizeDescricao(limpo),
