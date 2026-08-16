@@ -6,6 +6,11 @@ import { FormDialog } from "@/components/form-dialog";
 import { PrimaryButton, inputClass } from "@/components/page-header";
 import { PdfDiagnosticButton } from "@/components/pdf-diagnostic/pdf-diagnostic-button";
 import { useAuth } from "@/hooks/useAuth";
+import { usePermissions } from "@/hooks/usePermissions";
+import {
+  pdfDiagnosticFlagEnabled,
+  setPdfDiagnosticFlag,
+} from "@/lib/pdf-diagnostic/availability";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useCardInvoices } from "@/hooks/useCardInvoices";
@@ -468,5 +473,27 @@ function Chip({ label, valor }: { label: string; valor: number }) {
     <span className="rounded-full bg-muted px-3 py-1 font-semibold text-muted-foreground">
       {label}: <strong className="text-foreground">{valor}</strong>
     </span>
+  );
+}
+
+/**
+ * Atalho para ADMIN ligar a flag interna de diagnóstico sem usar a query string.
+ * Não altera dados: apenas revela o botão "Modo diagnóstico PDF".
+ */
+function DiagnosticoHint() {
+  const perms = usePermissions();
+  const [ativo, setAtivo] = useState(pdfDiagnosticFlagEnabled());
+  if (!perms.isAdmin || ativo || import.meta.env.DEV) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setPdfDiagnosticFlag(true);
+        setAtivo(true);
+      }}
+      className="text-[11px] font-semibold text-muted-foreground underline-offset-2 hover:underline"
+    >
+      Ativar modo diagnóstico PDF
+    </button>
   );
 }
