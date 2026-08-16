@@ -68,7 +68,11 @@ export type PdfTextItem = { text: string; x: number; y: number; width: number };
 
 const Y_TOLERANCIA = 3;
 
-function agruparEmLinhas(itens: PdfTextItem[], page: number, column: PdfLine["column"]): PdfLine[] {
+function agruparEmLinhas(
+  itens: PdfTextItem[],
+  page: number,
+  column: NonNullable<PdfLine["column"]>,
+): PdfLine[] {
   const porLinha = new Map<number, PdfCell[]>();
   for (const it of itens) {
     const chave = Math.round(it.y / Y_TOLERANCIA) * Y_TOLERANCIA;
