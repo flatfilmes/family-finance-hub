@@ -105,7 +105,7 @@ function DiagnosticoImportacao() {
           lines,
           statement,
           validation: validateStatement(statement),
-          pipeline: (parsed as { pipeline?: ItauPipelineDiagnostics }).pipeline,
+          ...(pipeline ? { pipeline } : {}),
           rawItems,
         });
       } catch (e) {
