@@ -883,11 +883,50 @@ export async function deleteStatementImport(id: string) {
   if (delImport) throw delImport;
 }
 
+// --------------------------------------------------- diagnóstico da preparação
+
+/** Etapas do fluxo "preparar revisão", usadas nos logs de desenvolvimento. */
+export type PrepareStep =
+  | "VALIDATE_CARD"
+  | "CREATE_IMPORT"
+  | "FETCH_CANDIDATES"
+  | "MATCHING"
+  | "CREATE_ITEMS"
+  | "READY";
+
+const isDev = typeof import.meta !== "undefined" && !!import.meta.env?.DEV;
+
+function logStep(step: PrepareStep, fase: "START" | "SUCCESS" | "ERROR", extra?: unknown) {
+  if (!isDev) return;
+  // eslint-disable-next-line no-console
+  console.info(`[fatura:${fase}] ${step}`, extra ?? "");
+}
+
+type SupabaseLikeError = { message?: string; code?: string; details?: string; hint?: string };
+
+/** Erro técnico com a etapa exata e o registro que falhou. */
+export class PrepareStatementError extends Error {
+  step: PrepareStep;
+  detalhe: string;
+  contexto: Record<string, unknown> | null;
+  constructor(step: PrepareStep, causa: unknown, contexto?: Record<string, unknown>) {
+    const e = (causa ?? {}) as SupabaseLikeError;
+    const partes = [e.message, e.code && `code=${e.code}`, e.details, e.hint].filter(Boolean);
+    const detalhe = partes.join(" · ") || "Erro desconhecido";
+    super(detalhe);
+    this.name = "PrepareStatementError";
+    this.step = step;
+    this.detalhe = detalhe;
+    this.contexto = contexto ?? null;
+    logStep(step, "ERROR", { detalhe, ...(contexto ?? {}) });
+  }
+}
 
 /**
  * Lê o PDF, cria a importação temporária e grava os lançamentos já comparados
  * com o que existe no sistema. Nenhum dado financeiro é criado aqui.
  */
+
 export async function processStatementPdf(input: {
   familyId: string;
   memberId: string | null;
