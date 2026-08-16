@@ -235,6 +235,8 @@ function recuperarHistoricos(
 
 /** Linha que contém SOMENTE uma data — é a célula da coluna "Dia". */
 const SO_DATA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?$/;
+/** Linha de coluna "Dia": data seguida apenas de códigos numéricos do banco. */
+const LINHA_DE_DATA = /^\d{2}\/\d{2}(?:\/\d{2,4})?[\s\d.\-]*$/;
 
 function isoDaCelula(texto: string, anoBase: number): string | null {
   const m = texto.replace(/\s+/g, "").match(SO_DATA);
@@ -243,6 +245,33 @@ function isoDaCelula(texto: string, anoBase: number): string | null {
   const iso = `${ano}-${m[2]}-${m[1]}`;
   return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
 }
+
+/**
+ * DATA CONTÁBIL impressa na coluna "Dia" (à esquerda da coluna Histórico).
+ *
+ * Só consideramos a data quando ela está geometricamente na coluna "Dia".
+ * Datas escritas dentro do Histórico ("Pix - Enviado 04/01 12:48") são data do
+ * evento e nunca viram data contábil.
+ */
+function dataDaColunaDia(linha: PdfLine, anoBase: number): string | null {
+  const candidatos = linha.cells.length
+    ? linha.cells.filter((c) => c.x < HISTORICO_X_MIN).map((c) => c.text)
+    : LINHA_DE_DATA.test(linha.text.replace(/\s+/g, " ").trim())
+      ? [linha.text]
+      : [];
+  for (const texto of candidatos) {
+    const m = texto
+      .replace(/\s+/g, " ")
+      .trim()
+      .match(/^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/);
+    if (!m) continue;
+    const ano = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : String(anoBase);
+    const iso = `${ano}-${m[2]}-${m[1]}`;
+    if (/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso)) return iso;
+  }
+  return null;
+}
+
 
 /**
  * DATA CONTÁBIL = coluna "Dia" do extrato (posting date).
