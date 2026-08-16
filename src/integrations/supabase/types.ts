@@ -1124,6 +1124,39 @@ export type Database = {
           },
         ]
       }
+      family_reset_logs: {
+        Row: {
+          backup_created: boolean
+          created_at: string
+          family_id: string
+          family_nome: string | null
+          id: string
+          reset_type: string
+          totais: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          backup_created?: boolean
+          created_at?: string
+          family_id: string
+          family_nome?: string | null
+          id?: string
+          reset_type: string
+          totais?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          backup_created?: boolean
+          created_at?: string
+          family_id?: string
+          family_nome?: string | null
+          id?: string
+          reset_type?: string
+          totais?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       financial_profiles: {
         Row: {
           created_at: string
@@ -2248,6 +2281,22 @@ export type Database = {
         Returns: string
       }
       purge_demo_families: { Args: { demo_ids: string[] }; Returns: number }
+      purge_family_records: {
+        Args: { _family_id: string; _keep_structure: boolean }
+        Returns: Json
+      }
+      reset_family_completely: {
+        Args: { _backup_created?: boolean; _family_id: string }
+        Returns: Json
+      }
+      reset_family_financial_data: {
+        Args: {
+          _backup_created?: boolean
+          _family_id: string
+          _remover_demo?: boolean
+        }
+        Returns: Json
+      }
       sync_installment_invoices: {
         Args: { _family_id?: string }
         Returns: number
