@@ -21,6 +21,12 @@
  */
 import type { Transaction } from "@/lib/transactions";
 import { movementEffect } from "@/lib/bank-ledger";
+import {
+  groupCheckpointsByImport,
+  resolveStatementPeriod,
+  type ResolvedStatementPeriod,
+  type StatementPeriodOrigin,
+} from "@/lib/bank-statements/period";
 
 export type Severity = "CRITICO" | "ATENCAO" | "PENDENCIA" | "INFORMATIVO";
 
