@@ -453,6 +453,154 @@ export function classifyReviewItem(item: {
   return "NOVO";
 }
 
+// --------------------------------------------------- ação padrão da revisão
+
+/**
+ * Ação que será executada na confirmação da revisão.
+ *
+ * Princípio: todo lançamento financeiro válido ENTRA por padrão.
+ * "Sem correspondência" significa "criar nova compra", nunca "não importar".
+ * Ignorar é sempre uma decisão explícita do usuário.
+ */
+export type ReviewAction =
+  | "ASSOCIATE_EXISTING"
+  | "POSSIBLE_MATCH"
+  | "CREATE_PURCHASE"
+  | "REGISTER_FEE"
+  | "REGISTER_CREDIT"
+  | "IGNORE";
+
+const REVIEW_ACTIONS: ReviewAction[] = [
+  "ASSOCIATE_EXISTING",
+  "POSSIBLE_MATCH",
+  "CREATE_PURCHASE",
+  "REGISTER_FEE",
+  "REGISTER_CREDIT",
+  "IGNORE",
+];
+
+export const ACTION_BADGES: Record<ReviewAction, string> = {
+  ASSOCIATE_EXISTING: "Compra encontrada",
+  POSSIBLE_MATCH: "Possível correspondência",
+  CREATE_PURCHASE: "Nova compra",
+  REGISTER_FEE: "Taxa",
+  REGISTER_CREDIT: "Crédito/estorno",
+  IGNORE: "Ignorado",
+};
+
+export const ACTION_TONES: Record<ReviewAction, Tone> = {
+  ASSOCIATE_EXISTING: "ok",
+  POSSIBLE_MATCH: "warn",
+  CREATE_PURCHASE: "info",
+  REGISTER_FEE: "muted",
+  REGISTER_CREDIT: "muted",
+  IGNORE: "muted",
+};
+
+export const ACTION_HELP: Record<ReviewAction, string> = {
+  ASSOCIATE_EXISTING: "Compra existente — será associada ao confirmar.",
+  POSSIBLE_MATCH: "Encontramos uma possível correspondência. Revise antes de confirmar.",
+  CREATE_PURCHASE: "Nova compra — será criada ao confirmar.",
+  REGISTER_FEE: "Taxa da fatura — será registrada como encargo ao confirmar.",
+  REGISTER_CREDIT: "Crédito/estorno — será registrado com valor negativo ao confirmar.",
+  IGNORE: "Ignorado — não será importado.",
+};
+
+type ReviewItemLike = Pick<
+  StatementItem,
+  | "match_status"
+  | "tipo_sugerido"
+  | "valor"
+  | "decisao"
+  | "installment_id_matched"
+  | "recurring_expense_id_matched"
+  | "purchase_id_matched"
+>;
+
+/** Escolha explícita do usuário, quando houver. */
+export function userChoice(item: Pick<StatementItem, "decisao">): ReviewAction | null {
+  const escolha = item.decisao as string | null;
+  return escolha && (REVIEW_ACTIONS as string[]).includes(escolha)
+    ? (escolha as ReviewAction)
+    : null;
+}
+
+/** Ação vigente do lançamento: escolha do usuário ou o padrão inteligente. */
+export function resolveReviewAction(item: ReviewItemLike): ReviewAction {
+  const escolha = userChoice(item);
+  if (escolha) return escolha;
+  if (item.match_status === "IGNORED") return "IGNORE";
+
+  const valor = Number(item.valor) || 0;
+  if (item.tipo_sugerido === "PAGAMENTO") return "IGNORE";
+  if (item.tipo_sugerido === "ESTORNO" || valor < 0) return "REGISTER_CREDIT";
+  if (
+    item.tipo_sugerido === "TAXA" ||
+    item.tipo_sugerido === "JUROS" ||
+    item.tipo_sugerido === "AJUSTE"
+  ) {
+    return "REGISTER_FEE";
+  }
+
+  if (item.match_status === "MATCHED") return "ASSOCIATE_EXISTING";
+  if (item.match_status === "POSSIBLE_MATCH" || item.match_status === "DIVERGENT") {
+    return "POSSIBLE_MATCH";
+  }
+  return "CREATE_PURCHASE";
+}
+
+/**
+ * Precisa de atenção = ambiguidade real.
+ * Uma compra nova comum NUNCA é problema.
+ */
+export function needsAttention(
+  item: ReviewItemLike & { user_action: ItemAction },
+): boolean {
+  if (item.user_action === "ERRO") return true;
+  const acao = resolveReviewAction(item);
+  if (acao === "POSSIBLE_MATCH") return true;
+  if (acao === "ASSOCIATE_EXISTING") {
+    return (
+      !item.purchase_id_matched &&
+      !item.installment_id_matched &&
+      !item.recurring_expense_id_matched
+    );
+  }
+  return false;
+}
+
+export type ReviewSummary = Record<ReviewAction, number> & {
+  total: number;
+  atencao: number;
+  incluidos: number;
+};
+
+/** Resumo do que acontecerá ao confirmar a revisão. */
+export function reviewSummary(
+  items: (ReviewItemLike & { user_action: ItemAction })[],
+): ReviewSummary {
+  const resumo: ReviewSummary = {
+    ASSOCIATE_EXISTING: 0,
+    POSSIBLE_MATCH: 0,
+    CREATE_PURCHASE: 0,
+    REGISTER_FEE: 0,
+    REGISTER_CREDIT: 0,
+    IGNORE: 0,
+    total: items.length,
+    atencao: 0,
+    incluidos: 0,
+  };
+  for (const item of items) {
+    const acao = resolveReviewAction(item);
+    resumo[acao] += 1;
+    if (acao !== "IGNORE") resumo.incluidos += 1;
+    if (needsAttention(item)) resumo.atencao += 1;
+  }
+  return resumo;
+}
+
+
+
 
 // ------------------------------------------------------------------ persistência
 
