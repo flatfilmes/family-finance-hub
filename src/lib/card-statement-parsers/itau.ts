@@ -393,6 +393,14 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       continue;
     }
 
+    // blindagem: limites, simulações e ofertas nunca viram lançamento nem trocam de cartão
+    if (ehProibido(linha)) {
+      limpaPendente();
+      continue;
+    }
+
+
+
     // final do cartão corrente / subtotais impressos
     const subtotal = linha.match(/lan[çc]amentos no cart[ãa]o\s*\(?\s*final\s*(\d{4})\)?/i);
     if (subtotal) {
