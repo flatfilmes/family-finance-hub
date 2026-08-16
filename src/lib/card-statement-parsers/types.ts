@@ -112,8 +112,13 @@ export type ParsedStatement = StatementHeader & {
   subtotais?: StatementCardSubtotal[];
   /** Parcelas de próximas faturas — informativas, fora do ciclo atual. */
   futuras?: StatementEntry[];
+  /** Conferência de completude por final de cartão. */
+  blocos?: StatementBlockAudit[];
+  /** Linhas descartadas e o motivo (sem rejeição silenciosa). */
+  rejeitadas?: StatementRejectedLine[];
   extraction_status?: "READY" | "REVIEW_REQUIRED";
   positional_debug?: PdfPageLayoutDebug[];
+
 };
 
 export type StatementParser = {
