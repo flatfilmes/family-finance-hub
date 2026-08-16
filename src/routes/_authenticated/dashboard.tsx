@@ -292,15 +292,17 @@ function Dashboard() {
         )}
       </section>
 
+      {/* O total gasto já aparece em "Gastos realizados no mês" — aqui só o detalhe. */}
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
           icon={<ShoppingCart className="size-5" />}
-          label="Total gasto no mês"
-          value={formatCurrency(gastos.totalMes)}
-          hint={`${gastos.count} compra(s) em ${monthLabel(gastos.month)}`}
+          label="Compras do mês"
+          value={String(gastos.count)}
+          hint={`Compras registradas em ${monthLabel(gastos.month)}`}
           to="/compras"
           loading={gastos.isLoading}
         />
+
         <StatCard
           icon={<PieChart className="size-5" />}
           label="Maior categoria de gasto"
