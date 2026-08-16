@@ -11,11 +11,14 @@ import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useCardInvoices } from "@/hooks/useCardInvoices";
-import { useBankStatementImports } from "@/hooks/useBankStatements";
+import { useBankStatementImports, useBankStatementItems } from "@/hooks/useBankStatements";
 import { useBankBalanceCheckpoints } from "@/hooks/useBankLedger";
+import { ReprocessCheckpointsDialog } from "@/components/bank/reprocess-checkpoints-dialog";
 import {
   auditToCsv,
   buildBankAudit,
+  MONTH_STATUS_LABELS,
+  MONTH_STATUS_TONES,
   SEVERITY_LABELS,
   SEVERITY_TONES,
   type AuditMonth,
@@ -52,6 +55,7 @@ function AuditoriaContaPage() {
   const { data: purchases } = usePurchases(family?.id);
   const { data: invoices } = useCardInvoices(family?.id);
   const { data: imports } = useBankStatementImports(accountId);
+  const { data: statementItems } = useBankStatementItems(accountId);
   const { data: checkpoints } = useBankBalanceCheckpoints(accountId);
   const [mesAberto, setMesAberto] = useState<string | null>(null);
   const [diasAbertos, setDiasAbertos] = useState<Record<string, boolean>>({});
@@ -65,6 +69,7 @@ function AuditoriaContaPage() {
         transactions: transactions ?? [],
         imports: imports ?? [],
         checkpoints: checkpoints ?? [],
+        statementItems: statementItems ?? [],
         purchases: purchases ?? [],
         cardInvoiceIds: (invoices ?? []).map((i) => i.id),
         accounts: accounts ?? [],
@@ -75,7 +80,17 @@ function AuditoriaContaPage() {
             }
           : null,
       }),
-    [accountId, transactions, imports, checkpoints, purchases, invoices, accounts, conta],
+    [
+      accountId,
+      transactions,
+      imports,
+      checkpoints,
+      statementItems,
+      purchases,
+      invoices,
+      accounts,
+      conta,
+    ],
   );
 
   if (!family) return <NoFamily />;
@@ -121,12 +136,15 @@ function AuditoriaContaPage() {
         }`}
         badges={<StatusBadge tone="muted">Somente leitura — nada é alterado</StatusBadge>}
         actions={
-          <button
-            onClick={exportarCsv}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
-          >
-            <Download className="size-3.5" /> Exportar relatório
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <ReprocessCheckpointsDialog accountId={accountId} familyId={family.id} />
+            <button
+              onClick={exportarCsv}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              <Download className="size-3.5" /> Exportar relatório
+            </button>
+          </div>
         }
       />
 
@@ -170,9 +188,32 @@ function AuditoriaContaPage() {
       <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Metric label="Extratos importados" value={String(r.extratos)} />
         <Metric
+          label="Meses validados"
+          value={`${r.mesesValidados} / ${r.totalMeses}`}
+          hint="Documento, ledger e saldos batem"
+          {...(r.mesesValidados === r.totalMeses && r.totalMeses ? { tone: "ok" as const } : {})}
+        />
+        <Metric
           label="Meses com continuidade"
           value={`${r.mesesComContinuidade} / ${r.totalTransicoes}`}
           hint="Transições entre extratos consecutivos"
+        />
+        <Metric
+          label="Meses sem checkpoint"
+          value={String(r.mesesSemCheckpoint)}
+          hint="Reprocesse o PDF para conferir dia a dia"
+        />
+        <Metric
+          label="Movimentos PDF × ledger"
+          value={`${r.movimentosPdf} / ${r.movimentosLedger}`}
+          hint={r.faltantes ? `${r.faltantes} faltando no ledger` : "Nenhum faltando"}
+          {...(r.faltantes ? { tone: "danger" as const } : {})}
+        />
+        <Metric
+          label="Datas inconsistentes"
+          value={String(r.datasInconsistentes)}
+          hint="Ledger diferente da data do extrato"
+          {...(r.datasInconsistentes ? { tone: "danger" as const } : {})}
         />
         <Metric
           label="Meses com divergência"
@@ -189,32 +230,32 @@ function AuditoriaContaPage() {
         <Metric
           label="Lacunas de período"
           value={String(r.lacunas)}
-          hint={r.sobreposicoes ? `${r.sobreposicoes} sobreposição(ões)` : undefined}
+          hint={r.sobreposicoes ? `${r.sobreposicoes} sobreposição(ões)` : "Cobertura pelo período do extrato"}
         />
         <Metric label="Duplicidades" value={String(r.duplicidades)} />
       </div>
 
       {/* ---------- linha do tempo ---------- */}
       <Card className="mb-5">
-        <SectionTitle title="Linha do tempo" hint="Situação do saldo mês a mês." />
+        <SectionTitle
+          title="Linha do tempo"
+          hint="Situação específica de cada mês — nunca um alerta genérico."
+        />
         <div className="flex flex-wrap gap-2">
-          {audit.meses.map((m) => {
-            const tone = m.confere === false ? "danger" : m.confere ? "ok" : "muted";
-            return (
-              <button
-                key={m.key}
-                onClick={() => setMesAberto(mesAberto === m.key ? null : m.key)}
-                className="rounded-2xl border border-border px-3 py-2 text-left transition-colors hover:bg-muted"
-              >
-                <p className="text-[11px] font-semibold uppercase text-muted-foreground">
-                  {monthLabel(m.key)}
-                </p>
-                <StatusBadge tone={tone} className="mt-1">
-                  {m.confere === false ? "Divergência" : m.confere ? "Confere" : "Sem saldo"}
-                </StatusBadge>
-              </button>
-            );
-          })}
+          {audit.meses.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setMesAberto(mesAberto === m.key ? null : m.key)}
+              className="rounded-2xl border border-border px-3 py-2 text-left transition-colors hover:bg-muted"
+            >
+              <p className="text-[11px] font-semibold uppercase text-muted-foreground">
+                {monthLabel(m.key)}
+              </p>
+              <StatusBadge tone={MONTH_STATUS_TONES[m.status]} className="mt-1">
+                {MONTH_STATUS_LABELS[m.status]}
+              </StatusBadge>
+            </button>
+          ))}
         </div>
       </Card>
 
@@ -456,7 +497,6 @@ function MesCard({
   diasAbertos: boolean;
   onToggleDias: () => void;
 }) {
-  const tone = mes.confere === false ? "danger" : mes.confere ? "ok" : "muted";
   return (
     <div className="rounded-2xl border border-border">
       <button
@@ -470,9 +510,12 @@ function MesCard({
           {monthLabel(mes.key)}
         </span>
         <span className="flex items-center gap-3">
+          <span className="text-xs text-muted-foreground">
+            PDF {mes.movimentosPdf} · ledger {mes.movimentosLedger}
+          </span>
           <span className="text-sm font-bold">{formatCurrency(mes.calculated)}</span>
-          <StatusBadge tone={tone}>
-            {mes.confere === false ? "Divergência" : mes.confere ? "Confere" : "Sem saldo informado"}
+          <StatusBadge tone={MONTH_STATUS_TONES[mes.status]}>
+            {MONTH_STATUS_LABELS[mes.status]}
           </StatusBadge>
         </span>
       </button>
@@ -487,6 +530,67 @@ function MesCard({
             <Linha label="Banco informou" valor={mes.reported} />
             <Linha label="Diferença" valor={mes.difference} destaque={mes.confere === false} />
           </div>
+
+          {mes.primeiraDivergencia && (
+            <div className="mt-3 rounded-xl border border-red-500/40 bg-red-500/5 px-3 py-2">
+              <p className="flex items-center gap-2 text-xs font-semibold text-destructive">
+                <AlertTriangle className="size-3.5" />
+                Primeira divergência em {formatDate(mes.primeiraDivergencia.date)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Calculado {formatCurrency(mes.primeiraDivergencia.calculado)} · banco informou{" "}
+                {formatCurrency(mes.primeiraDivergencia.informado)} · diferença{" "}
+                {formatCurrency(mes.primeiraDivergencia.diferenca)}.{" "}
+                {mes.primeiraDivergencia.ultimoDiaCorreto
+                  ? `Último dia correto: ${formatDate(mes.primeiraDivergencia.ultimoDiaCorreto)}.`
+                  : "Nenhum dia conferido antes deste."}{" "}
+                {mes.primeiraDivergencia.movimentosDesdeUltimoCorreto.length} movimentação(ões) no
+                intervalo suspeito.
+              </p>
+            </div>
+          )}
+
+          {mes.checkpoints === 0 && mes.imports.length > 0 && (
+            <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Este mês não tem "Saldo do dia" registrado. Use "Reprocessar checkpoints" para reler o
+              PDF — nenhuma movimentação será alterada.
+            </p>
+          )}
+
+          {mes.faltantes.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-semibold text-destructive">
+                {mes.faltantes.length} movimentação(ões) do PDF sem correspondência no ledger
+              </p>
+              <ul className="space-y-1">
+                {mes.faltantes.map((f) => (
+                  <li key={f.itemId} className="flex justify-between gap-3 text-xs">
+                    <span className="truncate">
+                      {f.data ? formatDate(f.data) : "sem data"} · {f.descricao}
+                    </span>
+                    <span className="shrink-0 font-semibold">{formatCurrency(f.valor)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {mes.datasInconsistentes.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                {mes.datasInconsistentes.length} movimentação(ões) com data diferente da do extrato
+              </p>
+              <ul className="space-y-1">
+                {mes.datasInconsistentes.map((d) => (
+                  <li key={d.itemId} className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{d.descricao}</span> — extrato{" "}
+                    {formatDate(String(d.dataExtrato))}, ledger {formatDate(d.dataLedger)}
+                    {d.dataNoHistorico ? ` (histórico cita ${formatDate(d.dataNoHistorico)})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {mes.missingAmount !== null && (
             <p className="mt-3 flex items-center gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-destructive">
