@@ -2580,6 +2580,10 @@ export type Database = {
         Args: { _card_id: string; _venc: string }
         Returns: string
       }
+      find_purchase_duplicate: {
+        Args: { p_purchase_id: string }
+        Returns: Json
+      }
       inspect_purchase_deletion: {
         Args: { p_purchase_id: string }
         Returns: Json
