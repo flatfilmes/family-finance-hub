@@ -950,6 +950,15 @@ export async function processStatementPdf(input: {
     quantidade: parsed.entries.length,
   });
 
+  logStep("VALIDATE_CARD", "START", { cardId: input.card.id, familyId: input.familyId });
+  if (!input.familyId || !input.card?.id) {
+    throw new PrepareStatementError("VALIDATE_CARD", {
+      message: "Cartão ou família não identificados para esta importação.",
+    });
+  }
+  logStep("VALIDATE_CARD", "SUCCESS");
+
+  logStep("CREATE_IMPORT", "START", { arquivo: input.file.name, lancamentos: parsed.entries.length });
   const { data: importacao, error } = await supabase
     .from("card_statement_imports")
     .insert({
@@ -984,11 +993,18 @@ export async function processStatementPdf(input: {
 
     .select()
     .single();
-  if (error) throw error;
+  if (error || !importacao) {
+    throw new PrepareStatementError("CREATE_IMPORT", error, {
+      tabela: "card_statement_imports",
+      cardId: input.card.id,
+    });
+  }
+  logStep("CREATE_IMPORT", "SUCCESS", { importId: importacao.id });
 
   try {
     // A janela de busca considera o período da fatura E as datas dos lançamentos
     // (compras podem ter data fora do ciclo informado no cabeçalho), com folga de 10 dias.
+    logStep("FETCH_CANDIDATES", "START");
     const datas = parsed.entries.map((e) => e.data_lancamento).filter(Boolean) as string[];
     const desloca = (data: string, dias: number) => {
       const d = new Date(`${data}T12:00:00`);
@@ -996,17 +1012,32 @@ export async function processStatementPdf(input: {
       return d.toISOString().slice(0, 10);
     };
     const limites = [parsed.periodo_inicio, parsed.periodo_fim, ...datas].filter(Boolean) as string[];
-    const candidatos = await fetchMatchCandidates({
-      familyId: input.familyId,
-      cardId: input.card.id,
-      inicio: limites.length ? desloca(limites.slice().sort()[0]!, -10) : null,
-      fim: limites.length ? desloca(limites.slice().sort().at(-1)!, 10) : null,
-    });
+    let candidatos: Awaited<ReturnType<typeof fetchMatchCandidates>> = [];
+    try {
+      candidatos = await fetchMatchCandidates({
+        familyId: input.familyId,
+        cardId: input.card.id,
+        inicio: limites.length ? desloca(limites.slice().sort()[0]!, -10) : null,
+        fim: limites.length ? desloca(limites.slice().sort().at(-1)!, 10) : null,
+      });
+    } catch (e) {
+      // A comparação é um conforto, não um requisito: seguimos sem candidatos.
+      logStep("FETCH_CANDIDATES", "ERROR", e);
+    }
+    logStep("FETCH_CANDIDATES", "SUCCESS", { candidatos: candidatos.length });
 
+    logStep("MATCHING", "START");
     const usados = new Set<string>();
 
     const rows = parsed.entries.map((entry, index) => {
-      const resultado = matchEntry(entry, candidatos, usados);
+      // Um erro de comparação em um lançamento não pode derrubar os outros 93.
+      let resultado: ReturnType<typeof matchEntry>;
+      try {
+        resultado = matchEntry(entry, candidatos, usados);
+      } catch (e) {
+        logStep("MATCHING", "ERROR", { index, descricao: entry.descricao_original, e });
+        resultado = { match_status: "UNMATCHED" } as ReturnType<typeof matchEntry>;
+      }
       return {
         import_id: importacao.id,
         family_id: input.familyId,
@@ -1029,18 +1060,44 @@ export async function processStatementPdf(input: {
         ...resultado,
       };
     });
+    logStep("MATCHING", "SUCCESS", { itens: rows.length });
 
-
-    if (rows.length > 0) {
-      const { error: itemsError } = await supabase.from("card_statement_items").insert(rows);
-      if (itemsError) throw itemsError;
+    logStep("CREATE_ITEMS", "START", { itens: rows.length });
+    // Em blocos: se falhar, sabemos exatamente qual lançamento quebrou.
+    const bloco = 50;
+    for (let i = 0; i < rows.length; i += bloco) {
+      const parte = rows.slice(i, i + bloco);
+      const { error: itemsError } = await supabase.from("card_statement_items").insert(parte);
+      if (itemsError) {
+        // Isola o item problemático dentro do bloco para o relatório de DEV.
+        let culpado: (typeof parte)[number] | null = null;
+        for (const row of parte) {
+          const { error: unitError } = await supabase.from("card_statement_items").insert(row);
+          if (unitError) {
+            culpado = row;
+            break;
+          }
+        }
+        throw new PrepareStatementError("CREATE_ITEMS", itemsError, {
+          tabela: "card_statement_items",
+          itemIndex: culpado ? `${(culpado.ordem ?? 0) + 1}/${rows.length}` : `bloco ${i + 1}-${i + parte.length}`,
+          data: culpado?.data_lancamento ?? null,
+          descricao: culpado?.descricao_original ?? null,
+          valor: culpado?.valor ?? null,
+          tipo: culpado?.tipo_sugerido ?? null,
+          parcela: culpado ? `${culpado.parcela_atual ?? "-"}/${culpado.total_parcelas ?? "-"}` : null,
+          card_last4: culpado?.card_last4 ?? null,
+        });
+      }
     }
+    logStep("CREATE_ITEMS", "SUCCESS");
 
     await supabase
       .from("card_statement_imports")
       .update({ status: "READY_FOR_REVIEW" })
       .eq("id", importacao.id);
 
+    logStep("READY", "SUCCESS", { importId: importacao.id });
     return { ...importacao, status: "READY_FOR_REVIEW" as ImportStatus };
   } catch (e) {
     await supabase
@@ -1053,6 +1110,7 @@ export async function processStatementPdf(input: {
     throw e;
   }
 }
+
 
 // ------------------------------------------------------------------ confirmação
 
