@@ -426,7 +426,7 @@ export async function processStatementPdf(input: {
     const candidatos = await fetchMatchCandidates({
       familyId: input.familyId,
       cardId: input.card.id,
-      inicio: limites.length ? desloca(limites.slice().sort()[0], -10) : null,
+      inicio: limites.length ? desloca(limites.slice().sort()[0]!, -10) : null,
       fim: limites.length ? desloca(limites.slice().sort().at(-1)!, 10) : null,
     });
 
