@@ -50,6 +50,19 @@ export type ReconcileContext = {
 const diasEntre = (a: string, b: string) =>
   Math.abs(new Date(`${a}T00:00:00`).getTime() - new Date(`${b}T00:00:00`).getTime()) / 86_400_000;
 
+/**
+ * DATA É CRITÉRIO FORTE.
+ *
+ * Tolerância padrão de conciliação automática: a data contábil do extrato e a
+ * data do registro no sistema não podem estar a mais de 2 dias de distância.
+ * Semanas ou meses de diferença nunca podem virar MATCHED automático.
+ */
+export const TOLERANCIA_DIAS = 2;
+
+/** Distância aceitável para associar automaticamente (exige data no extrato). */
+const dentroDaJanela = (dataItem: string | null, dataRegistro: string, tol = TOLERANCIA_DIAS) =>
+  !!dataItem && diasEntre(dataRegistro, dataItem) <= tol;
+
 const parecido = (a: string, b: string) => {
   const x = semAcento(a).toUpperCase();
   const y = semAcento(b).toUpperCase();
@@ -58,6 +71,7 @@ const parecido = (a: string, b: string) => {
 };
 
 const perto = (a: number, b: number) => Math.abs(a - b) <= 0.02;
+
 
 /** Sugere o estado de conciliação e a ação de revisão de um lançamento. */
 export function reconcileMovement(
