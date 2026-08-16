@@ -637,6 +637,8 @@ export type CicloClassificado<T> = {
   oficial: boolean;
   valor: number;
   fonte: FonteValorCiclo;
+  /** Recorrências atribuídas a ESTE ciclo (vazio quando o valor é oficial). */
+  recorrencias: RecurringOccurrence[];
 };
 
 
@@ -644,36 +646,80 @@ type InvoiceBase = {
   id: string;
   credit_card_id: string;
   status: string;
+  data_inicio_ciclo?: string | null;
   data_fechamento: string;
   data_vencimento: string;
   valor_total: number | string;
+};
+
+/** Contexto opcional para projetar recorrências dentro do ciclo. */
+type ContextoRecorrencias = {
+  card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null;
+  recorrencias?: RecurringExpense[];
+  parcelas?: ExpenseInstallment[];
 };
 
 /**
  * REGRA ÚNICA do valor exibido de um ciclo:
  * - importação CONFIRMED do ciclo  => valor oficial da fatura (nunca substituído
  *   por soma de compras/parcelas/recorrências);
- * - ciclo em formação              => estimativa interna do ciclo;
- * - ciclos futuros                 => projeção (parcelas/recorrências previstas).
+ * - ciclo em formação              => estimativa interna + recorrências do ciclo;
+ * - ciclos futuros                 => projeção (parcelas + recorrências do ciclo).
+ *
+ * As recorrências entram pela DATA REAL da ocorrência, atribuída ao ciclo pela
+ * regra de fechamento do cartão — nunca pelo mês nominal.
  */
-export function getCycleDisplayValue(input: {
-  cardId: string;
-  invoice: { data_vencimento: string; data_fechamento: string; valor_total: number | string } | null;
-  imports: ImportacaoFatura[];
-  estado: EstadoCiclo;
-}): { valor: number; fonte: FonteValorCiclo; importId: string | null } {
+export function getCycleDisplayValue(
+  input: {
+    cardId: string;
+    invoice:
+      | {
+          id?: string;
+          data_inicio_ciclo?: string | null;
+          data_vencimento: string;
+          data_fechamento: string;
+          valor_total: number | string;
+        }
+      | null;
+    imports: ImportacaoFatura[];
+    estado: EstadoCiclo;
+  } & ContextoRecorrencias,
+): {
+  valor: number;
+  fonte: FonteValorCiclo;
+  importId: string | null;
+  recorrencias: RecurringOccurrence[];
+} {
   const oficial = importacaoOficialDoCiclo(input);
   if (oficial) {
     return {
       valor: Number(oficial.valor_total_fatura) || 0,
       fonte: "OFFICIAL_STATEMENT",
       importId: oficial.id,
+      recorrencias: [],
     };
   }
+  const ocorrencias =
+    input.card && input.invoice
+      ? recorrenciasDoCiclo({
+          card: input.card,
+          invoice: {
+            id: input.invoice.id ?? "",
+            data_inicio_ciclo: input.invoice.data_inicio_ciclo ?? null,
+            data_fechamento: input.invoice.data_fechamento,
+            data_vencimento: input.invoice.data_vencimento,
+          },
+          recorrencias: input.recorrencias ?? [],
+          parcelas: input.parcelas ?? [],
+        })
+      : [];
+  const base = Number(input.invoice?.valor_total ?? 0) || 0;
+  const recorrente = ocorrencias.reduce((acc, o) => acc + o.valor, 0);
   return {
-    valor: Number(input.invoice?.valor_total ?? 0) || 0,
+    valor: Math.round((base + recorrente) * 100) / 100,
     fonte: input.estado === "PROJETADA" ? "PROJECTED" : "ESTIMATED",
     importId: null,
+    recorrencias: ocorrencias,
   };
 }
 
