@@ -4,13 +4,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { PageHeader, Card, Field, inputClass, PrimaryButton } from "@/components/page-header";
 import { useAuth } from "@/hooks/useAuth";
-import { useFamily, useProfile } from "@/hooks/useFamilyData";
+import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { useFinancialSettings } from "@/hooks/useFinancialEngine";
 import { DEFAULT_SETTINGS, saveFinancialSettings } from "@/lib/financial-engine";
 import { useDeleteDemoData, useDemoMode } from "@/hooks/useDemoMode";
 import { DEMO_DELETE_CONFIRMATION } from "@/lib/demo";
 import { supabase } from "@/integrations/supabase/client";
 import { DocumentLibraryCard } from "@/components/document-library";
+import { FamilyAdmin } from "@/components/family-admin";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -24,6 +25,9 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: Configuracoes,
 });
 
+const SECOES = ["Família e membros", "Estrutura financeira", "Sistema"] as const;
+type Secao = (typeof SECOES)[number];
+
 function Configuracoes() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -32,6 +36,8 @@ function Configuracoes() {
 
   const { data: family } = useFamily();
   const { data: settings } = useFinancialSettings(family?.id);
+  const { data: members } = useMembers(family?.id);
+  const [secao, setSecao] = useState<Secao>("Família e membros");
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
