@@ -272,6 +272,9 @@ export function CardStatementImports({
   const { data, isLoading } = useStatementImports(familyId, cardId);
   const [filtro, setFiltro] = useState<Filtro>("todos");
   const [paraExcluir, setParaExcluir] = useState<StatementImport | null>(null);
+  const [paraDesfazer, setParaDesfazer] = useState<StatementImport | null>(null);
+  const [menuAberto, setMenuAberto] = useState<string | null>(null);
+
 
   const todas = data ?? [];
   const lista = todas.filter((imp) => combina(filtro, imp.status));
