@@ -25,6 +25,7 @@ import { Route as AuthenticatedPerfilFinanceiroRouteImport } from './routes/_aut
 import { Route as AuthenticatedPlanejamentoRouteImport } from './routes/_authenticated/planejamento'
 import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticated/receitas'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedBancosAccountIdRouteImport } from './routes/_authenticated/bancos.$accountId'
 import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes.$cardId'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 
@@ -112,6 +113,12 @@ const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBancosAccountIdRoute =
+  AuthenticatedBancosAccountIdRouteImport.update({
+    id: '/$accountId',
+    path: '/$accountId',
+    getParentRoute: () => AuthenticatedBancosRoute,
+  } as any)
 const AuthenticatedCartoesCardIdRoute =
   AuthenticatedCartoesCardIdRouteImport.update({
     id: '/$cardId',
@@ -129,7 +136,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/bancos': typeof AuthenticatedBancosRoute
+  '/bancos': typeof AuthenticatedBancosRouteWithChildren
   '/cartoes': typeof AuthenticatedCartoesRouteWithChildren
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -141,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
 }
@@ -148,7 +156,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/bancos': typeof AuthenticatedBancosRoute
+  '/bancos': typeof AuthenticatedBancosRouteWithChildren
   '/cartoes': typeof AuthenticatedCartoesRouteWithChildren
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -160,6 +168,7 @@ export interface FileRoutesByTo {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
 }
@@ -169,7 +178,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/_authenticated/bancos': typeof AuthenticatedBancosRoute
+  '/_authenticated/bancos': typeof AuthenticatedBancosRouteWithChildren
   '/_authenticated/cartoes': typeof AuthenticatedCartoesRouteWithChildren
   '/_authenticated/compras': typeof AuthenticatedComprasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
@@ -181,6 +190,7 @@ export interface FileRoutesById {
   '/_authenticated/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
   '/_authenticated/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
 }
@@ -202,6 +212,7 @@ export interface FileRouteTypes {
     | '/planejamento'
     | '/receitas'
     | '/relatorios'
+    | '/bancos/$accountId'
     | '/cartoes/$cardId'
     | '/membro/$memberId'
   fileRoutesByTo: FileRoutesByTo
@@ -221,6 +232,7 @@ export interface FileRouteTypes {
     | '/planejamento'
     | '/receitas'
     | '/relatorios'
+    | '/bancos/$accountId'
     | '/cartoes/$cardId'
     | '/membro/$memberId'
   id:
@@ -241,6 +253,7 @@ export interface FileRouteTypes {
     | '/_authenticated/planejamento'
     | '/_authenticated/receitas'
     | '/_authenticated/relatorios'
+    | '/_authenticated/bancos/$accountId'
     | '/_authenticated/cartoes/$cardId'
     | '/_authenticated/membro/$memberId'
   fileRoutesById: FileRoutesById
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos/$accountId': {
+      id: '/_authenticated/bancos/$accountId'
+      path: '/$accountId'
+      fullPath: '/bancos/$accountId'
+      preLoaderRoute: typeof AuthenticatedBancosAccountIdRouteImport
+      parentRoute: typeof AuthenticatedBancosRoute
+    }
     '/_authenticated/cartoes/$cardId': {
       id: '/_authenticated/cartoes/$cardId'
       path: '/$cardId'
@@ -383,6 +403,17 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedBancosRouteChildren {
+  AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRoute
+}
+
+const AuthenticatedBancosRouteChildren: AuthenticatedBancosRouteChildren = {
+  AuthenticatedBancosAccountIdRoute: AuthenticatedBancosAccountIdRoute,
+}
+
+const AuthenticatedBancosRouteWithChildren =
+  AuthenticatedBancosRoute._addFileChildren(AuthenticatedBancosRouteChildren)
+
 interface AuthenticatedCartoesRouteChildren {
   AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
 }
@@ -395,7 +426,7 @@ const AuthenticatedCartoesRouteWithChildren =
   AuthenticatedCartoesRoute._addFileChildren(AuthenticatedCartoesRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedBancosRoute: typeof AuthenticatedBancosRoute
+  AuthenticatedBancosRoute: typeof AuthenticatedBancosRouteWithChildren
   AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRouteWithChildren
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
@@ -411,7 +442,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedBancosRoute: AuthenticatedBancosRoute,
+  AuthenticatedBancosRoute: AuthenticatedBancosRouteWithChildren,
   AuthenticatedCartoesRoute: AuthenticatedCartoesRouteWithChildren,
   AuthenticatedComprasRoute: AuthenticatedComprasRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
