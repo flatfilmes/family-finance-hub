@@ -11,7 +11,7 @@ import {
   Sparkles,
   CreditCard,
   ShoppingBasket,
-  ShoppingCart,
+  Landmark,
   Target,
   BarChart3,
 } from "lucide-react";
@@ -24,7 +24,7 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/minha-familia", label: "Minha Família", icon: Users },
   { to: "/compras", label: "Compras", icon: ShoppingBasket },
-  { to: "/despesas", label: "Despesas", icon: ShoppingCart },
+  { to: "/bancos", label: "Bancos", icon: Landmark },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
   { to: "/planejamento", label: "Planejamento", icon: Target },
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },

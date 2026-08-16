@@ -34,8 +34,8 @@ const LINKS = [
     desc: "Todas as entradas por pessoa, tipo e período.",
   },
   {
-    to: "/contas-bancarias",
-    title: "Contas bancárias",
+    to: "/bancos",
+    title: "Bancos da família",
     desc: "Saldos por titular, agrupados por pessoa.",
   },
   {
