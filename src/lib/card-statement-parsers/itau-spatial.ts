@@ -135,6 +135,8 @@ type ColumnState = {
   section: Secao;
   cardLast4: string | null;
   jaViuLancamentos: boolean;
+  /** "Repasse de IOF em R$" lido sem valor na mesma linha: aguarda o valor. */
+  iofPendente: boolean;
 };
 
 const SUBTOTAL_RE = /lan[çc]amentos no cart[ãa]o\s*\(?\s*final\s*(\d{4})\)?/i;
@@ -228,8 +230,8 @@ export function parseItauSpatial(
 
   // ---------------------------------------------------------------- por coluna
   const estados: Record<SpatialColumn, ColumnState> = {
-    LEFT: { column: "LEFT", section: "IGNORADA", cardLast4: finalPrincipal, jaViuLancamentos: false },
-    RIGHT: { column: "RIGHT", section: "IGNORADA", cardLast4: null, jaViuLancamentos: false },
+    LEFT: { column: "LEFT", section: "IGNORADA", cardLast4: finalPrincipal, jaViuLancamentos: false, iofPendente: false },
+    RIGHT: { column: "RIGHT", section: "IGNORADA", cardLast4: null, jaViuLancamentos: false, iofPendente: false },
   };
 
   const consumidas = new Set<SpatialRow>();
@@ -270,6 +272,39 @@ export function parseItauSpatial(
         rejeitar("section_header");
         continue;
       }
+
+      // 1b. IOF real dos lançamentos internacionais (cobrança da fatura atual)
+      const ultimoInternacional = () => {
+        for (let i = entries.length - 1; i >= 0; i -= 1) {
+          const e = entries[i]!;
+          if (e.tipo_sugerido === "COMPRA") return e.estabelecimento_sugerido ?? e.descricao_normalizada;
+        }
+        return null;
+      };
+      const valorDaLinha = () =>
+        (valorItem ? lerValorFinal(valorItem.text.trim()) : null)?.valor ??
+        lerValorFinal(texto)?.valor ??
+        null;
+      if (ehRepasseIof(texto)) {
+        const valor = valorDaLinha();
+        if (valor !== null) {
+          entries.push(montarIof(valor, estado.cardLast4, ultimoInternacional()));
+          estado.iofPendente = false;
+        } else {
+          estado.iofPendente = true;
+        }
+        continue;
+      }
+      if (estado.iofPendente && !dataItem) {
+        const valor = valorDaLinha();
+        const semTexto = !plano(texto).replace(/[\d.,r$\s-]/g, "");
+        if (valor !== null && semTexto) {
+          entries.push(montarIof(valor, estado.cardLast4, ultimoInternacional()));
+          estado.iofPendente = false;
+          continue;
+        }
+      }
+      if (estado.iofPendente && (dataItem || secaoDaLinha(texto))) estado.iofPendente = false;
 
       // 2. subtotal do bloco ("Lançamentos no cartão (final XXXX)")
       const sub = texto.match(SUBTOTAL_RE);
