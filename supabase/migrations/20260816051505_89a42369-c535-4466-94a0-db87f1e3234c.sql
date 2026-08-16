@@ -1,0 +1,1 @@
+DELETE FROM public.card_statement_items WHERE import_id IN (SELECT id FROM public.card_statement_imports WHERE status = 'CANCELLED');
