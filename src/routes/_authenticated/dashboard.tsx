@@ -963,7 +963,7 @@ function Bloco({ label, value }: { label: string; value: string }) {
  * O snapshot nunca é recalculado automaticamente: alterações em registros
  * antigos não modificam o retrato histórico já preservado.
  */
-function FechamentoMensal({ familyId, isAdmin }: { familyId?: string; isAdmin: boolean }) {
+function FechamentoMensal({ familyId, isAdmin }: { familyId?: string | undefined; isAdmin: boolean }) {
   const snapshots = useMonthlySnapshots(familyId);
   const atual = competenciaFromMonth(currentMonth());
   const anterior = competenciaFromMonth(previousMonth(currentMonth()));
