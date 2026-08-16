@@ -142,6 +142,62 @@ export type Database = {
           },
         ]
       }
+      bank_import_reset_logs: {
+        Row: {
+          bank_account_id: string
+          checkpoints_removed: number
+          created_at: string
+          executed_at: string
+          executed_by: string | null
+          family_id: string
+          id: string
+          imports_removed: number
+          items_removed: number
+          links_removed: number
+          preserved_transactions: number
+          snapshot: Json | null
+          transactions_removed: number
+        }
+        Insert: {
+          bank_account_id: string
+          checkpoints_removed?: number
+          created_at?: string
+          executed_at?: string
+          executed_by?: string | null
+          family_id: string
+          id?: string
+          imports_removed?: number
+          items_removed?: number
+          links_removed?: number
+          preserved_transactions?: number
+          snapshot?: Json | null
+          transactions_removed?: number
+        }
+        Update: {
+          bank_account_id?: string
+          checkpoints_removed?: number
+          created_at?: string
+          executed_at?: string
+          executed_by?: string | null
+          family_id?: string
+          id?: string
+          imports_removed?: number
+          items_removed?: number
+          links_removed?: number
+          preserved_transactions?: number
+          snapshot?: Json | null
+          transactions_removed?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_import_reset_logs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_imports: {
         Row: {
           bank_account_id: string
@@ -2749,6 +2805,7 @@ export type Database = {
         Args: { _ativo: boolean; _card_id: string }
         Returns: undefined
       }
+      bank_import_reset_scope: { Args: { _account_id: string }; Returns: Json }
       can_manage_member_record: {
         Args: { _family_id: string; _member_id: string; _user_id: string }
         Returns: boolean
@@ -2781,6 +2838,10 @@ export type Database = {
       }
       find_purchase_duplicate: {
         Args: { p_purchase_id: string }
+        Returns: Json
+      }
+      inspect_bank_import_reset: {
+        Args: { _account_id: string }
         Returns: Json
       }
       inspect_card_statement_import_undo: {
@@ -2869,6 +2930,10 @@ export type Database = {
       }
       reprocess_bank_statement_import: {
         Args: { _import_id: string; _tolerancia?: number }
+        Returns: Json
+      }
+      reset_bank_account_imports: {
+        Args: { _account_id: string }
         Returns: Json
       }
       reset_family_completely: {

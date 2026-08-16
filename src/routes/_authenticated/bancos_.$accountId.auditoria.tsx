@@ -17,6 +17,7 @@ import { ReprocessCheckpointsDialog } from "@/components/bank/reprocess-checkpoi
 import { RepairHistoryDialog } from "@/components/bank/repair-history-dialog";
 import { RepairPostingDatesDialog } from "@/components/bank/repair-posting-dates-dialog";
 import { CheckpointsOnlyButton } from "@/components/bank/checkpoints-only-button";
+import { ImportResetDialog } from "@/components/bank/import-reset-dialog";
 import {
   auditToCsv,
   buildBankAudit,
@@ -145,6 +146,7 @@ function AuditoriaContaPage() {
             <RepairPostingDatesDialog accountId={accountId} />
             <CheckpointsOnlyButton accountId={accountId} />
             <ReprocessCheckpointsDialog accountId={accountId} familyId={family.id} />
+            <ImportResetDialog accountId={accountId} />
             <button
               onClick={exportarCsv}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
