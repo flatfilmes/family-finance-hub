@@ -401,7 +401,7 @@ export function buildBankAudit(input: {
     /** Evidência do documento relido: saldos do dia encontrados no PDF. */
     dados_brutos_json?: unknown;
   }[];
-  checkpoints: { data: string; saldo: number }[];
+  checkpoints: { data: string; saldo: number; importId?: string | null }[];
   /** Lançamentos lidos dos PDFs — evidência do documento. */
   statementItems?: StatementItemInput[];
   /** Compras vinculadas, para saber o que está sem categoria. */
