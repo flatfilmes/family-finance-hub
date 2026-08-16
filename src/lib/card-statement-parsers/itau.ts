@@ -562,7 +562,13 @@ export function parseItauLayout(pages: PdfPageLayout[]): ParsedStatement {
   );
   const missingBounds = transactionPages.filter((page) => {
     const hasRepeatedHeader = page.items.filter((item) => /^DATA\b/.test(plano(item.text).toUpperCase())).length >= 2;
-    return hasRepeatedHeader && !detectPdfColumnBounds(page.items, page.width);
+    const bounds = detectPdfColumnBounds(page.items, page.width);
+    const hasMergedSpatialRow = layoutPageLines(page.items, page.width, page.page).some(
+      (line) =>
+        line.column === "UNICA" &&
+        (line.text.match(/\b\d{2}\/\d{2}\b/g)?.length ?? 0) > 1,
+    );
+    return !bounds && (hasRepeatedHeader || hasMergedSpatialRow);
   });
   if (missingBounds.length > 0) {
     return {
