@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { FormDialog } from "@/components/form-dialog";
+import { FormActions, FormDialog } from "@/components/form-dialog";
 import { Field, inputClass } from "@/components/page-header";
 import { useTransfer } from "@/hooks/useTransactions";
 import { formatCurrency } from "@/lib/finance";
@@ -46,10 +46,22 @@ export function TransferDialog({
   }
 
   function submit() {
-    if (!origem || !destino) return toast.error("Escolha a conta de origem e a de destino.");
-    if (origem === destino) return toast.error("As contas de origem e destino devem ser diferentes.");
-    if (valorNum <= 0) return toast.error("Informe um valor maior que zero.");
-    if (saldoInsuficiente) return toast.error("Saldo insuficiente na conta de origem.");
+    if (!origem || !destino) {
+      toast.error("Escolha a conta de origem e a de destino.");
+      return;
+    }
+    if (origem === destino) {
+      toast.error("As contas de origem e destino devem ser diferentes.");
+      return;
+    }
+    if (valorNum <= 0) {
+      toast.error("Informe um valor maior que zero.");
+      return;
+    }
+    if (saldoInsuficiente) {
+      toast.error("Saldo insuficiente na conta de origem.");
+      return;
+    }
 
     transfer.mutate(
       {
@@ -79,10 +91,14 @@ export function TransferDialog({
       }}
       title="Transferir entre contas"
       description="O dinheiro muda de conta, mas o saldo total da família continua o mesmo."
-      onSubmit={submit}
-      submitLabel="Transferir"
-      isPending={transfer.isPending}
     >
+      <form
+        className="grid gap-4"
+        onSubmit={(ev) => {
+          ev.preventDefault();
+          submit();
+        }}
+      >
       <Field label="De (origem)">
         <select className={inputClass} value={origem} onChange={(e) => setOrigem(e.target.value)}>
           <option value="">Selecione</option>
@@ -135,6 +151,15 @@ export function TransferDialog({
           placeholder="Reserva, pagamento de conta..."
         />
       </Field>
+      <FormActions
+        onCancel={() => {
+          reset();
+          onOpenChange(false);
+        }}
+        saving={transfer.isPending}
+        saveLabel="Transferir"
+      />
+      </form>
     </FormDialog>
   );
 }
