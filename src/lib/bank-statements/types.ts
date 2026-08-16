@@ -58,6 +58,20 @@ export const REVIEW_ACTIONS = Object.keys(REVIEW_ACTION_LABELS) as ReviewAction[
 export const ACOES_SEM_EFEITO: ReviewAction[] = ["IGNORE", "ASSOCIATE_EXISTING"];
 
 
+/**
+ * Natureza semântica declarada pelo próprio extrato (quando o banco informa).
+ * Não substitui `tipo`: apenas qualifica o lançamento para a conciliação.
+ */
+export type StatementSemanticKind =
+  | "PIX"
+  | "TRANSFER"
+  | "CARD_PAYMENT"
+  | "INVESTMENT_INCOME"
+  | "INVESTMENT"
+  | "FEE"
+  | "REFUND"
+  | "OTHER";
+
 /** Lançamento lido de um extrato, ainda sem nenhuma persistência. */
 export type ParsedBankMovement = {
   data: string | null;
@@ -66,6 +80,8 @@ export type ParsedBankMovement = {
   /** Sinal preservado: positivo entra na conta, negativo sai. */
   valor: number;
   tipo: BankMovementKind;
+  /** Classificação semântica do banco (pagamento de fatura, rendimento, PIX...). */
+  semantica?: StatementSemanticKind;
 };
 
 /** Saldo impresso pelo banco em um dia — conferência, nunca movimentação. */
@@ -85,6 +101,11 @@ export type ParsedBankStatement = {
   movimentos: ParsedBankMovement[];
   /** Saldos diários impressos no documento ("Saldo do dia", "S A L D O"). */
   checkpoints?: ParsedBalanceCheckpoint[];
+  /**
+   * Saldo informado fora do período (ex.: "saldo do dia" atual impresso no topo
+   * de um extrato histórico). Referência do documento, nunca checkpoint.
+   */
+  saldoReferenciaAtual?: { data: string; saldo: number } | null;
   /** Lançamentos futuros (previstos): nunca entram no período realizado. */
   futuros?: ParsedBankMovement[];
 
