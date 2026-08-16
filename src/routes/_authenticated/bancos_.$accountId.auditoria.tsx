@@ -657,10 +657,12 @@ function MesCard({
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="text-sm font-semibold">{formatDate(d.date)}</span>
-                    {d.confere !== null && (
+                    {d.confere !== null ? (
                       <StatusBadge tone={d.confere ? "ok" : "danger"}>
                         {d.confere ? "Confere" : "Diferença"}
                       </StatusBadge>
+                    ) : (
+                      <StatusBadge tone="muted">Sem "Saldo do dia" no PDF</StatusBadge>
                     )}
                   </div>
                   <div className="mt-1 grid gap-1 text-xs text-muted-foreground sm:grid-cols-5">
