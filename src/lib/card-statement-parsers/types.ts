@@ -28,6 +28,10 @@ export type StatementEntry = {
   parcela_atual: number | null;
   total_parcelas: number | null;
   tipo_sugerido: StatementItemKind;
+  /** Final do cartão (4 dígitos) ao qual o lançamento pertence, quando a fatura informa. */
+  card_last4?: string | null;
+  /** Categoria impressa pelo próprio banco na fatura (apenas sugestão). */
+  categoria_banco?: string | null;
 };
 
 export type StatementHeader = {
@@ -41,10 +45,33 @@ export type StatementHeader = {
   valor_total_fatura: number | null;
 };
 
+/** Informações da fatura que NUNCA viram lançamento (limites, projeções, totais). */
+export type StatementMetadata = {
+  data_emissao?: string | null;
+  total_fatura_anterior?: number | null;
+  pagamento_anterior?: number | null;
+  lancamentos_atuais?: number | null;
+  limite_credito?: number | null;
+  limite_disponivel?: number | null;
+  limite_utilizado?: number | null;
+  next_invoice_amount?: number | null;
+  future_invoices_amount?: number | null;
+  future_commitments_total?: number | null;
+};
+
+/** Subtotal impresso pelo banco por cartão (usado só para validação). */
+export type StatementCardSubtotal = { card_last4: string; valor: number };
+
 export type ParsedStatement = StatementHeader & {
   parser: string;
   entries: StatementEntry[];
   linhas: string[];
+  /** Metadados da fatura (limites, projeções, totais auxiliares). */
+  metadata?: StatementMetadata;
+  /** Subtotais por cartão declarados na fatura. */
+  subtotais?: StatementCardSubtotal[];
+  /** Parcelas de próximas faturas — informativas, fora do ciclo atual. */
+  futuras?: StatementEntry[];
 };
 
 export type StatementParser = {
