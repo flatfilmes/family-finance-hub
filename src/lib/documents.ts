@@ -4,6 +4,7 @@ import { createPurchase, itemTotal, type NewPurchaseItem, type PurchaseInsert } 
 import type { ExpenseRecurrence } from "@/lib/recurring-expenses";
 import type { CreditCard } from "@/lib/finance";
 import { readNotaFiscalPdf } from "@/lib/pdf-extract";
+import { detectDocumentType, fetchDocumentTypeByCode } from "@/lib/document-types";
 
 export type FinancialDocument = Database["public"]["Tables"]["documents"]["Row"];
 export type FinancialDocumentInsert = Database["public"]["Tables"]["documents"]["Insert"];
@@ -340,6 +341,17 @@ export async function processDocumentPdf(input: {
 
     const lido = await readNotaFiscalPdf(arquivo);
 
+    // Biblioteca de tipos: identifica o formato e registra a confiança.
+    // Não interfere no parser DANFE já validado — apenas classifica.
+    const deteccao = detectDocumentType(lido.linhas);
+    let tipoId: string | null = null;
+    try {
+      const tipo = await fetchDocumentTypeByCode(deteccao.codigo);
+      tipoId = tipo?.id ?? null;
+    } catch (err) {
+      console.warn("Não foi possível carregar o tipo de documento", err);
+    }
+
     // Uma extração por documento: substitui a leitura anterior.
     await supabase.from("document_extractions").delete().eq("document_id", doc.id);
 
@@ -358,6 +370,7 @@ export async function processDocumentPdf(input: {
           arquivo: doc.nome_arquivo,
           confianca: lido.confianca,
           pagamento_descricao: lido.pagamento_descricao,
+          tipo_documento_detectado: deteccao,
           // Cópia dos produtos lidos: garante que a revisão sempre tenha o que mostrar,
           // mesmo se a gravação dos itens falhar depois.
           items: lido.items,
@@ -400,8 +413,15 @@ export async function processDocumentPdf(input: {
       }
     }
 
-    await supabase.from("documents").update({ status: "PROCESSADO" }).eq("id", doc.id);
-    return { extraction, items: itensGravados, lidos: lido.items };
+    await supabase
+      .from("documents")
+      .update({
+        status: "PROCESSADO",
+        document_type_id: tipoId,
+        document_type_confidence: deteccao.confianca,
+      })
+      .eq("id", doc.id);
+    return { extraction, items: itensGravados, lidos: lido.items, deteccao };
 
   } catch (e) {
     await supabase.from("documents").update({ status: "ERRO" }).eq("id", doc.id);
