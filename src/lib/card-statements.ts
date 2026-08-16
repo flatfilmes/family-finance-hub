@@ -511,6 +511,69 @@ export async function cancelStatementImport(id: string) {
   if (error) throw error;
 }
 
+/** Faturas confirmadas geraram efeito real: não podem ser apagadas direto. */
+export function podeExcluirImportacao(status: ImportStatus) {
+  return status !== "CONFIRMED";
+}
+
+/**
+ * Exclusão manual de uma fatura importada.
+ * Remove apenas dados temporários da importação (lançamentos lidos do PDF,
+ * conciliações registradas e a própria importação). Nunca toca em compras,
+ * parcelas, recorrências ou faturas reais do sistema.
+ */
+export async function deleteStatementImport(id: string) {
+  const { data: importacao, error: readError } = await supabase
+    .from("card_statement_imports")
+    .select("id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError) throw readError;
+  if (!importacao) throw new Error("Fatura importada não encontrada.");
+  if (!podeExcluirImportacao(importacao.status)) {
+    throw new Error(
+      "Esta fatura já foi confirmada e teve efeito no sistema. Desfaça/cancele a revisão antes de excluir.",
+    );
+  }
+
+  const { data: itens, error: itensError } = await supabase
+    .from("card_statement_items")
+    .select("id, purchase_id_criada")
+    .eq("import_id", id);
+  if (itensError) throw itensError;
+
+  const criadas = (itens ?? []).filter((i) => i.purchase_id_criada);
+  if (criadas.length > 0) {
+    throw new Error(
+      "Esta importação já criou compras no sistema. Exclua ou ajuste essas compras antes de remover a fatura.",
+    );
+  }
+
+  const ids = (itens ?? []).map((i) => i.id);
+  if (ids.length > 0) {
+    // Conciliações apontam para o lançamento temporário: saem junto com ele.
+    const { error: recError } = await supabase
+      .from("reconciliations")
+      .delete()
+      .eq("source_type", "card_statement_item")
+      .in("source_id", ids);
+    if (recError) throw recError;
+
+    const { error: delItens } = await supabase
+      .from("card_statement_items")
+      .delete()
+      .eq("import_id", id);
+    if (delItens) throw delItens;
+  }
+
+  const { error: delImport } = await supabase
+    .from("card_statement_imports")
+    .delete()
+    .eq("id", id);
+  if (delImport) throw delImport;
+}
+
+
 /**
  * Lê o PDF, cria a importação temporária e grava os lançamentos já comparados
  * com o que existe no sistema. Nenhum dado financeiro é criado aqui.
