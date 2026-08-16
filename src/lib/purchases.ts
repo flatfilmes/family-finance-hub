@@ -338,6 +338,7 @@ export async function createPurchase(input: {
 
   const parcelas =
     purchase.tipo_compra === "COMPRA_PARCELADA" ? Math.max(1, input.parcelas || 1) : 1;
+  const parcelaInicial = Math.min(Math.max(1, input.parcelaInicial || 1), parcelas);
 
   // Cartão de crédito: nada sai da conta; vira compromisso na fatura.
   if (purchase.forma_pagamento === "CREDITO" && purchase.credit_card_id) {
@@ -357,7 +358,7 @@ export async function createPurchase(input: {
           tipo_compra: parcelas > 1 ? "PARCELADO" : "CARTAO_CREDITO",
           cartao_id: card.id,
           parcelas_total: parcelas,
-          parcela_atual: 1,
+          parcela_atual: parcelaInicial,
         })
         .select()
         .single();
@@ -370,11 +371,14 @@ export async function createPurchase(input: {
         dataCompra: purchase.data_compra,
         valorTotal,
         parcelas,
+        parcelaInicial,
+        ...(input.valorParcela != null ? { valorParcela: input.valorParcela } : {}),
         memberId: purchase.member_id,
         purchaseId: purchase.id,
       });
     }
   }
+
 
   // Compra ou conta recorrente: gera o compromisso mensal (não é parcela).
   if (isRecorrente(purchase.tipo_compra)) {
