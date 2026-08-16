@@ -291,3 +291,80 @@ describe("Banco do Brasil — período oficial do cabeçalho", () => {
     expect(Number((r.saldoInicial! + soma).toFixed(2))).toBe(-16.09);
   });
 });
+
+/**
+ * REGRESSÃO DA DATA CONTÁBIL (coluna "Dia") COM GEOMETRIA REAL.
+ *
+ * No PDF real a data contábil fica sozinha numa célula à esquerda (coluna
+ * "Dia") e o histórico traz outra data ("Pix - Enviado 04/01 12:48"), que é
+ * data do evento. A data contábil vale até aparecer a próxima célula da
+ * coluna "Dia" — inclusive na virada de página — e é ela que data o
+ * "Saldo do dia".
+ */
+const espacial = (
+  linhas: Array<{ y: number; page?: number; cells: Array<[number, string]> }>,
+): PdfLine[] =>
+  linhas.map(({ y, page, cells }) => ({
+    y,
+    page: page ?? 1,
+    cells: cells.map(([x, text]) => ({ x, text, y, width: text.length * 5 })),
+    text: cells.map(([, text]) => text).join(" "),
+  })) as PdfLine[];
+
+const JANEIRO_ESPACIAL = espacial([
+  { y: 800, cells: [[60, "Extrato de Conta Corrente"]] },
+  { y: 790, cells: [[60, "Período: 01 a 31/01/2026"]] },
+  { y: 780, cells: [[60, "Lançamentos"]] },
+  { y: 770, cells: [[60, "29/12/2025"], [265, "Saldo Anterior"], [520, "4.115,02 (+)"]] },
+  { y: 750, cells: [[60, "05/01/2026"], [150, "13105"], [190, "10501"]] },
+  { y: 740, cells: [[265, "Pix - Enviado 04/01 12:48 EDUARDO GARCIA"], [520, "500,00 (-)"]] },
+  { y: 730, cells: [[265, "Saldo do dia"], [520, "3.546,56 (+)"]] },
+  { y: 700, cells: [[60, "14/01/2026"], [150, "13105"]] },
+  { y: 690, cells: [[265, "Pagto cartão crédito"], [520, "4,32 (-)"]] },
+  { y: 680, cells: [[265, "Saldo do dia"], [520, "3.790,49 (+)"]] },
+  { y: 200, page: 1, cells: [[60, "19/01/2026"], [150, "13105"]] },
+  { y: 60, page: 2, cells: [[265, "Pix - Enviado 17/01 09:10 MARIA"], [520, "100,00 (-)"]] },
+  { y: 50, page: 2, cells: [[265, "Saldo do dia"], [520, "1.360,30 (+)"]] },
+]);
+
+describe("Banco do Brasil — data contábil da coluna Dia", () => {
+  const r = parseBancoDoBrasilLines(JANEIRO_ESPACIAL);
+
+  it("propaga a data da coluna Dia para todas as movimentações", () => {
+    expect(r.movimentos).toHaveLength(3);
+    expect(r.movimentos.every((m) => m.data !== null)).toBe(true);
+    expect(r.movimentos.map((m) => m.data)).toEqual([
+      "2026-01-05",
+      "2026-01-14",
+      "2026-01-19",
+    ]);
+  });
+
+  it("não usa a data do histórico como data contábil", () => {
+    const pix = r.movimentos[0]!;
+    expect(pix.data).toBe("2026-01-05");
+    expect(pix.eventDate).toBe("2026-01-04");
+    const cartao = r.movimentos.find((m) => /cart/i.test(m.descricaoOriginal));
+    expect(cartao?.data).toBe("2026-01-14");
+  });
+
+  it("mantém a data contábil na virada de página", () => {
+    const continuacao = r.movimentos[2]!;
+    expect(continuacao.data).toBe("2026-01-19");
+    expect(continuacao.eventDate).toBe("2026-01-17");
+  });
+
+  it("data os saldos do dia pela coluna Dia corrente", () => {
+    expect(r.checkpoints?.map((c) => [c.data, c.saldo])).toEqual([
+      ["2026-01-05", 3546.56],
+      ["2026-01-14", 3790.49],
+      ["2026-01-19", 1360.3],
+    ]);
+  });
+
+  it("guarda o Saldo Anterior com data própria, sem virar checkpoint", () => {
+    expect(r.saldoInicial).toBe(4115.02);
+    expect(r.saldoInicialData).toBe("2025-12-29");
+    expect(r.checkpoints?.some((c) => c.data === "2025-12-29")).toBe(false);
+  });
+});

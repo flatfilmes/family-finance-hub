@@ -235,6 +235,8 @@ function recuperarHistoricos(
 
 /** Linha que contém SOMENTE uma data — é a célula da coluna "Dia". */
 const SO_DATA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?$/;
+/** Linha de coluna "Dia": data seguida apenas de códigos numéricos do banco. */
+const LINHA_DE_DATA = /^\d{2}\/\d{2}(?:\/\d{2,4})?[\s\d.\-]*$/;
 
 function isoDaCelula(texto: string, anoBase: number): string | null {
   const m = texto.replace(/\s+/g, "").match(SO_DATA);
@@ -243,6 +245,33 @@ function isoDaCelula(texto: string, anoBase: number): string | null {
   const iso = `${ano}-${m[2]}-${m[1]}`;
   return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
 }
+
+/**
+ * DATA CONTÁBIL impressa na coluna "Dia" (à esquerda da coluna Histórico).
+ *
+ * Só consideramos a data quando ela está geometricamente na coluna "Dia".
+ * Datas escritas dentro do Histórico ("Pix - Enviado 04/01 12:48") são data do
+ * evento e nunca viram data contábil.
+ */
+function dataDaColunaDia(linha: PdfLine, anoBase: number): string | null {
+  const candidatos = linha.cells.length
+    ? linha.cells.filter((c) => c.x < HISTORICO_X_MIN).map((c) => c.text)
+    : LINHA_DE_DATA.test(linha.text.replace(/\s+/g, " ").trim())
+      ? [linha.text]
+      : [];
+  for (const texto of candidatos) {
+    const m = texto
+      .replace(/\s+/g, " ")
+      .trim()
+      .match(/^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/);
+    if (!m) continue;
+    const ano = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : String(anoBase);
+    const iso = `${ano}-${m[2]}-${m[1]}`;
+    if (/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso)) return iso;
+  }
+  return null;
+}
+
 
 /**
  * DATA CONTÁBIL = coluna "Dia" do extrato (posting date).
@@ -344,6 +373,18 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
 
     secao = detectarSecao(raw, secao);
 
+    // ESTADO TEMPORAL: toda linha que traz data na coluna "Dia" atualiza a data
+    // contábil corrente — mesmo quando ela não tem valor e é descartada. A data
+    // vale para os lançamentos seguintes até aparecer outra data da coluna Dia
+    // (inclusive na virada de página).
+    const dataLead = DATA_INICIAL.test(raw) ? lerData(raw, anoBase) : null;
+    const dataGeometrica = dataDaColunaDia(linha, anoBase);
+    // Sem geometria (texto puro), a data no início da linha é a coluna "Dia".
+    // Com geometria, só vale se estiver mesmo à esquerda da coluna Histórico.
+    const leadEhColunaDia = !!dataLead && (linha.cells.length ? dataLead.data === dataGeometrica : true);
+    const dataColuna = dataGeometrica ?? (leadEhColunaDia ? dataLead!.data : null);
+    if (dataColuna) ultimaData = dataColuna;
+
     // Valor + sinal podem estar na mesma linha ou o sinal na linha seguinte.
     let alvo = raw;
     const proxima = linhas[i + 1]?.text.trim() ?? "";
@@ -355,19 +396,20 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
         raw,
         valor: null,
         page: linha.page ?? null,
-        reason: secao === "METADATA" ? "área informativa / comercial" : "sem valor com sinal",
+        reason: dataColuna
+          ? `célula da coluna "Dia" — data contábil ${dataColuna}`
+          : secao === "METADATA"
+            ? "área informativa / comercial"
+            : "sem valor com sinal",
       });
       continue;
     }
 
     const valor = lido.valor;
 
-    // DATA CONTÁBIL: a da própria linha; senão, a célula da coluna "Dia" mais
-    // próxima; só então a última data vista no bloco. Nunca a data do histórico.
-    const comData = DATA_INICIAL.test(raw);
-    const { data: dataNaLinha, resto } = comData
-      ? lerData(raw, anoBase)
-      : { data: null, resto: raw };
+    // A data inicial só sai do texto quando é a célula da coluna "Dia"; datas do
+    // histórico continuam no texto para alimentar o eventDate.
+    const resto = leadEhColunaDia ? dataLead!.resto : raw;
 
 
     const descricaoNaLinha = resto
@@ -382,12 +424,12 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const descricao = descricaoNaLinha || (historicosRecuperados.get(i) ?? "");
 
     const ehSaldo = ehSaldoMetadata(descricao);
-    // Linha de saldo NUNCA pega data por geometria: "Saldo do dia" pertence ao
-    // último dia lançado antes dele (o PDF não repete a data nessa linha).
+    // DATA CONTÁBIL = coluna "Dia". Nunca a data escrita dentro do histórico.
     const data: string | null = ehSaldo
-      ? dataNaLinha ?? ultimaData
-      : dataNaLinha ?? datasRecuperadas.get(i) ?? null;
-    if (data && !ehSaldo) ultimaData = data;
+      ? dataColuna ?? ultimaData
+      : dataColuna ?? datasRecuperadas.get(i) ?? ultimaData;
+
+
 
     if (ehSaldo) {
       const t = plano(descricao);
@@ -398,11 +440,14 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
         saldoInicialData = data ?? saldoInicialData;
       } else {
         saldoFinal = valor;
-        if (fechamento) saldoFinalData = data ?? saldoFinalData;
+        // O saldo final não herda a última data lançada: sem data própria ele
+        // cai no fim do período oficial.
+        if (fechamento) saldoFinalData = dataColuna ?? saldoFinalData;
       }
+
       // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
       // O sinal impresso é preservado (saldo devedor fica negativo).
-      if (data && !abertura) {
+      if (data && !abertura && (!fechamento || dataColuna)) {
         checkpoints.push({
           data,
           saldo: valor,
