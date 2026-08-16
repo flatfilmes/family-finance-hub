@@ -149,12 +149,19 @@ export type DateMismatch = {
 export type AuditDay = {
   date: string;
   openingBalance: number;
+  /** Entradas DO DIA (não acumuladas). */
   inflows: number;
+  /** Saídas DO DIA (não acumuladas). */
   outflows: number;
+  /** Acumulado do mês até este dia — útil para conferir a cronologia. */
+  inflowsAcumuladas: number;
+  outflowsAcumuladas: number;
   calculated: number;
   reported: number | null;
   difference: number | null;
   confere: boolean | null;
+  /** Sem "Saldo do dia" no documento: o saldo existe, mas não foi conferido. */
+  origem: "CHECKPOINT" | "CALCULATED_ONLY";
   transactions: Transaction[];
 };
 
