@@ -34,6 +34,7 @@ export type LinhaFatura = {
   kind: Kind;
   parcela: string;
   valor: number;
+  purchaseId: string | null;
 };
 
 /**
