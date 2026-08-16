@@ -232,10 +232,12 @@ export function matchEntry(
     diferenca: null,
   };
 
-  // Lançamentos que não são consumo não viram compra: ficam ignorados por padrão.
+  // Lançamentos que não são consumo (taxas, estornos, pagamentos) não procuram
+  // compra correspondente: a ação padrão deles é definida em `resolveReviewAction`.
   if (entry.tipo_sugerido !== "COMPRA") {
-    return { ...vazio, match_status: "IGNORED" };
+    return vazio;
   }
+
 
   const valor = centavos(entry.valor);
 
