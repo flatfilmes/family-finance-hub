@@ -64,24 +64,22 @@ export async function fetchFinancialProfile(familyId: string) {
   return data;
 }
 
-export async function createFamily(input: { nome: string; ownerId: string; ownerNome: string }) {
-  const { data: family, error } = await supabase
-    .from("families")
-    .insert({ nome_da_familia: input.nome, owner_id: input.ownerId })
-    .select()
-    .single();
-  if (error) throw error;
-
-  const { error: memberError } = await supabase.from("family_members").insert({
-    family_id: family.id,
-    user_id: input.ownerId,
-    nome: input.ownerNome || "Responsável",
-    relacionamento: "Responsável",
-    permissao: "ADMIN",
+/**
+ * Bootstrap da primeira família. A criação é feita por uma função segura no banco
+ * (`create_family_with_owner`), que valida `auth.uid()` internamente e cria família,
+ * membership ADMIN e perfil do responsável na mesma transação.
+ * O app nunca insere diretamente em `families`.
+ */
+export async function createFamily(input: { nome: string; ownerNome: string }) {
+  const { data, error } = await supabase.rpc("create_family_with_owner", {
+    p_family_name: input.nome,
+    ...(input.ownerNome ? { p_first_member_name: input.ownerNome } : {}),
   });
-  if (memberError) throw memberError;
-
-  return family;
+  if (error) {
+    if (import.meta.env.DEV) console.error("create_family_with_owner", error);
+    throw new Error("Não foi possível criar sua família. Tente novamente.");
+  }
+  return data as { family_id: string; member_id: string; family_name: string; member_name: string };
 }
 
 export const ACTIVE_FAMILY_KEY = "ff.active-family";

@@ -2259,6 +2259,10 @@ export type Database = {
         Args: { _family_id: string; _member_id: string; _user_id: string }
         Returns: boolean
       }
+      create_family_with_owner: {
+        Args: { p_family_name: string; p_first_member_name?: string }
+        Returns: Json
+      }
       delete_demo_data: { Args: never; Returns: number }
       ensure_invoice_for_due: {
         Args: { _card_id: string; _venc: string }
