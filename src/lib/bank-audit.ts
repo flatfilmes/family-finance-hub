@@ -27,6 +27,7 @@ import {
   type ResolvedStatementPeriod,
   type StatementPeriodOrigin,
 } from "@/lib/bank-statements/period";
+import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
 
 export type Severity = "CRITICO" | "ATENCAO" | "PENDENCIA" | "INFORMATIVO";
 
@@ -312,6 +313,16 @@ export type BankAudit = {
     duplicidades: number;
   };
   problemas: AuditIssue[];
+  diagnosticoStatements: Array<{
+    importId: string;
+    periodStart: string | null;
+    periodEnd: string | null;
+    openingBalanceDate: string | null;
+    openingBalance: number | null;
+    closingBalanceDate: string | null;
+    closingBalance: number | null;
+    monthKey: string | null;
+  }>;
 };
 
 const arredonda = (v: number) => Math.round(v * 100) / 100;
@@ -354,36 +365,12 @@ function diffDays(a: string, b: string) {
  * Sem ano no texto, o ano é inferido pelo PERÍODO do extrato — na virada de
  * ano, "31/12" pertence ao ano anterior e "04/01" ao ano do fechamento.
  */
-function dataNoHistorico(
+export function dataNoHistorico(
   descricao: string,
   periodoInicio: string,
   periodoFim: string,
 ): string | null {
-  const m = descricao.match(/(\d{2})\/(\d{2})(?:\/(\d{2,4}))?/);
-  if (!m) return null;
-  const dia = m[1]!;
-  const mes = m[2]!;
-  const valida = (iso: string) =>
-    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
-
-  if (m[3]) {
-    const ano = m[3].length === 2 ? `20${m[3]}` : m[3];
-    return valida(`${ano}-${mes}-${dia}`);
-  }
-
-  const anos = [...new Set([periodoInicio.slice(0, 4), periodoFim.slice(0, 4)])];
-  const candidatos = anos
-    .map((ano) => valida(`${ano}-${mes}-${dia}`))
-    .filter((iso): iso is string => !!iso);
-  if (!candidatos.length) return null;
-  // Ano mais próximo do período do extrato.
-  const distancia = (iso: string) =>
-    iso < periodoInicio
-      ? Math.abs(diffDays(iso, periodoInicio))
-      : iso > periodoFim
-        ? Math.abs(diffDays(periodoFim, iso))
-        : 0;
-  return candidatos.sort((a, b) => distancia(a) - distancia(b))[0]!;
+  return eventDateFromHistory(descricao, { inicio: periodoInicio, fim: periodoFim });
 }
 
 export function buildBankAudit(input: {
@@ -476,16 +463,8 @@ export function buildBankAudit(input: {
         : arredonda(proximo.saldoInicial - anterior.saldoFinal);
     const sobreposicao = proximo.inicio! <= anterior.fim!;
 
-    // Extratos mensais consecutivos cobrem o mês inteiro mesmo quando o PDF
-    // começa no primeiro dia COM movimento. A distância é medida entre os
-    // MESES DE REFERÊNCIA dos documentos — nunca entre datas de saldo anterior.
-    const mesAnterior = anterior.mesReferencia ?? anterior.fim!.slice(0, 7);
-    const mesProximo = proximo.mesReferencia ?? proximo.inicio!.slice(0, 7);
-    const mesesDeDistancia =
-      (Number(mesProximo.slice(0, 4)) - Number(mesAnterior.slice(0, 4))) * 12 +
-      (Number(mesProximo.slice(5, 7)) - Number(mesAnterior.slice(5, 7)));
     const gapInicio = addDays(anterior.fim!, 1);
-    const temLacuna = !sobreposicao && mesesDeDistancia > 1;
+    const temLacuna = !sobreposicao && gapInicio < proximo.inicio!;
 
     continuidade.push({
       anterior,
@@ -512,7 +491,7 @@ export function buildBankAudit(input: {
   );
   /** O mês de um item é o do EXTRATO que o originou, nunca o da sua data. */
   const mesDoItem = (it: StatementItemInput) =>
-    extratoPorId.get(it.import_id)?.mesReferencia ?? it.data_movimento?.slice(0, 7) ?? "";
+    extratoPorId.get(it.import_id)?.mesReferencia ?? "";
 
   const itensPorMes = new Map<string, StatementItemInput[]>();
   for (const it of itens) {
@@ -600,7 +579,8 @@ export function buildBankAudit(input: {
     if (!resolvido) continue;
     for (const c of resolvido.checkpointsDiarios) {
       checkpointPorDia.set(c.data, c.saldo);
-      const key = e.mesReferencia ?? c.data.slice(0, 7);
+      const key = e.mesReferencia;
+      if (!key) continue;
       checkpointsDiariosPorMes.set(key, (checkpointsDiariosPorMes.get(key) ?? 0) + 1);
     }
   }
@@ -611,12 +591,16 @@ export function buildBankAudit(input: {
 
   const mesesKeys = new Set<string>();
   for (const e of comPeriodo) if (e.mesReferencia) mesesKeys.add(e.mesReferencia);
-  for (const t of daConta) mesesKeys.add(mesDaData(t.data_movimento) ?? t.data_movimento.slice(0, 7));
+  for (const t of daConta) {
+    if (POSTURA.includes(t.tipo)) continue;
+    const key = mesDaData(t.data_movimento);
+    if (key) mesesKeys.add(key);
+  }
 
   const meses: AuditMonth[] = [...mesesKeys].sort().map((key) => {
     // Movimento pertence ao mês do EXTRATO que cobre a sua data.
     const doMes = daConta.filter(
-      (t) => (mesDaData(t.data_movimento) ?? t.data_movimento.slice(0, 7)) === key,
+      (t) => mesDaData(t.data_movimento) === key,
     );
     const importsDoMes = comPeriodo.filter((e) => e.mesReferencia === key);
     const abertura = importsDoMes[0]?.saldoInicial ?? null;
@@ -1064,6 +1048,23 @@ export function buildBankAudit(input: {
 
   const lacunas = continuidade.filter((c) => c.lacuna).length;
   const sobreposicoes = continuidade.filter((c) => c.sobreposicao).length;
+  const diagnosticoStatements = extratos.map((statement) => {
+    const resolved = periodoPorImport.get(statement.id);
+    const checkpointsDoStatement = checkpointsPorImport.get(statement.id) ?? [];
+    const closing = resolved?.fim
+      ? [...checkpointsDoStatement].reverse().find((c) => c.data === resolved.fim) ?? null
+      : null;
+    return {
+      importId: statement.id,
+      periodStart: resolved?.inicio ?? null,
+      periodEnd: resolved?.fim ?? null,
+      openingBalanceDate: resolved?.aberturaData ?? null,
+      openingBalance: statement.saldoInicial,
+      closingBalanceDate: closing?.data ?? resolved?.fim ?? null,
+      closingBalance: statement.saldoFinal,
+      monthKey: resolved?.mesReferencia ?? null,
+    };
+  });
 
   return {
     periodoInicio,
@@ -1109,6 +1110,7 @@ export function buildBankAudit(input: {
       duplicidades: duplicidades.length,
     },
     problemas,
+    diagnosticoStatements,
   };
 }
 
@@ -1122,6 +1124,15 @@ export function auditToCsv(audit: BankAudit) {
       `Fecha ${c.saldoFinalAnterior} / abre ${c.saldoInicialProximo}`,
       String(c.diferenca ?? ""),
       c.confere ? "Confere" : "Quebra de continuidade",
+    ]);
+  }
+  for (const d of audit.diagnosticoStatements) {
+    linhas.push([
+      "Diagnóstico statement",
+      d.monthKey ?? "indefinido",
+      `import_id ${d.importId} · period_start ${d.periodStart ?? "—"} · period_end ${d.periodEnd ?? "—"} · opening_date ${d.openingBalanceDate ?? "—"} · closing_date ${d.closingBalanceDate ?? "—"}`,
+      `opening ${d.openingBalance ?? "—"} · closing ${d.closingBalance ?? "—"}`,
+      d.monthKey ? "Identidade definida" : "Identidade indefinida",
     ]);
   }
   for (const m of audit.meses) {

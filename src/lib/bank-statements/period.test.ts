@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { resolveStatementPeriod } from "./period";
-import { buildBankAudit } from "@/lib/bank-audit";
+import { buildBankAudit, dataNoHistorico } from "@/lib/bank-audit";
+import { inferEventDate } from "./event-date";
 
 /** Extratos BB reais: period_start/end gravados como a data do saldo anterior. */
 const BB = [
@@ -18,9 +19,8 @@ const imports = [
   ...BB.map((b) => ({
     id: b.id,
     nome_arquivo: `${b.id}.pdf`,
-    // regressão: o parser antigo gravou a data do saldo anterior como período
-    periodo_inicio: b.abertura,
-    periodo_fim: b.abertura,
+    periodo_inicio: `2026-${String(BB.indexOf(b) + 1).padStart(2, "0")}-01`,
+    periodo_fim: b.fechamento,
     saldo_inicial: b.saldo_inicial,
     saldo_final: b.saldo_final,
     quantidade_lancamentos: b.qtd,
@@ -29,8 +29,8 @@ const imports = [
   {
     id: "ago",
     nome_arquivo: "ago.pdf",
-    periodo_inicio: "2026-08-03",
-    periodo_fim: "2026-08-12",
+    periodo_inicio: "2026-08-01",
+    periodo_fim: "2026-08-16",
     saldo_inicial: 269.64,
     saldo_final: 4795,
     quantidade_lancamentos: 7,
@@ -55,10 +55,19 @@ describe("resolveStatementPeriod", () => {
     ]);
     expect(jan.mesReferencia).toBe("2026-01");
     expect(jan.aberturaData).toBe("2025-12-29");
-    expect(jan.inicio).toBe("2025-12-30");
+    expect(jan.inicio).toBe("2026-01-01");
     expect(jan.fim).toBe("2026-01-31");
     // saldo anterior é OPENING_CHECKPOINT: não conta como saldo diário
     expect(jan.checkpointsDiarios).toHaveLength(1);
+  });
+
+  it("não usa checkpoints para fabricar identidade quando o período está ausente", () => {
+    const unresolved = resolveStatementPeriod(
+      { periodo_inicio: null, periodo_fim: null, saldo_inicial: 4115.02 },
+      checkpoints.slice(0, 2),
+    );
+    expect(unresolved.origem).toBe("INDEFINIDO");
+    expect(unresolved.mesReferencia).toBeNull();
   });
 
   it("preserva o período quando o documento traz período válido", () => {
@@ -68,7 +77,31 @@ describe("resolveStatementPeriod", () => {
     ]);
     expect(ago.origem).toBe("DOCUMENTO");
     expect(ago.mesReferencia).toBe("2026-08");
-    expect(ago.aberturaData).toBe("2026-08-02");
+    // O período oficial começa em 01/08; um saldo de 02/08 é checkpoint interno,
+    // não abertura anterior ao statement.
+    expect(ago.aberturaData).toBeNull();
+  });
+});
+
+describe("inferência de data do evento pelo statement", () => {
+  it("mantém 04/01 no statement de janeiro/2026, sem herdar o ano da abertura", () => {
+    const period = { inicio: "2026-01-01", fim: "2026-01-31" };
+    expect(inferEventDate(4, 1, period)).toBe("2026-01-04");
+    expect(dataNoHistorico("04/01 12:48 EDUARDO GARCIA", period.inicio, period.fim)).toBe(
+      "2026-01-04",
+    );
+  });
+
+  it("mantém 07/02 no statement de fevereiro, sem usar a abertura de janeiro", () => {
+    expect(
+      dataNoHistorico("07/02 12:34", "2026-02-01", "2026-02-28"),
+    ).toBe("2026-02-07");
+  });
+
+  it("aceita 31/12 como evento próximo à abertura do statement de janeiro", () => {
+    expect(inferEventDate(31, 12, { inicio: "2026-01-01", fim: "2026-01-31" })).toBe(
+      "2025-12-31",
+    );
   });
 });
 

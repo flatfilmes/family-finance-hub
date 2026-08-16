@@ -8,13 +8,9 @@
  * O "Saldo Anterior" é apenas o OPENING_CHECKPOINT: ele fica FORA do período
  * (é o saldo do último dia anterior ao extrato) e não conta como saldo diário.
  *
- * Quando o documento foi importado sem período confiável (parsers antigos
- * gravaram a data do saldo anterior em period_start/period_end), o período é
- * reconstruído a partir dos checkpoints diários persistidos:
- *   início = dia seguinte ao saldo anterior
- *   fim    = último "Saldo do dia" do documento
- * O mês de referência é sempre o mês do FIM do período — é ele que nomeia o
- * extrato ("extrato de janeiro fecha em 31/01, mesmo abrindo em 30/12").
+ * Importações legadas com metadados inválidos devem ser reparadas nos próprios
+ * campos `periodo_inicio`/`periodo_fim`. Checkpoints jamais reconstroem ou
+ * substituem a identidade temporal de um extrato.
  */
 
 export type CheckpointInput = {
@@ -23,7 +19,7 @@ export type CheckpointInput = {
   saldo: number;
 };
 
-export type StatementPeriodOrigin = "DOCUMENTO" | "CHECKPOINTS" | "INDEFINIDO";
+export type StatementPeriodOrigin = "DOCUMENTO" | "INDEFINIDO";
 
 export type ResolvedStatementPeriod = {
   inicio: string | null;
@@ -39,12 +35,6 @@ export type ResolvedStatementPeriod = {
 
 const CONFERE = 0.02;
 
-function addDays(iso: string, dias: number) {
-  const d = new Date(`${iso}T00:00:00`);
-  d.setDate(d.getDate() + dias);
-  return d.toISOString().slice(0, 10);
-}
-
 export function resolveStatementPeriod(
   imp: {
     periodo_inicio: string | null;
@@ -56,58 +46,38 @@ export function resolveStatementPeriod(
   const ordenados = [...checkpoints].sort((a, b) => a.data.localeCompare(b.data));
   const saldoInicial = imp.saldo_inicial === null ? null : Number(imp.saldo_inicial);
 
-  // OPENING_CHECKPOINT: o primeiro checkpoint que reproduz o saldo anterior.
-  const primeiro = ordenados[0] ?? null;
-  const abertura =
-    primeiro &&
-    (saldoInicial === null || Math.abs(primeiro.saldo - saldoInicial) <= CONFERE) &&
-    ordenados.length > 1
-      ? primeiro
-      : null;
-  const aberturaData = abertura?.data ?? null;
-  const diarios = ordenados.filter((c) => !aberturaData || c.data > aberturaData);
-
   const inicioDoc = imp.periodo_inicio;
   const fimDoc = imp.periodo_fim;
-  // Período do documento só vale quando é um intervalo de verdade e não é
-  // simplesmente a data do saldo anterior repetida.
-  const docConfiavel =
-    !!inicioDoc &&
-    !!fimDoc &&
-    inicioDoc < fimDoc &&
-    (!aberturaData || fimDoc > aberturaData);
+  const documentoValido = !!inicioDoc && !!fimDoc && inicioDoc <= fimDoc;
 
-  if (docConfiavel) {
+  // OPENING_CHECKPOINT: saldo inicial anterior ao início oficial do statement.
+  const abertura = documentoValido
+    ? [...ordenados]
+        .reverse()
+        .find(
+          (checkpoint) =>
+            checkpoint.data < inicioDoc &&
+            (saldoInicial === null || Math.abs(checkpoint.saldo - saldoInicial) <= CONFERE),
+        ) ?? null
+    : null;
+  const aberturaData = abertura?.data ?? null;
+  if (documentoValido) {
     return {
       inicio: inicioDoc,
       fim: fimDoc,
-      mesReferencia: fimDoc!.slice(0, 7),
+      mesReferencia: inicioDoc.slice(0, 7),
       aberturaData,
       origem: "DOCUMENTO",
-      checkpointsDiarios: diarios.filter((c) => c.data >= inicioDoc! && c.data <= fimDoc!),
+      checkpointsDiarios: ordenados.filter((c) => c.data >= inicioDoc && c.data <= fimDoc),
     };
   }
-
-  const fim = diarios[diarios.length - 1]?.data ?? null;
-  if (!fim) {
-    return {
-      inicio: inicioDoc ?? null,
-      fim: fimDoc ?? null,
-      mesReferencia: (fimDoc ?? inicioDoc)?.slice(0, 7) ?? null,
-      aberturaData,
-      origem: "INDEFINIDO",
-      checkpointsDiarios: diarios,
-    };
-  }
-
-  const inicio = aberturaData ? addDays(aberturaData, 1) : `${fim.slice(0, 7)}-01`;
   return {
-    inicio,
-    fim,
-    mesReferencia: fim.slice(0, 7),
-    aberturaData,
-    origem: "CHECKPOINTS",
-    checkpointsDiarios: diarios,
+    inicio: null,
+    fim: null,
+    mesReferencia: null,
+    aberturaData: null,
+    origem: "INDEFINIDO",
+    checkpointsDiarios: [],
   };
 }
 
