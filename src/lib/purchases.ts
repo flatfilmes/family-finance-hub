@@ -12,6 +12,7 @@ export type PurchaseItemInsert = Database["public"]["Tables"]["purchase_items"][
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 
 export type PurchasePaymentStatus = Database["public"]["Enums"]["purchase_payment_status"];
+export type PaymentMethodValue = Database["public"]["Enums"]["payment_method"];
 
 /** Tipos de compra usados no evento "compra" (origem de toda movimentação financeira). */
 export const PURCHASE_KINDS = [
@@ -390,4 +391,78 @@ export async function updatePurchaseItemCategory(input: {
     })
     .eq("id", input.itemId);
   if (error) throw error;
+}
+
+/**
+ * Registra o pagamento de uma compra que estava pendente.
+ *
+ * O impacto financeiro só acontece agora:
+ * - Pix / débito / transferência: as triggers debitam a conta e criam a saída;
+ * - dinheiro / outro: apenas registra o pagamento (nenhuma conta é afetada);
+ * - crédito: vira compromisso na fatura do cartão (nada sai do banco).
+ */
+export async function registerPurchasePayment(input: {
+  purchase: Purchase;
+  formaPagamento: PaymentMethodValue;
+  dataPagamento: string;
+  bankAccountId?: string | null;
+  creditCardId?: string | null;
+  cards?: CreditCard[];
+}) {
+  const { purchase, formaPagamento, dataPagamento } = input;
+  const usaBanco = usesBankAccount(formaPagamento);
+  const credito = formaPagamento === "CREDITO";
+
+  const { data: atualizada, error } = await supabase
+    .from("purchases")
+    .update({
+      forma_pagamento: formaPagamento,
+      bank_account_id: usaBanco ? input.bankAccountId || null : null,
+      credit_card_id: credito ? input.creditCardId || null : null,
+      data_pagamento_real: dataPagamento,
+    })
+    .eq("id", purchase.id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  // Crédito: cria a despesa vinculada e a parcela na fatura correta do cartão.
+  if (credito && atualizada.credit_card_id) {
+    const card = (input.cards ?? []).find((c) => c.id === atualizada.credit_card_id);
+    if (card) {
+      const valorTotal = Number(atualizada.valor_total) || 0;
+      const { data: expense, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          family_id: atualizada.family_id,
+          member_id: atualizada.member_id,
+          created_by: atualizada.created_by,
+          purchase_id: atualizada.id,
+          descricao: atualizada.estabelecimento,
+          valor: valorTotal,
+          data_compra: atualizada.data_compra,
+          forma_pagamento: "CREDITO",
+          tipo_compra: "CARTAO_CREDITO",
+          cartao_id: card.id,
+          parcelas_total: 1,
+          parcela_atual: 1,
+        })
+        .select()
+        .single();
+      if (expenseError) throw expenseError;
+
+      await generateInstallments({
+        familyId: atualizada.family_id,
+        expenseId: expense.id,
+        card,
+        dataCompra: dataPagamento,
+        valorTotal,
+        parcelas: 1,
+        memberId: atualizada.member_id,
+        purchaseId: atualizada.id,
+      });
+    }
+  }
+
+  return atualizada;
 }
