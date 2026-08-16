@@ -633,7 +633,21 @@ const DESCRICOES = porColunas([
   hist(1, 576, "CLARO RESIDENCIAL"),
   linhaTecnica(1, 570, "20/01/2026", "13105", "11902", "113,22 (-)"),
   hist(1, 564, "NET SERVIçOS"),
+
+  hist(1, 546, "Pix - Recebido"),
+  linhaTecnica(1, 540, "07/01/2026", "13105", "10701", "114,00 (+)"),
+  hist(1, 534, "07/01 13:41 FELIPE DOS"),
+  { page: 1, y: 520, cells: [[265, "Saldo do dia"], [520, "3.843,56 (+)"]] },
+
+  hist(1, 500, "Pix - Enviado"),
+  linhaTecnica(1, 494, "26/01/2026", "13105", "12601", "250,33 (-)"),
+  hist(1, 488, "25/01 10:42 MERCADO PAGO INSTITUICAO"),
+
+  hist(1, 470, "Pix - Enviado"),
+  linhaTecnica(1, 464, null, "13105", "12602", "400,00 (-)"),
+  hist(1, 458, "26/01 12:45 NILTON CAETANO FILHO"),
 ]);
+
 
 describe("Banco do Brasil — descrição econômica das transactions", () => {
   const r = parseBancoDoBrasilLines(DESCRICOES);
