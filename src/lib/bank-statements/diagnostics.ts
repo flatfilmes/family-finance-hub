@@ -23,7 +23,7 @@ import {
   type ItauDetection,
   type ItauPipelineDiagnostics,
 } from "@/lib/bank-statement-parsers/itau";
-import { parseBankStatementLines } from "./parse";
+import { runBankStatementParserPipeline } from "./parse";
 import { toCanonicalStatement, type CanonicalStatement } from "./canonical";
 import { validateStatement, type StatementValidation } from "./validate";
 import { goldenFor, type GoldenStatement } from "./golden";
@@ -120,6 +120,14 @@ export type BankParserDiagnostics = {
   golden: DiagGolden | null;
   /** Erro fatal de leitura (PDF ilegível/protegido). */
   error: string | null;
+  parser: { status: "FOUND" | "NOT_FOUND"; requestedBank: string | null; name: string | null };
+  parserOutput: unknown;
+  checkpointTrace: Array<{ rowText: string; date: string | null; balance: number | null; status: string; reason: string }>;
+  accepted: unknown[];
+  rejected: unknown[];
+  metadata: unknown[];
+  pipelineStages: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
+  errors: Array<{ name: string; message: string; stage: string; stack?: string }>;
 };
 
 // ------------------------------------------------------------------ helpers
@@ -328,6 +336,21 @@ export async function buildBankParserDiagnostics(
     failure: { stage: "PDF_TEXT_EXTRACTION", reason: error },
     golden: null,
     error,
+    parser: { status: "NOT_FOUND", requestedBank: null, name: null },
+    parserOutput: { status: "PARSER_EXECUTION_FAILED", error },
+    checkpointTrace: [],
+    accepted: [],
+    rejected: [],
+    metadata: [],
+    pipelineStages: [
+      { stage: "PDFJS", status: "FAIL", count: 0 },
+      { stage: "VISUAL_ROWS", status: "FAIL", count: 0 },
+      { stage: "BANK_DETECTION", status: "FAIL" },
+      { stage: "PARSER_SELECTION", status: "FAIL" },
+      { stage: "PARSER_EXECUTION", status: "FAIL" },
+      { stage: "VALIDATION", status: "FAIL" },
+    ],
+    errors: [{ name: "DiagnosticPipelineError", message: error, stage: "PDF_TEXT_EXTRACTION" }],
   });
 
   let pages;
@@ -353,23 +376,25 @@ export async function buildBankParserDiagnostics(
   );
 
   const lines = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
-  const textos = lines.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const itensTexto = rawItems.map((i) => i.text);
-
-  const itau: ItauDetection = detectItauBankStatement([...textos, ...itensTexto]);
-  const ehItau = itau.detectedBank === "ITAU";
-  const ehBB = !ehItau && isBancoDoBrasil(textos);
-
-  let parsed: ParsedBankStatement;
+  let pipelineResult;
   try {
-    parsed = ehItau
-      ? parseItauBankStatementLayouts(pages)
-      : ehBB
-        ? parseBancoDoBrasilLines(lines)
-        : parseBankStatementLines(lines);
+    pipelineResult = await runBankStatementParserPipeline(file);
   } catch (e) {
-    return vazio(e instanceof Error ? e.message : "Falha no parser.");
+    const result = vazio(e instanceof Error ? e.message : "Falha no parser.");
+    result.rawItems = rawItems;
+    result.counts.rawItems = rawItems.length;
+    result.pipelineStages[0] = { stage: "PDFJS", status: "PASS", count: rawItems.length };
+    result.pipelineStages[1] = { stage: "VISUAL_ROWS", status: lines.length ? "PASS" : "FAIL", count: lines.length };
+    result.failure = { stage: "ROW_TO_TRANSACTION", reason: result.error };
+    result.errors = [{
+      name: e instanceof Error ? e.name : "Error",
+      message: e instanceof Error ? e.message : "Falha no parser.",
+      stage: "PARSER_EXECUTION",
+      ...(import.meta.env.DEV && e instanceof Error && e.stack ? { stack: e.stack } : {}),
+    }];
+    return result;
   }
+  const parsed = pipelineResult.parsed;
 
   const statement = toCanonicalStatement(parsed, { statementId: fileName });
   const validation = validateStatement(statement);
@@ -396,15 +421,11 @@ export async function buildBankParserDiagnostics(
       treatment: "REFERENCE_BALANCE — saldo posterior ao período, usado só como referência",
     });
 
-  const detectedBank = ehItau ? "ITAU" : ehBB ? "BANCO_DO_BRASIL" : "GENERICO";
+  const detectedBank = pipelineResult.detection.bank ?? "GENERICO";
   const detection: DiagDetection = {
     detectedBank,
-    score: ehItau ? itau.confidence : ehBB ? 1 : 0,
-    matchedSignals: ehItau
-      ? itau.matchedSignals
-      : ehBB
-        ? ["layout Banco do Brasil com sinal impresso (+)/(-)"]
-        : [],
+    score: pipelineResult.detection.status === "PASS" ? 1 : 0,
+    matchedSignals: pipelineResult.detection.matchedSignals,
     parser: statement.parser,
     parserVersion: statement.parserVersion,
   };
@@ -424,6 +445,31 @@ export async function buildBankParserDiagnostics(
         missingRows: rows.filter((r) => r.status === "ERROR" || r.reason === "AMOUNT_NOT_FOUND"),
       }
     : null;
+
+  const checkpointTrace = rows
+    .filter((row) => normalizar(`${row.raw} ${row.description}`).includes("SALDO DO DIA"))
+    .map((row) => {
+      const checkpoint = statement.checkpoints.find((item) =>
+        row.balance !== null ? Math.abs(item.amount - row.balance) < 0.005 : item.date === row.date,
+      );
+      return {
+        rowText: row.raw,
+        date: checkpoint?.date ?? row.date,
+        balance: checkpoint?.amount ?? row.balance,
+        status: checkpoint ? "PARSED_CHECKPOINT" : row.status,
+        reason: checkpoint?.type ?? row.reason,
+      };
+    });
+  const parserOutput = {
+    periodStart: statement.periodStart,
+    periodEnd: statement.periodEnd,
+    openingBalance: statement.openingBalance,
+    closingBalance: statement.closingBalance,
+    referenceBalance: statement.referenceBalance,
+    transactions: statement.transactions,
+    checkpoints: statement.checkpoints,
+    validation,
+  };
 
   return {
     file: fileName,
@@ -452,6 +498,24 @@ export async function buildBankParserDiagnostics(
     }),
     golden,
     error: null,
+    parser: pipelineResult.parser,
+    parserOutput,
+    checkpointTrace,
+    accepted: parsed.aceitos,
+    rejected: parsed.rejeitados,
+    metadata: [
+      { field: "detectionReason", value: pipelineResult.detection.reason },
+      { field: "missingSignals", value: pipelineResult.detection.missingSignals },
+    ],
+    pipelineStages: [
+      { stage: "PDFJS", status: rawItems.length ? "PASS" : "FAIL", count: rawItems.length },
+      { stage: "VISUAL_ROWS", status: lines.length ? "PASS" : "FAIL", count: lines.length },
+      { stage: "BANK_DETECTION", status: pipelineResult.detection.status === "PASS" ? "PASS" : "FAIL" },
+      { stage: "PARSER_SELECTION", status: pipelineResult.parser.status === "FOUND" ? "PASS" : "FAIL" },
+      { stage: "PARSER_EXECUTION", status: "PASS", count: statement.transactions.length },
+      { stage: "VALIDATION", status: validation.status === "PARSED_STATEMENT_VALID" ? "PASS" : "FAIL" },
+    ],
+    errors: [],
   };
 }
 
@@ -599,5 +663,29 @@ export function diagnosticsFromParsedStatement(
         }
       : null,
     error: null,
+    parser: { status: "FOUND", requestedBank: detectedBank, name: statement.parser },
+    parserOutput: {
+      periodStart: statement.periodStart,
+      periodEnd: statement.periodEnd,
+      openingBalance: statement.openingBalance,
+      closingBalance: statement.closingBalance,
+      referenceBalance: statement.referenceBalance,
+      transactions: statement.transactions,
+      checkpoints: statement.checkpoints,
+      validation,
+    },
+    checkpointTrace: [],
+    accepted: parsed.aceitos,
+    rejected: parsed.rejeitados,
+    metadata: [],
+    pipelineStages: [
+      { stage: "PDFJS", status: "FAIL", count: 0 },
+      { stage: "VISUAL_ROWS", status: rows.length ? "PASS" : "FAIL", count: rows.length },
+      { stage: "BANK_DETECTION", status: detectedBank !== "—" ? "PASS" : "FAIL" },
+      { stage: "PARSER_SELECTION", status: "PASS" },
+      { stage: "PARSER_EXECUTION", status: "PASS", count: statement.transactions.length },
+      { stage: "VALIDATION", status: validation.status === "PARSED_STATEMENT_VALID" ? "PASS" : "FAIL" },
+    ],
+    errors: [],
   };
 }

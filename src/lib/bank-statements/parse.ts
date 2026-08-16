@@ -27,6 +27,28 @@ import {
 } from "@/lib/bank-statement-parsers/itau";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "./types";
 
+export type DetectedBank = "BANCO_DO_BRASIL" | "ITAU" | "GENERICO";
+
+export type BankDetectionResult = {
+  status: "PASS" | "FAILED";
+  bank: DetectedBank | null;
+  matchedSignals: string[];
+  missingSignals: string[];
+  reason: string;
+};
+
+export type BankParserSelection = {
+  status: "FOUND" | "NOT_FOUND";
+  requestedBank: DetectedBank | null;
+  name: string | null;
+};
+
+export type BankParserPipelineResult = {
+  detection: BankDetectionResult;
+  parser: BankParserSelection;
+  parsed: ParsedBankStatement;
+};
+
 const MOEDA = /-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}|-?\s?\d+,\d{2}/g;
 
 const RUIDO = [
@@ -178,18 +200,78 @@ export function parseBankStatementLines(linhas: PdfLine[]): ParsedBankStatement 
   };
 }
 
-/** Lê um extrato em PDF. Usada tanto no fluxo real quanto no dry run. */
-export async function readBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
+const normalizarSinal = (texto: string) =>
+  texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
+
+/** Detecção única usada pela importação e pelo diagnóstico, sem persistência. */
+export function detectBankStatement(textos: string[]): BankDetectionResult {
+  const normalizados = textos.map(normalizarSinal);
+  const sinaisBB = [
+    "EXTRATO DE CONTA CORRENTE",
+    "PERIODO:",
+    "AGENCIA:",
+    "CONTA:",
+    "SALDO ANTERIOR",
+    "SALDO DO DIA",
+  ];
+  const matchedBB = sinaisBB.filter((sinal) => normalizados.some((texto) => texto.includes(sinal)));
+  if (isBancoDoBrasil(textos) || matchedBB.length >= 3)
+    return {
+      status: "PASS",
+      bank: "BANCO_DO_BRASIL",
+      matchedSignals: matchedBB,
+      missingSignals: sinaisBB.filter((sinal) => !matchedBB.includes(sinal)),
+      reason: "Layout reconhecido pelos sinais do extrato Banco do Brasil.",
+    };
+
+  if (isItauBankStatement(textos))
+    return {
+      status: "PASS",
+      bank: "ITAU",
+      matchedSignals: ["EXTRATO ITAU"],
+      missingSignals: [],
+      reason: "Layout reconhecido pelo detector de extrato Itaú.",
+    };
+
+  return {
+    status: "FAILED",
+    bank: null,
+    matchedSignals: matchedBB,
+    missingSignals: sinaisBB.filter((sinal) => !matchedBB.includes(sinal)),
+    reason: "Nenhum layout bancário específico foi reconhecido; parser genérico selecionado.",
+  };
+}
+
+/** Pipeline puro compartilhado por Importar → Revisar e pela tela DEV. */
+export async function runBankStatementParserPipeline(file: Blob): Promise<BankParserPipelineResult> {
   const pages = await extractPdfPageLayouts(file);
   const itens = pages.flatMap((p) => p.items.map((i) => i.text));
   const linhas = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
-  const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  // Itaú: parser espacial próprio a partir dos itens crus — o divisor de duas
-  // colunas de `layoutPageLines` quebra a tabela do extrato de conta.
-  if (isItauBankStatement([...textos, ...itens])) return parseItauBankStatementLayouts(pages);
-  // Layout do Banco do Brasil tem sinal impresso "(+)"/"(-)": parser dedicado.
-  if (isBancoDoBrasil(textos)) return parseBancoDoBrasilLines(linhas);
-  return parseBankStatementLines(linhas);
+  const textos = [...linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean), ...itens];
+  const detection = detectBankStatement(textos);
+  const requestedBank = detection.bank ?? "GENERICO";
+  const parser: BankParserSelection = {
+    status: "FOUND",
+    requestedBank,
+    name:
+      requestedBank === "BANCO_DO_BRASIL"
+        ? "EXTRATO_BANCO_DO_BRASIL_PDF"
+        : requestedBank === "ITAU"
+          ? "ITAU_BANK_STATEMENT"
+          : "EXTRATO_GENERICO_PDF",
+  };
+  const parsed =
+    requestedBank === "BANCO_DO_BRASIL"
+      ? parseBancoDoBrasilLines(linhas)
+      : requestedBank === "ITAU"
+        ? parseItauBankStatementLayouts(pages)
+        : parseBankStatementLines(linhas);
+  return { detection, parser, parsed };
+}
+
+/** Lê um extrato em PDF. Usada tanto no fluxo real quanto no dry run. */
+export async function readBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
+  return (await runBankStatementParserPipeline(file)).parsed;
 }
 
 

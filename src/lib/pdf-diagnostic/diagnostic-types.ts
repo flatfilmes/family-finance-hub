@@ -72,8 +72,22 @@ export type ParserDryRunResult = {
   stage?: string | null;
   /** Sinais de detecção encontrados no documento. */
   signals?: string[];
+  detection?: {
+    status: "PASS" | "FAILED";
+    bank: string | null;
+    matchedSignals: string[];
+    missingSignals: string[];
+    reason: string;
+  };
+  parserInfo?: {
+    status: "FOUND" | "NOT_FOUND";
+    requestedBank: string | null;
+    name: string | null;
+  };
   counts?: { rawItems: number; rows: number; transactions: number; checkpoints: number };
   checkpointTrace?: ParserCheckpointTrace[];
+  pipelineStages?: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
+  errors?: Array<{ name: string; message: string; stage: string; stack?: string }>;
   /** Saída do parser exatamente como ele devolve hoje. */
   output: unknown;
   debug?: ParserDebug;
