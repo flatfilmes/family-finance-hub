@@ -82,6 +82,7 @@ export function BankStatementDialog({
   const [linhas, setLinhas] = useState<StatementDraftRow[]>([]);
   const [saldoLido, setSaldoLido] = useState<number | null>(null);
   const [textoDetectado, setTextoDetectado] = useState("");
+  const [diagnostico, setDiagnostico] = useState(0);
 
   const reconciliar = (parsed: ParsedBankStatement): StatementDraftRow[] =>
     parsed.movimentos.map((m) => {
@@ -283,7 +284,7 @@ export function BankStatementDialog({
                 {ler.isPending ? "Processando…" : "Revisar extrato"}
               </button>
             </div>
-            <DiagnosticoHint />
+            <DiagnosticoHint onEnable={() => setDiagnostico((n) => n + 1)} key={diagnostico} />
           </div>
         )}
 
@@ -480,16 +481,15 @@ function Chip({ label, valor }: { label: string; valor: number }) {
  * Atalho para ADMIN ligar a flag interna de diagnóstico sem usar a query string.
  * Não altera dados: apenas revela o botão "Modo diagnóstico PDF".
  */
-function DiagnosticoHint() {
+function DiagnosticoHint({ onEnable }: { onEnable: () => void }) {
   const perms = usePermissions();
-  const [ativo, setAtivo] = useState(pdfDiagnosticFlagEnabled());
-  if (!perms.isAdmin || ativo || import.meta.env.DEV) return null;
+  if (!perms.isAdmin || pdfDiagnosticFlagEnabled() || import.meta.env.DEV) return null;
   return (
     <button
       type="button"
       onClick={() => {
         setPdfDiagnosticFlag(true);
-        setAtivo(true);
+        onEnable();
       }}
       className="text-[11px] font-semibold text-muted-foreground underline-offset-2 hover:underline"
     >
