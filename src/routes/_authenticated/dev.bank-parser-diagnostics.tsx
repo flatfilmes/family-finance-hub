@@ -25,7 +25,7 @@ import {
 
 export const Route = createFileRoute("/_authenticated/dev/bank-parser-diagnostics")({
   validateSearch: (search: Record<string, unknown>) => ({
-    import: typeof search.import === "string" ? search.import : undefined,
+    import: typeof search["import"] === "string" ? (search["import"] as string) : undefined,
   }),
   head: () => ({
     meta: [
@@ -126,7 +126,7 @@ function BankParserDiagnosticsPage() {
   if (!isAdmin)
     return (
       <EmptyState
-        icon={ShieldAlert}
+        icon={<ShieldAlert className="size-6" />}
         title="Área restrita"
         description="O diagnóstico do leitor de extratos está disponível apenas para administradores da família."
       />
@@ -182,7 +182,7 @@ function BankParserDiagnosticsPage() {
 
       {!d ? (
         <EmptyState
-          icon={FileSearch}
+          icon={<FileSearch className="size-6" />}
           title="Nenhum documento analisado"
           description="Selecione um extrato em PDF para ver exatamente como o sistema o interpreta."
         />
