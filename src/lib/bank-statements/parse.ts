@@ -12,6 +12,10 @@
  */
 import { extractPdfLines, parseValorBr, type PdfLine } from "@/lib/pdf-extract";
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
+import {
+  isBancoDoBrasil,
+  parseBancoDoBrasilLines,
+} from "@/lib/bank-statement-parsers/banco-do-brasil";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "./types";
 
 const MOEDA = /-?\s?R?\$?\s?\d{1,3}(?:\.\d{3})*,\d{2}|-?\s?\d+,\d{2}/g;
@@ -155,6 +159,9 @@ export function parseBankStatementLines(linhas: PdfLine[]): ParsedBankStatement 
 /** Lê um extrato em PDF. Usada tanto no fluxo real quanto no dry run. */
 export async function readBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
   const linhas = await extractPdfLines(file);
+  const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
+  // Layout do Banco do Brasil tem sinal impresso "(+)"/"(-)": parser dedicado.
+  if (isBancoDoBrasil(textos)) return parseBancoDoBrasilLines(linhas);
   return parseBankStatementLines(linhas);
 }
 

@@ -31,6 +31,7 @@ import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 import { Route as AuthenticatedCartoesFaturasImportIdRouteImport } from './routes/_authenticated/cartoes.faturas.$importId'
 import { Route as AuthenticatedHistoricoAnoMesRouteImport } from './routes/_authenticated/historico.$ano.$mes'
+import { Route as AuthenticatedBancosAccountIdExtratosRevisarRouteImport } from './routes/_authenticated/bancos_.$accountId.extratos.revisar'
 import { Route as AuthenticatedHistoricoFecharAnoMesRouteImport } from './routes/_authenticated/historico.fechar.$ano.$mes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -155,6 +156,12 @@ const AuthenticatedHistoricoAnoMesRoute =
     path: '/historico/$ano/$mes',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBancosAccountIdExtratosRevisarRoute =
+  AuthenticatedBancosAccountIdExtratosRevisarRouteImport.update({
+    id: '/bancos_/$accountId/extratos/revisar',
+    path: '/bancos/$accountId/extratos/revisar',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedHistoricoFecharAnoMesRoute =
   AuthenticatedHistoricoFecharAnoMesRouteImport.update({
     id: '/historico/fechar/$ano/$mes',
@@ -184,6 +191,7 @@ export interface FileRoutesByFullPath {
   '/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
+  '/bancos/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRoutesByTo {
@@ -208,6 +216,7 @@ export interface FileRoutesByTo {
   '/historico': typeof AuthenticatedHistoricoIndexRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
+  '/bancos/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRoutesById {
@@ -234,6 +243,7 @@ export interface FileRoutesById {
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/_authenticated/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/_authenticated/historico/$ano/$mes': typeof AuthenticatedHistoricoAnoMesRoute
+  '/_authenticated/bancos_/$accountId/extratos/revisar': typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   '/_authenticated/historico/fechar/$ano/$mes': typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 export interface FileRouteTypes {
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/historico/'
     | '/cartoes/faturas/$importId'
     | '/historico/$ano/$mes'
+    | '/bancos/$accountId/extratos/revisar'
     | '/historico/fechar/$ano/$mes'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/cartoes/faturas/$importId'
     | '/historico/$ano/$mes'
+    | '/bancos/$accountId/extratos/revisar'
     | '/historico/fechar/$ano/$mes'
   id:
     | '__root__'
@@ -309,6 +321,7 @@ export interface FileRouteTypes {
     | '/_authenticated/historico/'
     | '/_authenticated/cartoes/faturas/$importId'
     | '/_authenticated/historico/$ano/$mes'
+    | '/_authenticated/bancos_/$accountId/extratos/revisar'
     | '/_authenticated/historico/fechar/$ano/$mes'
   fileRoutesById: FileRoutesById
 }
@@ -475,6 +488,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedHistoricoAnoMesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos_/$accountId/extratos/revisar': {
+      id: '/_authenticated/bancos_/$accountId/extratos/revisar'
+      path: '/bancos/$accountId/extratos/revisar'
+      fullPath: '/bancos/$accountId/extratos/revisar'
+      preLoaderRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/historico/fechar/$ano/$mes': {
       id: '/_authenticated/historico/fechar/$ano/$mes'
       path: '/historico/fechar/$ano/$mes'
@@ -504,6 +524,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHistoricoIndexRoute: typeof AuthenticatedHistoricoIndexRoute
   AuthenticatedCartoesFaturasImportIdRoute: typeof AuthenticatedCartoesFaturasImportIdRoute
   AuthenticatedHistoricoAnoMesRoute: typeof AuthenticatedHistoricoAnoMesRoute
+  AuthenticatedBancosAccountIdExtratosRevisarRoute: typeof AuthenticatedBancosAccountIdExtratosRevisarRoute
   AuthenticatedHistoricoFecharAnoMesRoute: typeof AuthenticatedHistoricoFecharAnoMesRoute
 }
 
@@ -527,6 +548,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCartoesFaturasImportIdRoute:
     AuthenticatedCartoesFaturasImportIdRoute,
   AuthenticatedHistoricoAnoMesRoute: AuthenticatedHistoricoAnoMesRoute,
+  AuthenticatedBancosAccountIdExtratosRevisarRoute:
+    AuthenticatedBancosAccountIdExtratosRevisarRoute,
   AuthenticatedHistoricoFecharAnoMesRoute:
     AuthenticatedHistoricoFecharAnoMesRoute,
 }
