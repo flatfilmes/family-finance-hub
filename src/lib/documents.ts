@@ -370,6 +370,7 @@ export async function processDocumentPdf(input: {
           arquivo: doc.nome_arquivo,
           confianca: lido.confianca,
           pagamento_descricao: lido.pagamento_descricao,
+          tipo_documento_detectado: deteccao,
           // Cópia dos produtos lidos: garante que a revisão sempre tenha o que mostrar,
           // mesmo se a gravação dos itens falhar depois.
           items: lido.items,
