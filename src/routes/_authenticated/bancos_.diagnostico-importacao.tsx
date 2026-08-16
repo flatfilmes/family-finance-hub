@@ -9,14 +9,19 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { FileSearch, Download, ChevronDown, ChevronRight } from "lucide-react";
 import { Card, PageHeader } from "@/components/page-header";
-import { extractPdfLines, type PdfLine } from "@/lib/pdf-extract";
+import {
+  extractPdfPageLayouts,
+  layoutPageLines,
+  type PdfLine,
+} from "@/lib/pdf-extract";
 import {
   isBancoDoBrasil,
   parseBancoDoBrasilLines,
 } from "@/lib/bank-statement-parsers/banco-do-brasil";
 import {
-  isItauBankStatement,
-  parseItauBankStatementLines,
+  detectItauBankStatement,
+  parseItauBankStatementLayouts,
+  type ItauPipelineDiagnostics,
 } from "@/lib/bank-statement-parsers/itau";
 import { parseBankStatementLines } from "@/lib/bank-statements/parse";
 import { toCanonicalStatement, type CanonicalStatement } from "@/lib/bank-statements/canonical";
@@ -54,6 +59,9 @@ type Resultado = {
   lines: PdfLine[];
   statement: CanonicalStatement;
   validation: StatementValidation;
+  /** Etapas do parser: detecção → rows → transações (só quando o parser expõe). */
+  pipeline?: ItauPipelineDiagnostics;
+  rawItems: number;
   erro?: string;
 };
 
@@ -78,25 +86,41 @@ function DiagnosticoImportacao() {
     const lidos: Resultado[] = [];
     for (const file of Array.from(files)) {
       try {
-        const lines = await extractPdfLines(file);
+        // Itens crus do pdf.js: é assim que o parser Itaú enxerga a tabela.
+        const pages = await extractPdfPageLayouts(file);
+        const rawItems = pages.reduce((a, p) => a + p.items.filter((i) => i.text.trim()).length, 0);
+        const lines = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
         const textos = lines.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-        const parsed = isItauBankStatement(textos)
-          ? parseItauBankStatementLines(lines)
+        const itensTexto = pages.flatMap((p) => p.items.map((i) => i.text));
+        const ehItau =
+          detectItauBankStatement([...textos, ...itensTexto]).detectedBank === "ITAU";
+        const parsed = ehItau
+          ? parseItauBankStatementLayouts(pages)
           : isBancoDoBrasil(textos)
             ? parseBancoDoBrasilLines(lines)
             : parseBankStatementLines(lines);
         const statement = toCanonicalStatement(parsed, { statementId: file.name });
-        lidos.push({ arquivo: file.name, lines, statement, validation: validateStatement(statement) });
+        const pipeline = (parsed as { pipeline?: ItauPipelineDiagnostics }).pipeline;
+        lidos.push({
+          arquivo: file.name,
+          lines,
+          statement,
+          validation: validateStatement(statement),
+          ...(pipeline ? { pipeline } : {}),
+          rawItems,
+        });
       } catch (e) {
         lidos.push({
           arquivo: file.name,
           lines: [],
+          rawItems: 0,
           statement: {} as CanonicalStatement,
           validation: {} as StatementValidation,
           erro: e instanceof Error ? e.message : "Falha ao ler o PDF",
         });
       }
     }
+
     setResultados((atual) =>
       [...atual, ...lidos].sort((a, b) =>
         (a.statement?.periodEnd ?? a.arquivo).localeCompare(b.statement?.periodEnd ?? b.arquivo),
@@ -251,11 +275,89 @@ function DiagnosticoImportacao() {
   );
 }
 
+/** Etapas do parser em ordem — mostra exatamente onde a contagem zera. */
+function PipelinePanel({ resultado }: { resultado: Resultado }) {
+  const p = resultado.pipeline;
+  const etapas: { rotulo: string; valor: string; alerta?: boolean }[] = [
+    {
+      rotulo: "BANK DETECTION",
+      valor: p
+        ? `${p.detection.detectedBank} · confiança ${p.detection.confidence}`
+        : resultado.statement.parser ?? "—",
+      alerta: p ? p.detection.detectedBank !== "ITAU" : false,
+    },
+    {
+      rotulo: "PERIOD",
+      valor: `${resultado.statement.periodStart ?? "?"} → ${resultado.statement.periodEnd ?? "?"}`,
+      alerta: !resultado.statement.periodStart || !resultado.statement.periodEnd,
+    },
+    { rotulo: "RAW ITEMS", valor: String(resultado.rawItems), alerta: resultado.rawItems === 0 },
+    {
+      rotulo: "ASSEMBLED ROWS",
+      valor: String(p?.assembledRows ?? resultado.lines.length),
+      alerta: (p?.assembledRows ?? resultado.lines.length) === 0,
+    },
+    {
+      rotulo: "PARSED TRANSACTIONS",
+      valor: String(resultado.statement.transactions.length),
+      alerta: resultado.statement.transactions.length === 0,
+    },
+    {
+      rotulo: "PARSED CHECKPOINTS",
+      valor: String(resultado.statement.checkpoints.length),
+    },
+    {
+      rotulo: "VALIDATION",
+      valor: p?.validation.status ?? resultado.validation.status,
+      alerta: (p?.validation.status ?? resultado.validation.status) !== "PASS" &&
+        resultado.validation.status !== "PARSED_STATEMENT_VALID",
+    },
+  ];
+
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {etapas.map((e) => (
+          <div key={e.rotulo}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {e.rotulo}
+            </p>
+            <p className={e.alerta ? "text-sm font-semibold text-destructive" : "text-sm font-medium"}>
+              {e.valor}
+            </p>
+          </div>
+        ))}
+      </div>
+      {p && (
+        <p className="text-[11px] text-muted-foreground">
+          Sinais: {p.detection.matchedSignals.join(" · ") || "nenhum"}
+          {p.columns
+            ? ` · colunas (${p.columns.source}) valor x≈${p.columns.valorX.toFixed(0)} · saldo x≈${p.columns.saldoX.toFixed(0)}`
+            : " · colunas não detectadas"}
+          {p.openingBalance.date ? ` · abertura ${p.openingBalance.date}` : ""}
+          {p.referenceBalance.date
+            ? ` · saldo de referência ${p.referenceBalance.date} (fora do período)`
+            : ""}
+        </p>
+      )}
+      {p?.validation.errors.length ? (
+        <ul className="list-disc space-y-0.5 pl-5 text-[11px] text-destructive">
+          {p.validation.errors.map((e) => (
+            <li key={e}>{e}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function Detalhe({ resultado }: { resultado: Resultado }) {
   const { statement, validation } = resultado;
   const mes = statement.periodEnd?.slice(0, 7) ?? "sem-periodo";
   return (
     <div className="space-y-4">
+      <PipelinePanel resultado={resultado} />
+
       <div className="flex flex-wrap gap-2">
         <button
           type="button"

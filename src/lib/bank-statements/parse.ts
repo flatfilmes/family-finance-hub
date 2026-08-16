@@ -10,7 +10,12 @@
  * A arquitetura já está preparada para CSV e OFX: basta outra função que
  * devolva `ParsedBankStatement`.
  */
-import { extractPdfLines, parseValorBr, type PdfLine } from "@/lib/pdf-extract";
+import {
+  extractPdfPageLayouts,
+  layoutPageLines,
+  parseValorBr,
+  type PdfLine,
+} from "@/lib/pdf-extract";
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import {
   isBancoDoBrasil,
@@ -18,7 +23,7 @@ import {
 } from "@/lib/bank-statement-parsers/banco-do-brasil";
 import {
   isItauBankStatement,
-  parseItauBankStatementLines,
+  parseItauBankStatementLayouts,
 } from "@/lib/bank-statement-parsers/itau";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "./types";
 
@@ -175,14 +180,18 @@ export function parseBankStatementLines(linhas: PdfLine[]): ParsedBankStatement 
 
 /** Lê um extrato em PDF. Usada tanto no fluxo real quanto no dry run. */
 export async function readBankStatementPdf(file: Blob): Promise<ParsedBankStatement> {
-  const linhas = await extractPdfLines(file);
+  const pages = await extractPdfPageLayouts(file);
+  const itens = pages.flatMap((p) => p.items.map((i) => i.text));
+  const linhas = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-  // Itaú: colunas "valor (R$)" e "saldo (R$)" com "SALDO DO DIA" — parser próprio.
-  if (isItauBankStatement(textos)) return parseItauBankStatementLines(linhas);
+  // Itaú: parser espacial próprio a partir dos itens crus — o divisor de duas
+  // colunas de `layoutPageLines` quebra a tabela do extrato de conta.
+  if (isItauBankStatement([...textos, ...itens])) return parseItauBankStatementLayouts(pages);
   // Layout do Banco do Brasil tem sinal impresso "(+)"/"(-)": parser dedicado.
   if (isBancoDoBrasil(textos)) return parseBancoDoBrasilLines(linhas);
   return parseBankStatementLines(linhas);
 }
+
 
 /** Totais apresentados na tela de revisão. */
 export function resumoDoExtrato(movimentos: ParsedBankMovement[]) {
