@@ -6,6 +6,9 @@ import {
   classificarCiclosDoCartao,
   faturasFechadasEmAberto,
   obrigacaoAbertaDoCartao,
+  linhasOficiaisDaFatura,
+  resumoOficialDaFatura,
+  type LancamentoOficial,
 } from "@/lib/card-details";
 import { progressoParcelamento } from "@/lib/purchases";
 
@@ -212,5 +215,51 @@ describe("composicaoUtilizado com fatura oficial", () => {
     });
     expect(c.faturaAtual).toBe(800);
     expect(c.total).toBe(1050);
+  });
+});
+
+describe("resumo oficial da fatura fechada", () => {
+  const item = (over: Partial<LancamentoOficial> & { id: string; valor: number }) =>
+    ({
+      data_lancamento: "2026-07-20",
+      descricao_original: "LANCAMENTO",
+      estabelecimento_sugerido: null,
+      tipo_sugerido: "COMPRA",
+      parcela_atual: null,
+      total_parcelas: null,
+      categoria_sugerida_id: null,
+      purchase_id_criada: null,
+      purchase_id_matched: null,
+      recurring_expense_id_matched: null,
+      ...over,
+    }) as LancamentoOficial;
+
+  it("fecha agosto/2026 no total oficial de 6577,67 mesmo sem purchase no ciclo", () => {
+    const items: LancamentoOficial[] = [
+      // compras à vista do ciclo
+      item({ id: "1", valor: 5749.46 }),
+      // parcelas de séries antigas: não têm parcela no ciclo interno
+      item({ id: "2", valor: 216.74, parcela_atual: 8, total_parcelas: 12 }),
+      item({ id: "3", valor: 143.24, parcela_atual: 3, total_parcelas: 3 }),
+      item({ id: "4", valor: 96.82, parcela_atual: 2, total_parcelas: 2 }),
+      item({ id: "5", valor: 56.53, parcela_atual: 9, total_parcelas: 12 }),
+      item({ id: "6", valor: 52.58, parcela_atual: 7, total_parcelas: 10 }),
+      item({ id: "7", valor: 51.17, parcela_atual: 9, total_parcelas: 10 }),
+      item({ id: "8", valor: 22.72, parcela_atual: 9, total_parcelas: 12 }),
+      item({ id: "9", valor: 136.98 }),
+      // taxas e serviços
+      item({ id: "10", valor: 46.0, tipo_sugerido: "TAXA" }),
+      item({ id: "11", valor: 0.54, tipo_sugerido: "TAXA" }),
+      item({ id: "12", valor: 4.94, tipo_sugerido: "TAXA" }),
+      // créditos
+      item({ id: "13", valor: -0.01, tipo_sugerido: "ESTORNO" }),
+      item({ id: "14", valor: -0.04, tipo_sugerido: "ESTORNO" }),
+    ];
+    const linhas = linhasOficiaisDaFatura({ items, vencimento: "2026-08-17" });
+    const r = resumoOficialDaFatura(linhas);
+    expect(r.taxas).toBe(51.48);
+    expect(r.creditos).toBe(-0.05);
+    expect(r.parceladas).toBe(639.8);
+    expect(r.total).toBe(6577.67);
   });
 });
