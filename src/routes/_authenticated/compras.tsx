@@ -135,7 +135,18 @@ function Compras() {
       )
     : porEscopo;
   const compraDetalhe = lista.find((p) => p.id === detalhe) ?? null;
-  const totalListado = lista.reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
+  const parcelasDaLista = usePurchaseInstallmentsByPurchases(lista.map((p) => p.id));
+  /** Parcela do período de uma compra parcelada (base do valor em destaque). */
+  const parcelaDaCompra = (purchaseId: string) =>
+    parcelaDoPeriodo(
+      (parcelasDaLista.data ?? []).filter((p) => p.purchase_id === purchaseId),
+      filtroMes,
+    );
+  const totalListado = lista.reduce((acc, p) => {
+    const parcela = parcelaDaCompra(p.id);
+    return acc + (parcela ? parcela.valor_parcela : Number(p.valor_total) || 0);
+  }, 0);
+
 
   const setItem = (index: number, patch: Partial<NewPurchaseItem>) =>
     setItems((prev) => prev.map((item, i) => (i === index ? { ...item, ...patch } : item)));
