@@ -19,7 +19,7 @@ import {
   type Transaction,
 } from "@/lib/transactions";
 import type { Purchase } from "@/lib/purchases";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 
 export const Route = createFileRoute("/_authenticated/bancos/$accountId")({
   head: () => ({

@@ -25,7 +25,7 @@ import {
 } from "@/lib/member-profiles";
 import { PERMISSION_DESCRIPTIONS, PERMISSION_LABELS, type FamilyPermission } from "@/lib/family";
 import { supabase } from "@/integrations/supabase/client";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 
 export const Route = createFileRoute("/_authenticated/membro/$memberId")({
   head: () => ({

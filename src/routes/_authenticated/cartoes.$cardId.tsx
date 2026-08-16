@@ -20,7 +20,7 @@ import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
 import { KIND_LABELS, type Kind } from "@/lib/card-details";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 
 export const Route = createFileRoute("/_authenticated/cartoes/$cardId")({
   head: () => ({

@@ -7,7 +7,7 @@ import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useExpenses } from "@/hooks/useExpenses";
 import { currentMonth, monthLabel } from "@/lib/expenses";
 import { formatCurrency, monthlyIncomeValue, monthlyExpenseValue } from "@/lib/finance";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({

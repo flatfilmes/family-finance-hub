@@ -14,7 +14,7 @@ import { formatCurrency } from "@/lib/finance";
 import { BANK_ACCOUNT_TYPE_LABELS } from "@/lib/bank-accounts";
 import { currentMonth, monthLabel } from "@/lib/expenses";
 import type { Transaction } from "@/lib/transactions";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 
 export const Route = createFileRoute("/_authenticated/bancos/")({
   head: () => ({

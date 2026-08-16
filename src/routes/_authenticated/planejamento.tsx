@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useExpenseCategories } from "@/hooks/useExpenses";
 import { useBudgetProgress, useBudgets } from "@/hooks/useBudgets";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 import { formatCurrency } from "@/lib/finance";
 import { currentMonth, monthLabel } from "@/lib/expenses";
 import {

@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useFamily } from "@/hooks/useFamilyData";
 import { MemberSelect, useMemberName } from "@/components/member-select";
 import { useFixedExpenses } from "@/hooks/useFinanceData";
-import { NoFamily } from "./receitas";
+import { NoFamily } from "@/components/no-family";
 import {
   EXPENSE_CATEGORY_LABELS,
   EXPENSE_RECURRENCE_LABELS,
