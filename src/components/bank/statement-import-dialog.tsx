@@ -22,7 +22,6 @@ import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 import { normalizeDescricao } from "@/lib/card-statement-parsers/generic";
 import { readBankStatementPdf } from "@/lib/bank-statement-parsers";
-import { bankStatementDryRun } from "@/lib/bank-statement-parsers/diagnostic";
 import {
   ACOES_SEM_EFEITO,
   MATCH_LABELS,
