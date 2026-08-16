@@ -16,11 +16,13 @@
 import { buildBankParserDiagnostics } from "@/lib/bank-statements/diagnostics";
 import type { ParserDryRunResult } from "@/lib/pdf-diagnostic/diagnostic-types";
 
+const GENERICO = "EXTRATO_GENERICO_PDF";
+
 const PARSER_NAMES: Record<string, string> = {
   BANCO_DO_BRASIL: "BANCO_DO_BRASIL_STATEMENT",
   ITAU: "ITAU_BANK_STATEMENT",
-  GENERICO: "EXTRATO_GENERICO_PDF",
-  UNKNOWN: "EXTRATO_GENERICO_PDF",
+  GENERICO,
+  UNKNOWN: GENERICO,
 };
 
 const ehLinhaDeSaldoDoDia = (texto: string) =>
@@ -34,7 +36,7 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
   const fileName = (file as File).name ?? "extrato.pdf";
   const d = await buildBankParserDiagnostics(file, fileName);
   const bank = d.detection.detectedBank;
-  const parserName = d.detection.parser || PARSER_NAMES[bank] || PARSER_NAMES.GENERICO;
+  const parserName = d.detection.parser || PARSER_NAMES[bank] || GENERICO;
 
   const counts = {
     rawItems: d.counts.rawItems,
