@@ -43,7 +43,7 @@ function lerValorComSinal(texto: string): { valor: number; bruto: string } | nul
   return null;
 }
 
-const DATA_INICIAL = /^(\d{2})\/(\d{2})\/(\d{4}|\d{2})/;
+
 
 type Secao = "MOVIMENTOS" | "FUTUROS" | "METADATA";
 
