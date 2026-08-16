@@ -77,7 +77,7 @@ function Cartao({
 }: {
   label: string;
   valor: string;
-  detalhe?: string;
+  detalhe?: string | undefined;
   tom?: "neutro" | "ok" | "falha";
 }) {
   const borda =
