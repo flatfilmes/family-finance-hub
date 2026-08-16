@@ -138,7 +138,7 @@ function CartaoDetalhePage() {
     itensDoCiclo.length > 0;
   const linhas: LinhaOficial[] = usarOficial
     ? linhasOficiaisDaFatura({ items: itensDoCiclo, vencimento: fatura?.data_vencimento ?? null })
-    : dados.linhasDe(cartao.id, fatura);
+    : dados.linhasDe(cartao.id, fatura).map((l) => ({ ...l, itemId: l.id }) as LinhaOficial);
   const filtradas = linhas.filter(
     (l) =>
       (!filtroTipo || l.kind === filtroTipo) &&
