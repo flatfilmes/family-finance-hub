@@ -188,6 +188,9 @@ export async function generateInstallments(input: {
       total_parcelas: total,
       valor_parcela: valorParcela,
       data_vencimento: cycle.data_vencimento,
+      member_id: input.memberId ?? null,
+      credit_card_id: input.card.id,
+      purchase_id: input.purchaseId ?? null,
     });
   }
 
