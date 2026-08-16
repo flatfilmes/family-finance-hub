@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   cancelStatementImport,
   confirmStatementImport,
+  deleteStatementImport,
   fetchStatementImport,
   fetchStatementImports,
   fetchStatementItems,
@@ -137,6 +138,19 @@ export function useCancelStatementImport(familyId?: string) {
       queryClient.invalidateQueries({ queryKey: ["card-statement-imports", familyId] });
       queryClient.invalidateQueries({ queryKey: ["card-statement-import", id] });
       queryClient.invalidateQueries({ queryKey: ["card-statement-items", id] });
+    },
+  });
+}
+
+/** Exclusão manual de uma fatura importada não confirmada (somente admin). */
+export function useDeleteStatementImport(familyId?: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteStatementImport(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["card-statement-imports", familyId] });
+      queryClient.removeQueries({ queryKey: ["card-statement-import", id] });
+      queryClient.removeQueries({ queryKey: ["card-statement-items", id] });
     },
   });
 }
