@@ -102,12 +102,40 @@ function RevisarFaturaPage() {
   }
 
   const conta = (status: MatchStatus) => lista.filter((i) => i.match_status === status).length;
-  const totalExtraido = lista.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
+  const atuais = lista.filter((i) => i.tipo_sugerido !== "PAGAMENTO");
+  const totalExtraido = atuais.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
+  const creditos = atuais
+    .filter((i) => (Number(i.valor) || 0) < 0)
+    .reduce((acc, i) => acc + Number(i.valor), 0);
   const valorFatura = Number(importacao.valor_total_fatura) || 0;
   const diferenca = valorFatura - totalExtraido;
   const bateu = Math.abs(diferenca) < 0.01 && valorFatura > 0;
+  // Segurança: soma muito acima da fatura indica leitura de limites/simulações.
+  const foraDeControle =
+    valorFatura > 0 &&
+    (Math.abs(diferenca) > Math.max(valorFatura * 0.15, 50) || totalExtraido > valorFatura * 3);
 
-  const filtradas = lista.filter((i) => (filtro ? i.match_status === filtro : true));
+  const brutos = (importacao.dados_brutos_json ?? {}) as {
+    metadata?: Record<string, number | string | null> | null;
+    subtotais?: { card_last4: string; valor: number }[];
+    futuras?: { descricao_original: string }[];
+  };
+  const subtotaisPdf = brutos.subtotais ?? [];
+  const futuroComprometido = Number(brutos.metadata?.["future_commitments_total"] ?? 0) || 0;
+  const finais = Array.from(
+    new Set(lista.map((i) => i.card_last4).filter(Boolean) as string[]),
+  ).sort();
+  const somaDoCartao = (final: string) =>
+    lista
+      .filter((i) => i.card_last4 === final && i.tipo_sugerido !== "PAGAMENTO")
+      .reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
+
+  const filtradas = lista.filter(
+    (i) =>
+      (filtro ? i.match_status === filtro : true) &&
+      (filtroCartao ? i.card_last4 === filtroCartao : true),
+  );
+
   const comprasDoCartao = (purchases ?? []).filter(
     (p) => p.credit_card_id === importacao.credit_card_id,
   );
