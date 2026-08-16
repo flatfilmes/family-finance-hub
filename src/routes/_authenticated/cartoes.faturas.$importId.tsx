@@ -376,8 +376,15 @@ function RevisarFaturaPage() {
           )}
         </div>
 
+        {filtroCartao && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Filtro apenas investigativo. A obrigação financeira continua sendo uma única fatura de{" "}
+            {valorFatura > 0 ? formatCurrency(valorFatura) : "valor não identificado"}.
+          </p>
+        )}
 
         <SectionTitle title="Lançamentos da fatura" />
+
 
         {filtradas.length === 0 ? (
           <EmptyState
