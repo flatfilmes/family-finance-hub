@@ -531,6 +531,67 @@ function MesCard({
             <Linha label="Diferença" valor={mes.difference} destaque={mes.confere === false} />
           </div>
 
+          {mes.primeiraDivergencia && (
+            <div className="mt-3 rounded-xl border border-red-500/40 bg-red-500/5 px-3 py-2">
+              <p className="flex items-center gap-2 text-xs font-semibold text-destructive">
+                <AlertTriangle className="size-3.5" />
+                Primeira divergência em {formatDate(mes.primeiraDivergencia.date)}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Calculado {formatCurrency(mes.primeiraDivergencia.calculado)} · banco informou{" "}
+                {formatCurrency(mes.primeiraDivergencia.informado)} · diferença{" "}
+                {formatCurrency(mes.primeiraDivergencia.diferenca)}.{" "}
+                {mes.primeiraDivergencia.ultimoDiaCorreto
+                  ? `Último dia correto: ${formatDate(mes.primeiraDivergencia.ultimoDiaCorreto)}.`
+                  : "Nenhum dia conferido antes deste."}{" "}
+                {mes.primeiraDivergencia.movimentosDesdeUltimoCorreto.length} movimentação(ões) no
+                intervalo suspeito.
+              </p>
+            </div>
+          )}
+
+          {mes.checkpoints === 0 && mes.imports.length > 0 && (
+            <p className="mt-3 rounded-xl bg-muted px-3 py-2 text-xs text-muted-foreground">
+              Este mês não tem "Saldo do dia" registrado. Use "Reprocessar checkpoints" para reler o
+              PDF — nenhuma movimentação será alterada.
+            </p>
+          )}
+
+          {mes.faltantes.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-semibold text-destructive">
+                {mes.faltantes.length} movimentação(ões) do PDF sem correspondência no ledger
+              </p>
+              <ul className="space-y-1">
+                {mes.faltantes.map((f) => (
+                  <li key={f.itemId} className="flex justify-between gap-3 text-xs">
+                    <span className="truncate">
+                      {f.data ? formatDate(f.data) : "sem data"} · {f.descricao}
+                    </span>
+                    <span className="shrink-0 font-semibold">{formatCurrency(f.valor)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {mes.datasInconsistentes.length > 0 && (
+            <div className="mt-3">
+              <p className="mb-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
+                {mes.datasInconsistentes.length} movimentação(ões) com data diferente da do extrato
+              </p>
+              <ul className="space-y-1">
+                {mes.datasInconsistentes.map((d) => (
+                  <li key={d.itemId} className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">{d.descricao}</span> — extrato{" "}
+                    {formatDate(String(d.dataExtrato))}, ledger {formatDate(d.dataLedger)}
+                    {d.dataNoHistorico ? ` (histórico cita ${formatDate(d.dataNoHistorico)})` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {mes.missingAmount !== null && (
             <p className="mt-3 flex items-center gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-semibold text-destructive">
               <AlertTriangle className="size-3.5" />
