@@ -126,8 +126,7 @@ function Linha({
             )
           : item.acao.to && (
               <Link
-                to={item.acao.to}
-                {...(item.acao.params ? { params: item.acao.params } : {})}
+                {...({ to: item.acao.to, params: item.acao.params } as never)}
                 className={acaoClass}
               >
                 {item.acao.label}
