@@ -634,6 +634,23 @@ function RevisarFaturaPage() {
         </p>
       )}
 
+      {!jaConfirmada && (
+        <Card className="mt-4">
+          <p className="text-sm font-bold">Ao confirmar</p>
+          <ul className="mt-2 grid gap-1 text-sm text-muted-foreground">
+            <li>{resumo.CREATE_PURCHASE} nova(s) compra(s) serão criadas</li>
+            <li>{resumo.ASSOCIATE_EXISTING} compra(s) existente(s) serão associadas</li>
+            <li>
+              {resumo.POSSIBLE_MATCH} possível(is) correspondência(s) — sem escolha, viram compras
+              novas
+            </li>
+            <li>{resumo.REGISTER_FEE} taxa(s) serão registradas</li>
+            <li>{resumo.REGISTER_CREDIT} crédito(s)/estorno(s) serão registrados</li>
+            <li>{resumo.IGNORE} lançamento(s) serão ignorados</li>
+          </ul>
+        </Card>
+      )}
+
       <div className="mt-4 flex justify-end">
         <PrimaryButton
           type="button"
@@ -644,9 +661,10 @@ function RevisarFaturaPage() {
             ? "Revisão já confirmada"
             : confirmar.isPending
               ? "Aplicando decisões…"
-              : "Confirmar revisão"}
+              : `Confirmar ${resumo.incluidos} lançamento(s)`}
         </PrimaryButton>
       </div>
+
     </div>
   );
 }
