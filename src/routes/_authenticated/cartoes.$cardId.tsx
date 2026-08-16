@@ -387,6 +387,14 @@ function CartaoDetalhePage() {
         )}
       </Card>
 
+      <CardStatementImports
+        familyId={family.id}
+        cardId={cartao.id}
+        onImportar={() => setImportando(true)}
+      />
+
+
+
       <Card className="mt-4">
         <SectionTitle title="Lançamentos da fatura" />
         {filtradas.length === 0 ? (
