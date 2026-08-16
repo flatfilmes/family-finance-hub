@@ -128,6 +128,11 @@ export type BankParserDiagnostics = {
   error: string | null;
   parser: { status: "FOUND" | "NOT_FOUND"; requestedBank: string | null; name: string | null };
   parserOutput: unknown;
+  /** Entrada exata recebida pelo parser (nunca omitida). */
+  parserExecutionInput: BankParserExecutionInput | null;
+  /** Etapas internas do parser com PASS/FAIL e motivo. */
+  parserInternalStages: ParserInternalStage[];
+
   checkpointTrace: Array<{ rowText: string; date: string | null; balance: number | null; status: string; reason: string }>;
   accepted: unknown[];
   rejected: unknown[];
