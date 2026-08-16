@@ -298,6 +298,11 @@ function RevisarExtrato() {
           resumo.periodoFim ? formatDate(resumo.periodoFim) : "?"
         }`
       : null,
+    resumo.saldoReferenciaAtual
+      ? `Saldo atual informado no documento em ${formatDate(
+          resumo.saldoReferenciaAtual.data,
+        )}: ${formatCurrency(resumo.saldoReferenciaAtual.saldo)} (fora do período)`
+      : null,
     `Arquivo ${draft.nomeArquivo}`,
   ].filter(Boolean) as string[];
 
