@@ -107,7 +107,7 @@ export function PdfDiagnosticDialog({
               name: error.name,
               message: error.message,
               stage: "PARSER_EXECUTION",
-              ...(import.meta.env.DEV && error.stack ? { stack: error.stack } : {}),
+              ...(error.stack ? { stack: error.stack } : {}),
             }],
             detection: {
               status: "FAILED",
@@ -117,6 +117,7 @@ export function PdfDiagnosticDialog({
               reason: error.message,
             },
             parserInfo: { status: "NOT_FOUND", requestedBank: null, name: null },
+            parserInternalStages: [],
           });
           setErro(
             `Leitura bruta OK, mas o parser falhou: ${e instanceof Error ? e.message : "erro"}`,
@@ -389,6 +390,35 @@ function PipelineStatus({
           {parser.status ?? "PARSER_EXECUTION_FAILED"}
           {parser.stage ? ` · etapa ${parser.stage}` : ""} — {parser.error}
         </p>
+      )}
+      {!!parser?.errors?.length && (
+        <div className="sm:col-span-3 space-y-2">
+          {parser.errors.map((e, i) => (
+            <div key={i} className="rounded-2xl border border-destructive/40 bg-destructive/5 p-3">
+              <p className="text-xs font-bold text-destructive">
+                {e.stage} · {e.name}
+              </p>
+              <p className="text-xs font-semibold">{e.message}</p>
+              {e.stack && (
+                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-[10px] text-muted-foreground">
+                  {e.stack}
+                </pre>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {!!parser?.parserInternalStages?.length && (
+        <div className="sm:col-span-3 grid gap-1">
+          {parser.parserInternalStages.map((s) => (
+            <p key={s.stage} className="text-[11px]">
+              <span className={s.status === "PASS" ? "text-primary" : "text-destructive"}>
+                {s.status === "PASS" ? "✓" : "✕"} {s.stage}
+              </span>{" "}
+              <span className="text-muted-foreground">{s.reason}</span>
+            </p>
+          ))}
+        </div>
       )}
       {parser?.status === "PARSER_NOT_SELECTED" && (
         <p className="sm:col-span-3 text-xs font-semibold text-destructive">
