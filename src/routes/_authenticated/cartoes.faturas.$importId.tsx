@@ -18,15 +18,17 @@ import {
   useStatementItemActions,
 } from "@/hooks/useCardStatements";
 import {
+  ACTION_BADGES,
+  ACTION_HELP,
+  ACTION_TONES,
   KIND_LABELS,
-  MATCH_LABELS,
-  MATCH_TONES,
   IMPORT_STATUS_LABELS,
-  REVIEW_CLASS_LABELS,
-  REVIEW_CLASS_TONES,
-  classifyReviewItem,
   formatOptional,
-  type MatchStatus,
+  needsAttention,
+  resolveReviewAction,
+  reviewSummary,
+  userChoice,
+  type ReviewAction,
   type StatementItem,
 } from "@/lib/card-statements";
 import { formatCurrency } from "@/lib/finance";
@@ -54,14 +56,17 @@ export const Route = createFileRoute("/_authenticated/cartoes/faturas/$importId"
   component: RevisarFaturaPage,
 });
 
-const FILTROS: { valor: "" | MatchStatus; label: string }[] = [
+type Filtro = "" | "ATENCAO" | ReviewAction;
+
+const FILTROS: { valor: Filtro; label: string }[] = [
   { valor: "", label: "Todos" },
-  { valor: "MATCHED", label: "Conciliados" },
-  { valor: "CONFIRMED_NEW", label: "Novos confirmados" },
-  { valor: "UNMATCHED", label: "Novos" },
-  { valor: "POSSIBLE_MATCH", label: "Possíveis" },
-  { valor: "DIVERGENT", label: "Divergentes" },
-  { valor: "IGNORED", label: "Ignorados" },
+  { valor: "ATENCAO", label: "Precisa de atenção" },
+  { valor: "CREATE_PURCHASE", label: "Novas compras" },
+  { valor: "ASSOCIATE_EXISTING", label: "Associados" },
+  { valor: "POSSIBLE_MATCH", label: "Possíveis correspondências" },
+  { valor: "REGISTER_FEE", label: "Taxas" },
+  { valor: "REGISTER_CREDIT", label: "Créditos e estornos" },
+  { valor: "IGNORE", label: "Ignorados" },
 ];
 
 function RevisarFaturaPage() {
@@ -77,7 +82,7 @@ function RevisarFaturaPage() {
   const acoes = useStatementItemActions(importId);
   const confirmar = useConfirmStatementImport(family?.id);
 
-  const [filtro, setFiltro] = useState<"" | MatchStatus>("");
+  const [filtro, setFiltro] = useState<Filtro>("");
   const [filtroCartao, setFiltroCartao] = useState<string>("");
 
   const [selecionados, setSelecionados] = useState<string[]>([]);
