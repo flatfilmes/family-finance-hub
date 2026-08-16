@@ -259,3 +259,24 @@ export async function deletePurchase(id: string) {
   if (error) throw error;
 }
 
+/**
+ * Altera apenas a categoria de um item de compra já confirmada.
+ * Nunca toca em valor, quantidade ou pagamento.
+ */
+export async function updatePurchaseItemCategory(input: {
+  itemId: string;
+  categoriaId: string | null;
+  categoriaSugerida?: string | null;
+}) {
+  const { error } = await supabase
+    .from("purchase_items")
+    .update({
+      categoria_id: input.categoriaId,
+      categoria_ajustada:
+        input.categoriaSugerida != null
+          ? input.categoriaSugerida !== input.categoriaId
+          : true,
+    })
+    .eq("id", input.itemId);
+  if (error) throw error;
+}
