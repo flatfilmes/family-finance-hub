@@ -169,3 +169,31 @@ export async function deleteCreditCard(id: string) {
   const { error } = await supabase.from("credit_cards").delete().eq("id", id);
   if (error) throw error;
 }
+
+export async function updateIncome(
+  id: string,
+  input: Database["public"]["Tables"]["incomes"]["Update"],
+) {
+  const { error } = await supabase.from("incomes").update(input).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCreditCard(
+  id: string,
+  input: Database["public"]["Tables"]["credit_cards"]["Update"],
+) {
+  const { error } = await supabase.from("credit_cards").update(input).eq("id", id);
+  if (error) throw error;
+}
+
+/** Arquiva/reativa o cartão preservando todo o histórico financeiro. */
+export async function archiveCreditCard(id: string, ativo: boolean) {
+  const { error } = await supabase.rpc("archive_credit_card", { _card_id: id, _ativo: ativo });
+  if (error) throw error;
+}
+
+/** Exclui o cartão somente quando não existe nenhuma dependência financeira. */
+export async function deleteCreditCardIfUnused(id: string) {
+  const { error } = await supabase.rpc("delete_credit_card_if_unused", { _card_id: id });
+  if (error) throw error;
+}

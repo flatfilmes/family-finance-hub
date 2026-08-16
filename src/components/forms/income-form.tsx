@@ -10,19 +10,24 @@ import {
   INCOME_FREQUENCY_LABELS,
   INCOME_TYPE_LABELS,
   createIncome,
+  updateIncome,
+  type Income,
   type IncomeFrequency,
   type IncomeType,
 } from "@/lib/finance";
 
-/** Cadastro de receita dentro do perfil financeiro de um membro. */
+/** Cadastro e edição de receita dentro do perfil financeiro de um membro. */
 export function IncomeForm({
   familyId,
   memberId,
+  income,
   onSaved,
   onCancel,
 }: {
   familyId: string;
   memberId: string;
+  /** Quando informado, o formulário edita a receita existente. */
+  income?: Income;
   /** Chamado após salvar — usado para fechar o diálogo de cadastro. */
   onSaved?: () => void;
   /** Quando informado, o formulário usa o rodapé padrão Salvar / Cancelar. */
@@ -30,30 +35,44 @@ export function IncomeForm({
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState<number | null>(null);
-  const [tipo, setTipo] = useState<IncomeType>("FIXA");
-  const [frequencia, setFrequencia] = useState<IncomeFrequency>("MENSAL");
-  const [diaRecebimento, setDiaRecebimento] = useState("5");
+  const [descricao, setDescricao] = useState(income?.descricao ?? "");
+  const [valor, setValor] = useState<number | null>(income ? Number(income.valor) : null);
+  const [tipo, setTipo] = useState<IncomeType>(income?.tipo ?? "FIXA");
+  const [frequencia, setFrequencia] = useState<IncomeFrequency>(income?.frequencia ?? "MENSAL");
+  const [diaRecebimento, setDiaRecebimento] = useState(String(income?.dia_recebimento ?? 5));
 
-  const create = useMutation({
-    mutationFn: () =>
-      createIncome({
+  const save = useMutation({
+    mutationFn: async () => {
+      const dia = frequencia === "MENSAL" ? Number(diaRecebimento) : null;
+      if (income) {
+        await updateIncome(income.id, {
+          descricao: descricao.trim(),
+          valor: valor ?? 0,
+          tipo,
+          frequencia,
+          dia_recebimento: dia,
+        });
+        return;
+      }
+      await createIncome({
         family_id: familyId,
         created_by: user?.id ?? null,
         descricao: descricao.trim(),
         valor: valor ?? 0,
         tipo,
         frequencia,
-        dia_recebimento: frequencia === "MENSAL" ? Number(diaRecebimento) : null,
+        dia_recebimento: dia,
         data_recebimento: null,
         member_id: memberId,
-      }),
+      });
+    },
     onSuccess: () => {
-      setDescricao("");
-      setValor(null);
-      setDiaRecebimento("5");
-      toast.success("Receita cadastrada.");
+      if (!income) {
+        setDescricao("");
+        setValor(null);
+        setDiaRecebimento("5");
+      }
+      toast.success(income ? "Receita atualizada." : "Receita cadastrada.");
       onSaved?.();
       queryClient.invalidateQueries({ queryKey: ["incomes", familyId] });
     },
@@ -80,7 +99,7 @@ export function IncomeForm({
             return;
           }
         }
-        create.mutate();
+        save.mutate();
       }}
     >
       <Field label="Descrição">
@@ -137,14 +156,18 @@ export function IncomeForm({
       )}
       {onCancel ? (
         <div className="sm:col-span-2">
-          <FormActions onCancel={onCancel} saving={create.isPending} saveLabel="Salvar receita" />
+          <FormActions
+            onCancel={onCancel}
+            saving={save.isPending}
+            saveLabel={income ? "Salvar alterações" : "Salvar receita"}
+          />
         </div>
       ) : (
         <div className="flex items-end">
-          <PrimaryButton type="submit" disabled={create.isPending}>
+          <PrimaryButton type="submit" disabled={save.isPending}>
             <span className="inline-flex items-center gap-1.5">
               <Plus className="size-4" />
-              {create.isPending ? "Salvando..." : "Adicionar receita"}
+              {save.isPending ? "Salvando..." : "Adicionar receita"}
             </span>
           </PrimaryButton>
         </div>

@@ -47,6 +47,7 @@ function origemDoMovimento(t: Transaction, compra?: Purchase) {
   if (t.tipo === "PAGAMENTO_CARTAO") return "Pagamento de cartão";
   if (t.tipo === "ENTRADA") return "Entrada";
   if (t.tipo === "TRANSFERENCIA") return "Transferência";
+  if (t.tipo === "AJUSTE_SALDO") return "Ajuste de saldo";
   switch (compra?.forma_pagamento) {
     case "PIX":
       return "PIX";
@@ -70,6 +71,7 @@ const ORIGENS = [
   "Boleto",
   "Transferência",
   "Pagamento de cartão",
+  "Ajuste de saldo",
   "Dinheiro",
   "Outros",
 ];
@@ -263,13 +265,21 @@ function ContaDetalhePage() {
                           ? "Pagamento de cartão"
                           : t.tipo === "TRANSFERENCIA"
                             ? "Transferência"
-                            : "Saída"}
+                            : t.tipo === "AJUSTE_SALDO"
+                              ? "Ajuste de saldo"
+                              : "Saída"}
                     </td>
                     <td className="px-2 py-2.5 text-muted-foreground">{origemDe(t)}</td>
                     <td className="whitespace-nowrap px-2 py-2.5 text-right">
                       <span className="font-bold">
-                        {t.tipo === "ENTRADA" ? "+" : "-"}
-                        {formatCurrency(Number(t.valor) || 0)}
+                        {t.tipo === "AJUSTE_SALDO"
+                          ? (Number(t.valor) || 0) >= 0
+                            ? "+"
+                            : "-"
+                          : t.tipo === "ENTRADA"
+                            ? "+"
+                            : "-"}
+                        {formatCurrency(Math.abs(Number(t.valor) || 0))}
                       </span>
                       <span
                         className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${TRANSACTION_STATUS_CLASSES[t.status]}`}

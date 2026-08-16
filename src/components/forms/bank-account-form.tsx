@@ -3,24 +3,32 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { FormActions } from "@/components/form-dialog";
 import { useAuth } from "@/hooks/useAuth";
+import { useMembers } from "@/hooks/useFamilyData";
 import {
   BANK_ACCOUNT_TYPES,
   BANK_ACCOUNT_TYPE_LABELS,
   createBankAccount,
+  updateBankAccount,
+  type BankAccount,
   type BankAccountType,
 } from "@/lib/bank-accounts";
+import { formatCurrency } from "@/lib/finance";
 
-/** Cadastro de conta bancária dentro do perfil financeiro de um membro. */
+/** Cadastro e edição de conta bancária dentro do perfil financeiro de um membro. */
 export function BankAccountForm({
   familyId,
   memberId,
+  account,
   onSaved,
   onCancel,
 }: {
   familyId: string;
   memberId: string;
+  /** Quando informado, o formulário edita a conta existente. */
+  account?: BankAccount;
   /** Chamado após salvar — usado para fechar o diálogo de cadastro. */
   onSaved?: () => void;
   /** Quando informado, o formulário usa o rodapé padrão Salvar / Cancelar. */
@@ -28,27 +36,41 @@ export function BankAccountForm({
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [banco, setBanco] = useState("");
-  const [nomeConta, setNomeConta] = useState("");
-  const [tipo, setTipo] = useState<BankAccountType>("CORRENTE");
-  const [saldo, setSaldo] = useState("");
+  const { data: members } = useMembers(familyId);
+  const [banco, setBanco] = useState(account?.banco ?? "");
+  const [nomeConta, setNomeConta] = useState(account?.nome_conta ?? "");
+  const [tipo, setTipo] = useState<BankAccountType>(account?.tipo_conta ?? "CORRENTE");
+  const [titular, setTitular] = useState(account?.member_id ?? memberId);
+  const [saldoInicial, setSaldoInicial] = useState<number | null>(null);
 
-  const create = useMutation({
-    mutationFn: () =>
-      createBankAccount({
+  const save = useMutation({
+    mutationFn: async () => {
+      if (account) {
+        await updateBankAccount(account.id, {
+          banco: banco.trim(),
+          nome_conta: nomeConta.trim(),
+          tipo_conta: tipo,
+          member_id: titular || null,
+        });
+        return;
+      }
+      await createBankAccount({
         family_id: familyId,
         created_by: user?.id ?? null,
-        member_id: memberId,
+        member_id: titular || memberId,
         banco: banco.trim(),
         nome_conta: nomeConta.trim(),
         tipo_conta: tipo,
-        saldo_atual: Number(saldo.replace(",", ".")) || 0,
-      }),
+        saldo_atual: saldoInicial ?? 0,
+      });
+    },
     onSuccess: () => {
-      setBanco("");
-      setNomeConta("");
-      setSaldo("");
-      toast.success("Conta bancária cadastrada.");
+      if (!account) {
+        setBanco("");
+        setNomeConta("");
+        setSaldoInicial(null);
+      }
+      toast.success(account ? "Conta atualizada." : "Conta bancária cadastrada.");
       onSaved?.();
       queryClient.invalidateQueries({ queryKey: ["bank-accounts", familyId] });
     },
@@ -64,7 +86,7 @@ export function BankAccountForm({
           toast.error("Informe o banco e o nome da conta.");
           return;
         }
-        create.mutate();
+        save.mutate();
       }}
     >
       <Field label="Banco">
@@ -96,25 +118,47 @@ export function BankAccountForm({
           ))}
         </select>
       </Field>
-      <Field label="Saldo atual (R$)">
-        <input
+      <Field label="Titular">
+        <select
           className={inputClass}
-          value={saldo}
-          onChange={(e) => setSaldo(e.target.value)}
-          inputMode="decimal"
-          placeholder="0,00"
-        />
+          value={titular}
+          onChange={(e) => setTitular(e.target.value)}
+        >
+          {(members ?? []).map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.nome}
+            </option>
+          ))}
+        </select>
       </Field>
+      {account ? (
+        <div className="sm:col-span-2 rounded-2xl bg-muted/60 p-4">
+          <p className="text-xs font-semibold text-muted-foreground">Saldo atual calculado</p>
+          <p className="mt-1 text-lg font-bold">{formatCurrency(Number(account.saldo_atual))}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            O saldo é controlado pelas movimentações. Para corrigi-lo, use a ação “Ajustar saldo”,
+            que registra um lançamento auditável.
+          </p>
+        </div>
+      ) : (
+        <Field label="Saldo inicial">
+          <CurrencyInput value={saldoInicial} onChange={setSaldoInicial} />
+        </Field>
+      )}
       {onCancel ? (
         <div className="sm:col-span-2">
-          <FormActions onCancel={onCancel} saving={create.isPending} saveLabel="Salvar conta" />
+          <FormActions
+            onCancel={onCancel}
+            saving={save.isPending}
+            saveLabel={account ? "Salvar alterações" : "Salvar conta"}
+          />
         </div>
       ) : (
         <div className="flex items-end">
-          <PrimaryButton type="submit" disabled={create.isPending}>
+          <PrimaryButton type="submit" disabled={save.isPending}>
             <span className="inline-flex items-center gap-1.5">
               <Plus className="size-4" />
-              {create.isPending ? "Salvando..." : "Adicionar conta"}
+              {save.isPending ? "Salvando..." : "Adicionar conta"}
             </span>
           </PrimaryButton>
         </div>
