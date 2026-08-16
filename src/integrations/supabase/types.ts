@@ -2575,9 +2575,14 @@ export type Database = {
         Returns: undefined
       }
       delete_demo_data: { Args: never; Returns: number }
+      delete_purchase_safely: { Args: { p_purchase_id: string }; Returns: Json }
       ensure_invoice_for_due: {
         Args: { _card_id: string; _venc: string }
         Returns: string
+      }
+      inspect_purchase_deletion: {
+        Args: { p_purchase_id: string }
+        Returns: Json
       }
       is_family_admin: {
         Args: { _family_id: string; _user_id: string }

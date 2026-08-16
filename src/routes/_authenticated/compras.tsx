@@ -41,7 +41,6 @@ import {
   PURCHASE_KIND_HINTS,
   UNIDADES,
   createPurchase,
-  deletePurchase,
   isAtrasada,
   isPendentePagamento,
   itemTotal,
@@ -66,6 +65,7 @@ import { isRecorrente } from "@/lib/purchases";
 import { NovaCompraOptions } from "@/components/purchase-capture";
 import { PurchaseDetail } from "@/components/purchase-detail";
 import { VisaoConsumo } from "@/components/purchase-consumption";
+import { DeletePurchaseDialog } from "@/components/purchase-delete";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
@@ -250,14 +250,7 @@ function Compras() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const remove = useMutation({
-    mutationFn: deletePurchase,
-    onSuccess: () => {
-      toast.success("Compra excluída.");
-      invalidateFinanceiro();
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const [excluindo, setExcluindo] = useState<Purchase | null>(null);
 
 
   if (!family) {
@@ -810,7 +803,7 @@ function Compras() {
                   {view.podeLancar && (
                     <button
                       aria-label={`Excluir compra em ${p.estabelecimento}`}
-                      onClick={() => remove.mutate(p.id)}
+                      onClick={() => setExcluindo(p)}
                       className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
                     >
                       <Trash2 className="size-4" />
@@ -833,6 +826,14 @@ function Compras() {
 
       {pagando && (
         <RegistrarPagamentoDialog purchase={pagando} onClose={() => setPagando(null)} />
+      )}
+
+      {excluindo && (
+        <DeletePurchaseDialog
+          purchase={excluindo}
+          onClose={() => setExcluindo(null)}
+          onDeleted={invalidateFinanceiro}
+        />
       )}
     </div>
   );
