@@ -25,8 +25,18 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
   component: Configuracoes,
 });
 
-const SECOES = ["Família e membros", "Estrutura financeira", "Sistema"] as const;
+/** Uma única área cadastral (família + estrutura financeira) e o restante do sistema. */
+const SECOES = ["Família e Finanças", "Preferências", "Segurança", "Modo Demonstração"] as const;
 type Secao = (typeof SECOES)[number];
+
+/** Sub-navegação interna da área cadastral, para a página não ficar longa demais. */
+const BLOCOS = [
+  "Família e membros",
+  "Receitas, contas e cartões",
+  "Perfil financeiro",
+  "Permissões",
+] as const;
+type Bloco = (typeof BLOCOS)[number];
 
 function Configuracoes() {
   const { user } = useAuth();
@@ -37,7 +47,8 @@ function Configuracoes() {
   const { data: family } = useFamily();
   const { data: settings } = useFinancialSettings(family?.id);
   const { data: members } = useMembers(family?.id);
-  const [secao, setSecao] = useState<Secao>("Família e membros");
+  const [secao, setSecao] = useState<Secao>("Família e Finanças");
+  const [bloco, setBloco] = useState<Bloco>("Família e membros");
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
