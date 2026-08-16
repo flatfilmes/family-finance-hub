@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, saveFinancialSettings } from "@/lib/financial-engine"
 import { useDeleteDemoData, useDemoMode } from "@/hooks/useDemoMode";
 import { DEMO_DELETE_CONFIRMATION } from "@/lib/demo";
 import { supabase } from "@/integrations/supabase/client";
+import { DocumentLibraryCard } from "@/components/document-library";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
