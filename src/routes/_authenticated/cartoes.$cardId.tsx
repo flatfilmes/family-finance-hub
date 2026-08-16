@@ -26,8 +26,6 @@ import {
   ESTADO_CICLO_LABELS,
   KIND_OFICIAL_LABELS,
   janelaDeCiclos,
-  linhasOficiaisDaFatura,
-  resumoOficialDaFatura,
   type EstadoCiclo,
   type KindOficial,
   type LinhaOficial,
@@ -177,30 +175,28 @@ function CartaoDetalhePage() {
   // Ciclo fechado com importação confirmada: a fatura do cartão é a fonte oficial.
   // Um lançamento nunca some do resumo por não ter purchase materializada no ciclo.
   const itensDoCiclo = itensOficiais.data ?? [];
-  const usarOficial =
-    !!cicloSelecionado &&
-    cicloSelecionado.estado !== "EM_FORMACAO" &&
-    !!faturaCiclo.importId &&
-    itensDoCiclo.length > 0;
-  const linhas: LinhaOficial[] = usarOficial
-    ? linhasOficiaisDaFatura({ items: itensDoCiclo, vencimento: fatura?.data_vencimento ?? null })
-    : dados.linhasDe(cartao.id, fatura).map((l) => ({ ...l, itemId: l.id }) as LinhaOficial);
+  // FONTE ÚNICA: a mesma composição alimenta régua, resumo, lançamentos e
+  // compromissos futuros. Não existe cálculo paralelo nesta página.
+  const composicaoCiclo = dados.composicaoCicloDe(cartao.id, cicloSelecionado, itensDoCiclo);
+  const usarOficial = composicaoCiclo.source === "OFFICIAL_STATEMENT";
+  const linhas: LinhaOficial[] = composicaoCiclo.linhas;
   const filtradas = linhas.filter(
     (l) =>
       (!filtroTipo || l.kind === filtroTipo) &&
       (!filtroCategoria || l.categoriaId === filtroCategoria) &&
       matchesSearch(busca, l.estabelecimento),
   );
-  // Decomposição do ciclo: sempre sobre TODOS os lançamentos (os filtros valem
-  // só para a listagem), para que a soma feche no total oficial da fatura.
-  const resumo = resumoOficialDaFatura(linhas);
-  const soma = (kind: KindOficial) => resumo[kind];
-  // Regra única: fatura oficial confirmada > estimativa/projeção interna.
-  const totalCiclo = cicloSelecionado?.fonte === "OFFICIAL_STATEMENT"
-    ? cicloSelecionado.valor
-    : usarOficial
-      ? resumo.total
-      : faturaCiclo.valor;
+  const soma = (kind: KindOficial) =>
+    kind === "normais"
+      ? composicaoCiclo.normalPurchases
+      : kind === "parceladas"
+        ? composicaoCiclo.installments
+        : kind === "recorrentes"
+          ? composicaoCiclo.recurringOccurrences
+          : kind === "taxas"
+            ? composicaoCiclo.fees
+            : composicaoCiclo.credits;
+  const totalCiclo = composicaoCiclo.total;
 
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "—";
@@ -244,14 +240,8 @@ function CartaoDetalhePage() {
     Number(fatura.valor_total) > 0;
 
   // Composição de um ciclo projetado: parcelas já conhecidas + recorrências previstas.
-  const parcelasDoCiclo = dados
-    .parcelasDoCartao(cartao.id)
-    .filter((p) => p.card_invoice_id === fatura?.id && p.status === "PENDENTE")
-    .reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0);
-  const recorrenciasProjetadas = cicloSelecionado
-    ? (dados.proximasDe(cartao.id).find((m) => m.key === cicloSelecionado.competencia)
-        ?.recorrencias ?? 0)
-    : 0;
+  const parcelasDoCiclo = composicaoCiclo.installments;
+  const recorrenciasProjetadas = composicaoCiclo.recurringOccurrences;
 
 
   async function confirmarPagamento() {
