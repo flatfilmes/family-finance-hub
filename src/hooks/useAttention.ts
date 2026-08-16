@@ -1,5 +1,9 @@
 import { useMemo } from "react";
-import { usePurchases, usePurchaseItemCategories } from "@/hooks/usePurchases";
+import { usePurchases } from "@/hooks/usePurchases";
+import {
+  usePendingCategoryItems,
+  usePendingCategoryPurchases,
+} from "@/hooks/useCategoryReview";
 import { useCardInvoices } from "@/hooks/useCardInvoices";
 import { useCreditCards, useFixedExpenses } from "@/hooks/useFinanceData";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
@@ -26,11 +30,12 @@ export function useAttention(familyId?: string, memberId = "") {
     () => filterByMember(purchases ?? [], memberId),
     [purchases, memberId],
   );
-  const idsRecentes = useMemo(
-    () => comprasDoEscopo.slice(0, 60).map((p) => p.id),
-    [comprasDoEscopo],
-  );
-  const { data: itemCategorias } = usePurchaseItemCategories(idsRecentes);
+  const { data: itensPendentes } = usePendingCategoryItems(familyId);
+  const { data: comprasPendentesCategoria } = usePendingCategoryPurchases(familyId);
+  const semCategoria = useMemo(() => {
+    const rows = [...(itensPendentes ?? []), ...(comprasPendentesCategoria ?? [])];
+    return memberId ? rows.filter((r) => r.memberId === memberId).length : rows.length;
+  }, [itensPendentes, comprasPendentesCategoria, memberId]);
 
   return useMemo(() => {
     const cartoesDoEscopo = filterByMember(cards ?? [], memberId);
@@ -48,7 +53,7 @@ export function useAttention(familyId?: string, memberId = "") {
       cardName: nomeCartao,
       fixedExpenses: filterByMember(fixed ?? [], memberId),
       recurring: filterByMember(recurring ?? [], memberId),
-      itensSemCategoria: (itemCategorias ?? []).filter((i) => !i.categoria_id).length,
+      itensSemCategoria: semCategoria,
       documentosPendentes: filterByMember(documents ?? [], memberId).filter(
         (d) => d.status === "ENVIADO" || d.status === "PROCESSADO",
       ).length,
@@ -60,5 +65,5 @@ export function useAttention(familyId?: string, memberId = "") {
       urgentes: itens.filter((i) => i.prioridade === "ALTA").length,
       comprasPendentes: comprasDoEscopo,
     };
-  }, [comprasDoEscopo, invoices, cards, fixed, recurring, itemCategorias, documents, imports, memberId]);
+  }, [comprasDoEscopo, invoices, cards, fixed, recurring, semCategoria, documents, imports, memberId]);
 }
