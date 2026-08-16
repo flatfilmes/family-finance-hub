@@ -1,0 +1,10 @@
+import { parseItau } from "@/lib/card-statement-parsers/itau";
+import { itau001PdfLines, ITAU_001_ESPERADO } from "@/lib/card-statement-parsers/itau.regression";
+import { itau003PdfLines, ITAU_003_PROIBIDOS, ITAU_003_PARCELAS } from "@/lib/card-statement-parsers/itau.regression.semantica";
+const a = parseItau(itau001PdfLines());
+console.log("001 total", a.valor_total_fatura, "esperado", ITAU_001_ESPERADO.valor_total_fatura, "itens", a.entries.length);
+const b = parseItau(itau003PdfLines());
+const proib = b.entries.filter(e=>ITAU_003_PROIBIDOS.some(t=>e.descricao_original.includes(t)));
+console.log("003 itens", b.entries.length, "proibidos", proib.length);
+const faltando = ITAU_003_PARCELAS.filter(([d,pa,pt])=>!b.entries.some(e=>e.descricao_normalizada.includes(d)&&e.parcela_atual===pa&&e.total_parcelas===pt));
+console.log("003 parcelas faltando", faltando);
