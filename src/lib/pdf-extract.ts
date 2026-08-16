@@ -186,7 +186,7 @@ function parseData(texto: string): string | null {
 function limparNome(raw: string): string {
   return raw
     .replace(/\s{2,}/g, " ")
-    .replace(/^[\s\-–:.]+|[\s\-–:.]+$/g, "")
+    .replace(/^[\s\-–:.]+/, "").replace(/[\s\-–:]+$/, "")
     .slice(0, 80)
     .trim();
 }
@@ -397,7 +397,7 @@ const LINHA_IGNORADA = [
 function limparDescricao(raw: string): string {
   return raw
     .replace(/\s{2,}/g, " ")
-    .replace(/^[\s\-–:.]+|[\s\-–:.]+$/g, "")
+    .replace(/^[\s\-–:.]+/, "").replace(/[\s\-–:]+$/, "")
     .slice(0, 120)
     .trim();
 }
