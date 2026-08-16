@@ -22,8 +22,7 @@ export function NoFamily() {
     mutationFn: () =>
       createFamily({
         nome: nomeFamilia.trim(),
-        ownerId: user!.id,
-        ownerNome: responsavel.trim() || profile?.nome_completo || "Responsável",
+        ownerNome: responsavel.trim() || profile?.nome_completo || "",
       }),
     onSuccess: () => {
       toast.success("Família criada! Agora cadastre renda, contas e cartões.");
