@@ -424,9 +424,10 @@ export function buildBankAudit(input: {
           data: it.data_movimento,
           descricao: it.descricao_original,
           valor,
-          motivo: ligada
-            ? "Vinculado a uma movimentação que não existe mais no ledger."
-            : "Lido no PDF, mas sem movimentação correspondente no ledger.",
+          motivo:
+            ligada || compra
+              ? "Vinculado a um registro que não existe mais no ledger desta conta."
+              : "Lido no PDF, mas sem movimentação correspondente no ledger.",
         },
       ]);
       continue;
