@@ -146,3 +146,34 @@ export function recurringForecast(
   const ciclo = cycleForOccurrence(card, data);
   return { data, competencia: ciclo.data_vencimento.slice(0, 7) };
 }
+
+/**
+ * Total de ocorrências de uma recorrência de cartão por competência de fatura.
+ * Usa a data real da cobrança e a regra de fechamento — nunca o mês nominal.
+ */
+export function occurrencesByCompetencia(
+  r: RecurringExpense,
+  card: Pick<CreditCard, "dia_fechamento" | "dia_vencimento">,
+  meses: string[],
+): Record<string, number> {
+  if (meses.length === 0) return {};
+  const ordenados = meses.slice().sort();
+  const primeiro = ordenados[0]!;
+  const ultimo = ordenados[ordenados.length - 1]!;
+  // Janela ampla: uma ocorrência do mês anterior pode cair na primeira competência.
+  const inicio = `${addMonthsToKey(primeiro, -2)}-01`;
+  const fim = `${addMonthsToKey(ultimo, 1)}-28`;
+  const total: Record<string, number> = {};
+  for (const data of occurrenceDatesBetween(r, inicio, fim)) {
+    const competencia = cycleForDate(card, data).data_vencimento.slice(0, 7);
+    if (!meses.includes(competencia)) continue;
+    total[competencia] = (total[competencia] ?? 0) + (Number(r.valor) || 0);
+  }
+  return total;
+}
+
+function addMonthsToKey(key: string, months: number) {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(y ?? 1970, (m ?? 1) - 1 + months, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
