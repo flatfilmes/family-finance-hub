@@ -312,7 +312,7 @@ function MembroPage() {
                   <Row
                     key={i.id}
                     title={i.descricao}
-                    subtitle={`Fixa · ${i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
+                    subtitle={`Fixa · ${i.frequencia === "MENSAL" && i.dia_recebimento ? `todo dia ${i.dia_recebimento}` : i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
                     value={formatCurrency(Number(i.valor))}
                   />
                 ))}
@@ -342,7 +342,7 @@ function MembroPage() {
                   <Row
                     key={i.id}
                     title={i.descricao}
-                    subtitle={`Média · ${i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
+                    subtitle={`Média · ${i.frequencia === "MENSAL" && i.dia_recebimento ? `todo dia ${i.dia_recebimento}` : i.frequencia.toLowerCase()}${i.ativo ? "" : " · inativa"}`}
                     value={formatCurrency(Number(i.valor))}
                   />
                 ))}

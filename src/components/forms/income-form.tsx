@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { FormActions } from "@/components/form-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -30,10 +31,10 @@ export function IncomeForm({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState("");
+  const [valor, setValor] = useState<number | null>(null);
   const [tipo, setTipo] = useState<IncomeType>("FIXA");
   const [frequencia, setFrequencia] = useState<IncomeFrequency>("MENSAL");
-  const [dataRecebimento, setDataRecebimento] = useState("");
+  const [diaRecebimento, setDiaRecebimento] = useState("5");
 
   const create = useMutation({
     mutationFn: () =>
@@ -41,16 +42,17 @@ export function IncomeForm({
         family_id: familyId,
         created_by: user?.id ?? null,
         descricao: descricao.trim(),
-        valor: Number(valor.replace(",", ".")) || 0,
+        valor: valor ?? 0,
         tipo,
         frequencia,
-        data_recebimento: dataRecebimento || null,
+        dia_recebimento: frequencia === "MENSAL" ? Number(diaRecebimento) : null,
+        data_recebimento: null,
         member_id: memberId,
       }),
     onSuccess: () => {
       setDescricao("");
-      setValor("");
-      setDataRecebimento("");
+      setValor(null);
+      setDiaRecebimento("5");
       toast.success("Receita cadastrada.");
       onSaved?.();
       queryClient.invalidateQueries({ queryKey: ["incomes", familyId] });
@@ -67,6 +69,17 @@ export function IncomeForm({
           toast.error("Informe a descrição.");
           return;
         }
+        if (!valor || valor <= 0) {
+          toast.error("Informe um valor maior que zero.");
+          return;
+        }
+        if (frequencia === "MENSAL") {
+          const dia = Number(diaRecebimento);
+          if (!Number.isInteger(dia) || dia < 1 || dia > 31) {
+            toast.error("O dia do recebimento deve ser entre 1 e 31.");
+            return;
+          }
+        }
         create.mutate();
       }}
     >
@@ -78,14 +91,8 @@ export function IncomeForm({
           placeholder="Salário, comissão, renda extra..."
         />
       </Field>
-      <Field label="Valor (R$)">
-        <input
-          className={inputClass}
-          value={valor}
-          onChange={(e) => setValor(e.target.value)}
-          inputMode="decimal"
-          placeholder="0,00"
-        />
+      <Field label="Valor">
+        <CurrencyInput value={valor} onChange={setValor} />
       </Field>
       <Field label="Tipo">
         <select
@@ -113,14 +120,21 @@ export function IncomeForm({
           ))}
         </select>
       </Field>
-      <Field label="Data de recebimento">
-        <input
-          type="date"
-          className={inputClass}
-          value={dataRecebimento}
-          onChange={(e) => setDataRecebimento(e.target.value)}
-        />
-      </Field>
+      {frequencia === "MENSAL" && (
+        <Field label="Dia do recebimento">
+          <select
+            className={inputClass}
+            value={diaRecebimento}
+            onChange={(e) => setDiaRecebimento(e.target.value)}
+          >
+            {Array.from({ length: 31 }, (_, idx) => idx + 1).map((d) => (
+              <option key={d} value={d}>
+                Todo dia {d}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       {onCancel ? (
         <div className="sm:col-span-2">
           <FormActions onCancel={onCancel} saving={create.isPending} saveLabel="Salvar receita" />

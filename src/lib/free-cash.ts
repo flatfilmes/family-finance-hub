@@ -163,15 +163,41 @@ export function buildCommitments(input: {
   return { contasRecorrentes, faturasCartao, parcelas, recorrencias, outros, total };
 }
 
+/** Data efetiva de recebimento no mês informado, respeitando meses curtos. */
+export function incomeDayInMonth(dia: number, year: number, monthIndex0: number) {
+  const last = new Date(Date.UTC(year, monthIndex0 + 1, 0)).getUTCDate();
+  const day = Math.min(Math.max(dia, 1), last);
+  return `${year}-${String(monthIndex0 + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 /** Próxima data de recebimento prevista a partir das receitas FIXAS cadastradas. */
 export function nextIncomeDate(incomes: Income[], from: string): string | null {
   const datas: string[] = [];
   for (const i of incomes) {
-    if (!i.ativo || i.tipo !== "FIXA" || !i.data_recebimento) continue;
+    if (!i.ativo || i.tipo !== "FIXA") continue;
     if (i.frequencia === "EVENTUAL") continue;
+
+    // Receita mensal com dia configurado: usa o dia, ajustando meses curtos.
+    if (i.frequencia === "MENSAL" && i.dia_recebimento) {
+      const [y, m] = from.split("-").map(Number);
+      let data = incomeDayInMonth(i.dia_recebimento, y ?? 1970, (m ?? 1) - 1);
+      if (data < from) {
+        const nextMonth = new Date(Date.UTC(y ?? 1970, m ?? 1, 1));
+        data = incomeDayInMonth(
+          i.dia_recebimento,
+          nextMonth.getUTCFullYear(),
+          nextMonth.getUTCMonth(),
+        );
+      }
+      datas.push(data);
+      continue;
+    }
+
+    if (!i.data_recebimento) continue;
     const passoDias =
       i.frequencia === "SEMANAL" ? 7 : i.frequencia === "QUINZENAL" ? 15 : null;
     let data = i.data_recebimento;
+
     let guard = 0;
     if (passoDias) {
       while (data < from && guard < 500) {
