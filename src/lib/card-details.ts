@@ -279,7 +279,7 @@ export type LancamentoOficial = {
   recurring_expense_id_matched: string | null;
 };
 
-export type LinhaOficial = LinhaFatura & { kind: KindOficial; itemId: string };
+export type LinhaOficial = Omit<LinhaFatura, "kind"> & { kind: KindOficial; itemId: string };
 
 /**
  * Linhas da fatura fechada a partir dos lançamentos oficiais.
