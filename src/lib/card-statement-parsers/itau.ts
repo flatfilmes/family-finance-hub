@@ -503,8 +503,8 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
 
     if (secao === "IGNORADA") continue;
 
-    // pagamento da fatura anterior (informativo)
-    if (p.startsWith("pagamento efetuado")) {
+    // subtotais, totais, cotação de câmbio e pagamento anterior: só metadata
+    if (ehMetadataItau(linha)) {
       limpaPendente();
       continue;
     }
@@ -513,6 +513,7 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       limpaPendente();
       continue;
     }
+
 
     const alvo = secao === "FUTURAS" ? futuras : entries;
     const comData = linha.match(DATA_CURTA);
