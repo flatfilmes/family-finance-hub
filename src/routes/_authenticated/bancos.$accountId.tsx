@@ -220,7 +220,16 @@ function ContaDetalhePage() {
   const saidasPix = somaPorOrigem("PIX", ["SAIDA"]) + somaPorOrigem("Débito", ["SAIDA"]);
   const saidasBoleto = somaPorOrigem("Boleto", ["SAIDA"]);
   const saidasDiretas = soma("SAIDA", realizados);
-  const saidasOutras = saidasDiretas - saidasPix - saidasBoleto;
+  // Tarifas, IOF e juros são saídas reais: nunca podem sumir do resumo.
+  const saidasTarifas = realizados
+    .filter(
+      (t) =>
+        t.tipo === "SAIDA" &&
+        !t.purchase_id &&
+        /iof|tarifa|taxa|juros|anuidade/i.test(t.descricao ?? ""),
+    )
+    .reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
+  const saidasOutras = saidasDiretas - saidasPix - saidasBoleto - saidasTarifas;
 
   const entradasLista = realizados.filter((t) => t.tipo === "ENTRADA");
 
