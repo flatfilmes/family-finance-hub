@@ -4,7 +4,10 @@ import { useCardInvoices, useCardOverview, useInstallments } from "@/hooks/useCa
 import { usePurchases } from "@/hooks/usePurchases";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import { useStatementImports } from "@/hooks/useCardStatements";
 import {
+  composicaoUtilizado,
+  faturaDoCiclo,
   linhasDaFatura,
   parcelamentosAtivos,
   proximasObrigacoes,
@@ -13,6 +16,7 @@ import {
 import type { CardInvoice } from "@/lib/card-invoices";
 import type { Expense } from "@/lib/expenses";
 import type { Purchase } from "@/lib/purchases";
+
 
 /**
  * Dados de crédito compartilhados entre a lista de cartões e a página de detalhe.
