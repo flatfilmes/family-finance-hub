@@ -505,10 +505,10 @@ function RevisarExtrato() {
         <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-center gap-3">
           <p className="text-xs text-muted-foreground">
             <strong className="text-foreground">{contagem.total}</strong> movimentações ·{" "}
-            {contagem.associadas} serão associadas · {criadas} serão criadas · {contagem.ignoradas}{" "}
-            serão ignoradas
+            {contagem.total - contagem.ignoradas} serão processadas · {contagem.ignoradas} ignoradas
             {contagem.futuras > 0 ? ` · ${contagem.futuras} futura(s) sem efeito` : ""}
           </p>
+
           <div className="ml-auto flex gap-2">
             <button
               type="button"
