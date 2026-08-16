@@ -156,6 +156,48 @@ export async function resetFamilyData(input: {
   return data as Record<string, number>;
 }
 
+export type PurchasesCardsResetReport = {
+  compras: number;
+  compras_manuais: number;
+  itens: number;
+  parcelas: number;
+  recorrencias: number;
+  faturas_importadas: number;
+  lancamentos_fatura: number;
+  faturas: number;
+  reconciliacoes: number;
+  documentos: number;
+  cartoes: number;
+  transacoes_preservadas: number;
+};
+
+/** Relatório prévio do reset seletivo de Compras e Cartões. */
+export async function inspectPurchasesCardsReset(familyId: string, incluirManuais: boolean) {
+  const { data, error } = await supabase.rpc("inspect_family_purchases_cards_reset", {
+    p_family_id: familyId,
+    p_incluir_manuais: incluirManuais,
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as PurchasesCardsResetReport;
+}
+
+/** Reset seletivo: limpa Compras e o histórico dos cartões, preservando o resto. */
+export async function resetPurchasesAndCards(input: {
+  familyId: string;
+  incluirManuais: boolean;
+  excluirCartoes: boolean;
+  backupCreated: boolean;
+}) {
+  const { data, error } = await supabase.rpc("reset_family_purchases_and_cards", {
+    p_family_id: input.familyId,
+    p_incluir_manuais: input.incluirManuais,
+    p_delete_cards: input.excluirCartoes,
+    p_backup_created: input.backupCreated,
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as Record<string, number>;
+}
+
 /** Contagens exibidas na confirmação forte, antes de excluir qualquer coisa. */
 export async function countFamilyData(familyId: string) {
   const tabelas = [

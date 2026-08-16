@@ -2588,6 +2588,10 @@ export type Database = {
         Args: { p_import_id: string }
         Returns: Json
       }
+      inspect_family_purchases_cards_reset: {
+        Args: { p_family_id: string; p_incluir_manuais?: boolean }
+        Returns: Json
+      }
       inspect_purchase_deletion: {
         Args: { p_purchase_id: string }
         Returns: Json
@@ -2620,6 +2624,12 @@ export type Database = {
         Args: { p_purchase_id: string }
         Returns: string[]
       }
+      purchases_reset_scope: {
+        Args: { _family_id: string; _incluir_manuais: boolean }
+        Returns: {
+          id: string
+        }[]
+      }
       purge_demo_families: { Args: { demo_ids: string[] }; Returns: number }
       purge_family_records: {
         Args: { _family_id: string; _keep_structure: boolean }
@@ -2647,6 +2657,15 @@ export type Database = {
           _backup_created?: boolean
           _family_id: string
           _remover_demo?: boolean
+        }
+        Returns: Json
+      }
+      reset_family_purchases_and_cards: {
+        Args: {
+          p_backup_created?: boolean
+          p_delete_cards?: boolean
+          p_family_id: string
+          p_incluir_manuais?: boolean
         }
         Returns: Json
       }

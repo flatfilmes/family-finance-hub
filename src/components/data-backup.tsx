@@ -13,6 +13,9 @@ import {
   resetFamilyData,
   type BackupResult,
   type ResetType,
+  inspectPurchasesCardsReset,
+  resetPurchasesAndCards,
+  type PurchasesCardsResetReport,
 } from "@/lib/family-backup";
 
 type Etapa = "fechado" | "backup" | "opcoes" | "confirmar";
@@ -134,6 +137,7 @@ function DangerZone({
   const [confirmacao, setConfirmacao] = useState("");
   const [totais, setTotais] = useState<{ label: string; total: number }[]>([]);
   const [executando, setExecutando] = useState(false);
+  const [resetCompras, setResetCompras] = useState(false);
 
   const nomeFamilia = family?.nome_da_familia ?? "";
   const alvo = tipo === "FAMILIA_COMPLETA" ? nomeFamilia : "RESETAR";
@@ -177,13 +181,31 @@ function DangerZone({
       <p className="mt-1 text-sm text-muted-foreground">
         Estas ações podem remover permanentemente os dados financeiros da família.
       </p>
-      <button
-        onClick={abrir}
-        disabled={!familyId}
-        className="mt-4 rounded-full bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
-      >
-        Resetar dados da família
-      </button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          onClick={abrir}
+          disabled={!familyId}
+          className="rounded-full bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+        >
+          Resetar dados da família
+        </button>
+        <button
+          onClick={() => setResetCompras(true)}
+          disabled={!familyId}
+          className="rounded-full border border-destructive/50 px-6 py-2.5 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-60"
+        >
+          Resetar Compras e Cartões
+        </button>
+      </div>
+
+      {resetCompras && (
+        <PurchasesCardsResetDialog
+          familyId={familyId}
+          onGerarBackup={onGerarBackup}
+          onClose={() => setResetCompras(false)}
+        />
+      )}
+
 
       {etapa !== "fechado" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -334,5 +356,227 @@ function DangerZone({
         </div>
       )}
     </Card>
+  );
+}
+
+type EtapaCompras = "backup" | "opcoes" | "confirmar";
+
+const LINHAS_RELATORIO: { campo: keyof PurchasesCardsResetReport; label: string }[] = [
+  { campo: "compras", label: "Compras" },
+  { campo: "itens", label: "Itens de compra" },
+  { campo: "parcelas", label: "Parcelas" },
+  { campo: "recorrencias", label: "Recorrências" },
+  { campo: "faturas_importadas", label: "Faturas importadas" },
+  { campo: "lancamentos_fatura", label: "Lançamentos de fatura" },
+  { campo: "faturas", label: "Faturas dos cartões" },
+  { campo: "reconciliacoes", label: "Reconciliações" },
+  { campo: "documentos", label: "Documentos / notas fiscais" },
+];
+
+const CONFIRMACAO_COMPRAS = "RESETAR COMPRAS E CARTÕES";
+
+/**
+ * Reset seletivo: zera Compras e o histórico dos cartões preservando família,
+ * membros, receitas, contas bancárias e as movimentações bancárias reais.
+ */
+function PurchasesCardsResetDialog({
+  familyId,
+  onGerarBackup,
+  onClose,
+}: {
+  familyId: string;
+  onGerarBackup: () => Promise<BackupResult | null>;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [etapa, setEtapa] = useState<EtapaCompras>("backup");
+  const [backupFeito, setBackupFeito] = useState(false);
+  const [incluirManuais, setIncluirManuais] = useState(true);
+  const [excluirCartoes, setExcluirCartoes] = useState(false);
+  const [relatorio, setRelatorio] = useState<PurchasesCardsResetReport | null>(null);
+  const [confirmacao, setConfirmacao] = useState("");
+  const [executando, setExecutando] = useState(false);
+
+  async function carregarRelatorio() {
+    try {
+      setRelatorio(await inspectPurchasesCardsReset(familyId, incluirManuais));
+      setEtapa("confirmar");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
+  async function executar() {
+    setExecutando(true);
+    try {
+      await resetPurchasesAndCards({
+        familyId,
+        incluirManuais,
+        excluirCartoes,
+        backupCreated: backupFeito,
+      });
+      await queryClient.invalidateQueries();
+      toast.success("Compras e cartões resetados com sucesso.");
+      onClose();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setExecutando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-border bg-card p-6 shadow-card">
+        {etapa === "backup" && (
+          <>
+            <h3 className="text-lg font-bold">Gerar um backup antes de continuar?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              O reset de Compras e Cartões é permanente. Recomendamos salvar uma cópia antes.
+            </p>
+            <div className="mt-5 space-y-2">
+              <button
+                onClick={async () => {
+                  const r = await onGerarBackup();
+                  if (!r) return;
+                  downloadBackup(r.backup);
+                  setBackupFeito(true);
+                  setEtapa("opcoes");
+                }}
+                className="w-full rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground"
+              >
+                Gerar backup e continuar
+              </button>
+              <button
+                onClick={() => setEtapa("opcoes")}
+                className="w-full rounded-full border border-border px-6 py-2.5 text-sm font-semibold"
+              >
+                Continuar sem backup
+              </button>
+              <button
+                onClick={onClose}
+                className="w-full rounded-full px-6 py-2.5 text-sm font-semibold text-muted-foreground"
+              >
+                Cancelar
+              </button>
+            </div>
+          </>
+        )}
+
+        {etapa === "opcoes" && (
+          <>
+            <h3 className="text-lg font-bold">Resetar Compras e Cartões</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Remove compras, itens, parcelas, recorrências de compras/cartões, importações e
+              lançamentos de fatura, faturas, reconciliações e notas fiscais desta família.
+            </p>
+            <p className="mt-3 rounded-2xl bg-muted/40 p-3 text-sm text-muted-foreground">
+              Preservados: família, membros, permissões, receitas, contas bancárias, saldos e
+              movimentações bancárias reais, configurações e categorias.
+            </p>
+
+            <div className="mt-4 space-y-3">
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border p-4 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={incluirManuais}
+                  onChange={(e) => setIncluirManuais(e.target.checked)}
+                />
+                <span>
+                  <strong className="block">Incluir compras manuais</strong>
+                  <span className="text-muted-foreground">
+                    Desmarcado, apaga somente compras vindas de importações (fatura, nota fiscal,
+                    extrato) e compras de cartão.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-destructive/40 p-4 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={excluirCartoes}
+                  onChange={(e) => setExcluirCartoes(e.target.checked)}
+                />
+                <span>
+                  <strong className="block text-destructive">
+                    Também excluir os cartões cadastrados
+                  </strong>
+                  <span className="text-muted-foreground">
+                    Por padrão os cartões são preservados: apenas o histórico é zerado.
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-muted-foreground"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void carregarRelatorio()}
+                className="rounded-full bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground"
+              >
+                Continuar
+              </button>
+            </div>
+          </>
+        )}
+
+        {etapa === "confirmar" && relatorio && (
+          <>
+            <h3 className="text-lg font-bold text-destructive">Confirmação final</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Os registros abaixo serão removidos permanentemente.
+            </p>
+            <dl className="mt-4 space-y-1.5 rounded-2xl bg-muted/40 p-4 text-sm">
+              {LINHAS_RELATORIO.map((l) => (
+                <div key={l.campo} className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">{l.label}</dt>
+                  <dd className="font-semibold">{relatorio[l.campo]}</dd>
+                </div>
+              ))}
+              <div className="flex justify-between gap-4 border-t border-border pt-2">
+                <dt className="text-muted-foreground">
+                  Cartões cadastrados {excluirCartoes ? "(serão excluídos)" : "(preservados)"}
+                </dt>
+                <dd className="font-semibold">{relatorio.cartoes}</dd>
+              </div>
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Movimentações bancárias preservadas</dt>
+                <dd className="font-semibold text-primary">{relatorio.transacoes_preservadas}</dd>
+              </div>
+            </dl>
+            <p className="mt-4 text-sm">
+              Digite <strong>{CONFIRMACAO_COMPRAS}</strong> para confirmar.
+            </p>
+            <input
+              value={confirmacao}
+              onChange={(e) => setConfirmacao(e.target.value)}
+              className="mt-2 w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:border-ring focus:ring-2 focus:ring-ring/25"
+              placeholder={CONFIRMACAO_COMPRAS}
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={onClose}
+                className="rounded-full px-5 py-2.5 text-sm font-semibold text-muted-foreground"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => void executar()}
+                disabled={confirmacao.trim().toUpperCase() !== CONFIRMACAO_COMPRAS || executando}
+                className="rounded-full bg-destructive px-6 py-2.5 text-sm font-semibold text-destructive-foreground disabled:opacity-50"
+              >
+                {executando ? "Resetando..." : "Resetar dados"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
