@@ -280,7 +280,11 @@ function CartoesPage() {
                     value={formatCurrency(disponivel)}
                     tone={disponivel < 0 ? "danger" : "ok"}
                   />
-                  <Metric label="Fatura atual" value={formatCurrency(info?.valorFaturaAtual ?? 0)} />
+                  {(() => {
+                    const ciclo = dados.faturaDe(c.id, fatura);
+                    return <Metric label={ciclo.label} value={formatCurrency(ciclo.valor)} />;
+                  })()}
+
                   <Metric
                     label="Vence"
                     value={

@@ -112,13 +112,17 @@ function CartaoDetalhePage() {
   const parcelamentos = dados.parcelamentosDe(cartao.id);
   const recorrencias = dados.recorrenciasDoCartao(cartao.id);
 
+  // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
+  const faturaCiclo = dados.faturaDe(cartao.id, fatura);
+  const composicao = dados.composicaoDe(cartao.id);
+
   // Capacidade de pagamento: mesma fórmula da visão geral, aplicada às contas do titular.
   const contasAutorizadas = filterByMember(accounts ?? [], cartao.member_id ?? "sem").filter(
     (a) => a.ativo,
   );
   const saldoContas = contasAutorizadas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-  const valorFaturaAberta =
-    fatura && fatura.status !== "PAGA" ? Number(fatura.valor_total) || 0 : 0;
+  const valorFaturaAberta = fatura && fatura.status !== "PAGA" ? faturaCiclo.valor : 0;
+
   const capacidade = saldoContas - valorFaturaAberta;
   const statusPagamento =
     capacidade < 0 ? "Crítico" : capacidade < valorFaturaAberta * 0.2 ? "Atenção" : "Seguro";
@@ -191,14 +195,22 @@ function CartaoDetalhePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
-          label="Fatura atual"
-          value={formatCurrency(Number(info?.faturaAtual?.valor_total ?? 0))}
+          label={faturaCiclo.label}
+          value={formatCurrency(faturaCiclo.valor)}
           hint={
-            info?.proximoVencimento ? `Vence em ${formatDate(info.proximoVencimento)}` : undefined
+            faturaCiclo.vencimento
+              ? `Vence em ${formatDate(faturaCiclo.vencimento)}${faturaCiclo.oficial ? " · fatura oficial importada" : " · estimativa interna"}`
+              : undefined
           }
           big
         />
-        <Metric label="Limite utilizado" value={formatCurrency(utilizado)} big />
+        <Metric
+          label="Limite utilizado"
+          value={formatCurrency(utilizado)}
+          hint={`Fatura do ciclo ${formatCurrency(composicao.faturaAtual)} + parcelas futuras ${formatCurrency(composicao.parcelasFuturas)} + outras parcelas em aberto ${formatCurrency(composicao.outros)} + compras sem parcela ${formatCurrency(composicao.comprasSemParcela)}`}
+          big
+        />
+
         <Metric
           label="Limite disponível"
           value={formatCurrency(disponivel)}
@@ -221,7 +233,7 @@ function CartaoDetalhePage() {
           hint="Compara a fatura em aberto com o saldo das contas do titular."
         />
         <div className="grid gap-4 sm:grid-cols-3">
-          <Metric label="Fatura atual" value={formatCurrency(valorFaturaAberta)} />
+          <Metric label={faturaCiclo.label} value={formatCurrency(valorFaturaAberta)} />
           <Metric label="Saldo nas contas do titular" value={formatCurrency(saldoContas)} />
           <Metric
             label="Sobra após pagar"

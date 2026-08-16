@@ -4,7 +4,10 @@ import { useCardInvoices, useCardOverview, useInstallments } from "@/hooks/useCa
 import { usePurchases } from "@/hooks/usePurchases";
 import { useExpenses } from "@/hooks/useExpenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import { useStatementImports } from "@/hooks/useCardStatements";
 import {
+  composicaoUtilizado,
+  faturaDoCiclo,
   linhasDaFatura,
   parcelamentosAtivos,
   proximasObrigacoes,
@@ -13,6 +16,7 @@ import {
 import type { CardInvoice } from "@/lib/card-invoices";
 import type { Expense } from "@/lib/expenses";
 import type { Purchase } from "@/lib/purchases";
+
 
 /**
  * Dados de crédito compartilhados entre a lista de cartões e a página de detalhe.
@@ -26,6 +30,8 @@ export function useCardsData(familyId?: string) {
   const faturas = useCardInvoices(familyId);
   const parcelas = useInstallments(familyId);
   const recorrentes = useRecurringExpenses(familyId);
+  const importacoes = useStatementImports(familyId);
+
 
   const despesaPorId = useMemo(() => {
     const m = new Map<string, Expense>();
@@ -62,6 +68,11 @@ export function useCardsData(familyId?: string) {
     return (parcelas.data ?? []).filter((p) => p.card_invoice_id && ids.has(p.card_invoice_id));
   };
 
+  const comprasSemParcelaDe = (cardId: string) =>
+    comprasDoCartao(cardId)
+      .filter((p) => p.status_pagamento === "COMPROMETIDO" && !comprasComParcelas.has(p.id))
+      .reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
+
   return {
     isLoading: cards.isLoading,
     cards: cards.data ?? [],
@@ -69,11 +80,26 @@ export function useCardsData(familyId?: string) {
     faturasDoCartao,
     recorrenciasDoCartao,
     parcelasDoCartao,
+    /**
+     * Fatura do ciclo: usa a fatura importada CONFIRMADA do mesmo ciclo como
+     * fonte oficial; sem documento oficial, devolve a estimativa interna.
+     */
+    faturaDe: (cardId: string, invoice: CardInvoice | null) =>
+      faturaDoCiclo({ cardId, invoice, imports: importacoes.data ?? [] }),
+    /** Composição auditável do limite utilizado. */
+    composicaoDe: (cardId: string) =>
+      composicaoUtilizado({
+        utilizadoParcelas: info(cardId)?.utilizado ?? 0,
+        faturaAtual: info(cardId)?.valorFaturaAtual ?? 0,
+        parcelasFuturas: info(cardId)?.parcelasFuturas ?? 0,
+        comprasSemParcela: comprasSemParcelaDe(cardId),
+      }),
     utilizadoDe: (cardId: string) =>
       utilizadoDoCartao({
         utilizadoParcelas: info(cardId)?.utilizado ?? 0,
         comprasDoCartao: comprasDoCartao(cardId),
         comprasComParcelas,
+
       }),
     linhasDe: (cardId: string, invoice: CardInvoice | null) =>
       linhasDaFatura({
