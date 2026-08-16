@@ -334,7 +334,7 @@ export function parseItauSpatial(
           rejeitar("missing_description");
           continue;
         }
-        if (categoria.category) item.categoria_banco = categoriaDoBanco(categoria.category) ?? item.categoria_banco;
+        if (categoria.category) item.categoria_banco = categoriaDoBanco(categoria.category) ?? item.categoria_banco ?? null;
         if (categoriaRow) consumidas.add(categoriaRow);
         alvo.push(item);
 
