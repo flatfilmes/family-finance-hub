@@ -206,9 +206,11 @@ function AuditoriaContaPage() {
         <Metric label="Extratos importados" value={String(r.extratos)} />
         <Metric
           label="Meses validados"
-          value={`${r.mesesValidados} / ${r.totalMeses}`}
-          hint="Documento, ledger e saldos batem"
-          {...(r.mesesValidados === r.totalMeses && r.totalMeses ? { tone: "ok" as const } : {})}
+          value={`${r.mesesValidadosCompletos} / ${r.totalMeses}`}
+          hint={`Conferidos dia a dia · ${r.mesesValidados - r.mesesValidadosCompletos} fecham só no mês`}
+          {...(r.mesesValidadosCompletos === r.totalMeses && r.totalMeses
+            ? { tone: "ok" as const }
+            : {})}
         />
         <Metric
           label="Meses com continuidade"
