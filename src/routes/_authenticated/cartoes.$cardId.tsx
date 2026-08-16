@@ -480,6 +480,32 @@ function CartaoDetalhePage() {
                   <Metric label="Valor previsto" value={formatCurrency(totalCiclo)} big />
                 </div>
               </>
+            ) : emFormacao ? (
+              <>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  <Metric
+                    label="Parcelas já comprometidas"
+                    value={formatCurrency(parcelasDoCiclo)}
+                  />
+                  <Metric
+                    label="Recorrências previstas"
+                    value={formatCurrency(recorrenciasProjetadas)}
+                  />
+                  <Metric
+                    label="Compras novas após fechamento"
+                    value={formatCurrency(soma("normais"))}
+                  />
+                  <Metric
+                    label="Total previsto até agora"
+                    value={formatCurrency(totalCiclo)}
+                    big
+                  />
+                </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Próxima fatura · Em formação: as parcelas já contratadas vêm da última fatura
+                  confirmada e ainda podem entrar compras novas até o fechamento.
+                </p>
+              </>
             ) : (
               <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
@@ -498,6 +524,7 @@ function CartaoDetalhePage() {
                 />
               </div>
             )}
+
 
             {usarOficial && (
               <p className="mt-2 text-[11px] text-muted-foreground">
