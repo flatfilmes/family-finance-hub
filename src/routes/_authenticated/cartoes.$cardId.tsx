@@ -20,7 +20,18 @@ import { filterByMember } from "@/components/member-filter";
 import { useViewMode } from "@/components/view-mode";
 import { monthKeyLabel } from "@/lib/card-invoices";
 import { RECURRENCE_LABELS } from "@/lib/recurring-expenses";
-import { ESTADO_CICLO_LABELS, KIND_LABELS, type EstadoCiclo, type Kind } from "@/lib/card-details";
+import {
+  ESTADO_CICLO_LABELS,
+  KIND_LABELS,
+  KIND_OFICIAL_LABELS,
+  linhasOficiaisDaFatura,
+  resumoOficialDaFatura,
+  type EstadoCiclo,
+  type Kind,
+  type KindOficial,
+  type LinhaOficial,
+} from "@/lib/card-details";
+import { useStatementItems } from "@/hooks/useCardStatements";
 import { formatDate } from "@/lib/expenses";
 import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "@/components/no-family";
@@ -68,9 +79,26 @@ function CartaoDetalhePage() {
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
 
+  // Derivação do ciclo antes dos returns: os lançamentos oficiais são lidos por hook.
+  const cartaoSelecionado = dados.cards.find((c) => c.id === cardId) ?? null;
+  const ciclos = dados.ciclosDe(cardId);
+  const cicloFechado = ciclos.atual;
+  const cicloProximo = ciclos.emFormacao;
+  const doHistorico = ciclos.historico.find((c) => c.invoice.id === faturaId) ?? null;
+  const cicloSelecionado =
+    (aba === "proxima" ? cicloProximo : aba === "historico" ? doHistorico : cicloFechado) ??
+    cicloFechado ??
+    cicloProximo ??
+    null;
+  const fatura = cicloSelecionado?.invoice ?? null;
+  // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
+  const faturaCiclo = dados.faturaDe(cardId, fatura);
+  const faturaFechadaCiclo = dados.faturaDe(cardId, cicloFechado?.invoice ?? null);
+  const itensOficiais = useStatementItems(faturaCiclo.importId ?? undefined);
+
   if (!family) return <NoFamily />;
 
-  const cartao = dados.cards.find((c) => c.id === cardId) ?? null;
+  const cartao = cartaoSelecionado;
   if (!cartao) {
     return (
       <div>
@@ -91,37 +119,35 @@ function CartaoDetalhePage() {
   const uso = limite > 0 ? Math.min(100, (utilizado / limite) * 100) : 0;
 
   // Só ciclos reais (fechados/pagos/oficiais) e a fatura em formação entram no seletor.
-  const ciclos = dados.ciclosDe(cartao.id);
-  const cicloFechado = ciclos.atual;
-  const cicloProximo = ciclos.emFormacao;
   const selecionaveis = [ciclos.atual, ciclos.emFormacao, ...ciclos.historico].filter(
     (c): c is NonNullable<typeof c> => !!c,
   );
-  // Aba operacional: fatura fechada, próxima em formação ou um ciclo do histórico.
-  const doHistorico = ciclos.historico.find((c) => c.invoice.id === faturaId) ?? null;
-  const cicloSelecionado =
-    (aba === "proxima" ? cicloProximo : aba === "historico" ? doHistorico : cicloFechado) ??
-    cicloFechado ??
-    cicloProximo ??
-    selecionaveis[0] ??
-    null;
-  const fatura = cicloSelecionado?.invoice ?? null;
   const estadoSelecionado: EstadoCiclo | null = cicloSelecionado?.estado ?? null;
   const toneEstado = (estado: EstadoCiclo) =>
     estado === "PAGA" ? "ok" : estado === "VENCIDA" ? "danger" : estado === "EM_FORMACAO" ? "muted" : "warn";
   const optionLabel = (c: (typeof selecionaveis)[number]) =>
     `${monthKeyLabel(c.competencia)} · ${formatCurrency(c.valor)} · ${ESTADO_CICLO_LABELS[c.estado]}`;
 
-  const linhas = dados.linhasDe(cartao.id, fatura);
+  // Ciclo fechado com importação confirmada: a fatura do cartão é a fonte oficial.
+  // Um lançamento nunca some do resumo por não ter purchase materializada no ciclo.
+  const itensDoCiclo = itensOficiais.data ?? [];
+  const usarOficial =
+    !!cicloSelecionado &&
+    cicloSelecionado.estado !== "EM_FORMACAO" &&
+    !!faturaCiclo.importId &&
+    itensDoCiclo.length > 0;
+  const linhas: LinhaOficial[] = usarOficial
+    ? linhasOficiaisDaFatura({ items: itensDoCiclo, vencimento: fatura?.data_vencimento ?? null })
+    : dados.linhasDe(cartao.id, fatura);
   const filtradas = linhas.filter(
     (l) =>
       (!filtroTipo || l.kind === filtroTipo) &&
       (!filtroCategoria || l.categoriaId === filtroCategoria) &&
       matchesSearch(busca, l.estabelecimento),
   );
-  const soma = (kind: Kind) =>
-    filtradas.filter((l) => l.kind === kind).reduce((acc, l) => acc + l.valor, 0);
-  const totalFatura = filtradas.reduce((acc, l) => acc + l.valor, 0);
+  const resumo = resumoOficialDaFatura(filtradas);
+  const soma = (kind: KindOficial) => resumo[kind];
+  const totalFatura = resumo.total;
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "—";
 
@@ -137,9 +163,6 @@ function CartaoDetalhePage() {
   // Restante comprometido = soma das parcelas ainda não quitadas (nunca o total original).
   const restanteParcelas = parcelamentos.reduce((acc, p) => acc + p.restante, 0);
 
-  // Fonte de verdade: fatura oficial importada e confirmada do ciclo > cálculo interno.
-  const faturaCiclo = dados.faturaDe(cartao.id, fatura);
-  const faturaFechadaCiclo = dados.faturaDe(cartao.id, cicloFechado?.invoice ?? null);
   const composicao = dados.composicaoDe(cartao.id);
 
 
@@ -423,8 +446,12 @@ function CartaoDetalhePage() {
       <Card className="mt-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <SectionTitle
-            title="Compras deste ciclo"
-            hint="Cada lançamento pertence ao ciclo pela fatura/parcela — não apenas pela data da compra."
+            title={usarOficial ? "Lançamentos da fatura oficial" : "Compras vinculadas ao ciclo"}
+            hint={
+              usarOficial
+                ? "Lista completa da fatura importada e confirmada: o total fecha com o documento do banco."
+                : "Compras materializadas no sistema para este ciclo — a fatura oficial ainda não foi importada."
+            }
           />
           {estadoSelecionado && (
             <Badge tone={toneEstado(estadoSelecionado)}>{ESTADO_CICLO_LABELS[estadoSelecionado]}</Badge>
@@ -494,6 +521,8 @@ function CartaoDetalhePage() {
               <option value="normais">Normal</option>
               <option value="parceladas">Parcelada</option>
               <option value="recorrentes">Recorrente</option>
+              {usarOficial && <option value="taxas">Taxa/serviço</option>}
+              {usarOficial && <option value="creditos">Crédito/estorno</option>}
             </select>
           </Field>
           <Field label="Categoria">
@@ -526,12 +555,29 @@ function CartaoDetalhePage() {
           </p>
         )}
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Metric label="Compras normais" value={formatCurrency(soma("normais"))} />
           <Metric label="Parcelamentos" value={formatCurrency(soma("parceladas"))} />
           <Metric label="Recorrências" value={formatCurrency(soma("recorrentes"))} />
-          <Metric label="Total da fatura" value={formatCurrency(totalFatura)} big />
+          {usarOficial && (
+            <>
+              <Metric label="Taxas e serviços" value={formatCurrency(soma("taxas"))} />
+              <Metric label="Créditos e estornos" value={formatCurrency(soma("creditos"))} />
+            </>
+          )}
+          <Metric
+            label={usarOficial ? "Total oficial da fatura" : "Total da fatura"}
+            value={formatCurrency(totalFatura)}
+            big
+          />
         </div>
+        {usarOficial && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Resumo montado a partir dos {itensDoCiclo.length} lançamentos da fatura importada e
+            confirmada — inclui parcelas de séries antigas, taxas e estornos que não têm compra
+            registrada neste ciclo.
+          </p>
+        )}
 
         {podePagar && fatura && fatura.status !== "PAGA" && Number(fatura.valor_total) > 0 && (
           <div className="mt-4 rounded-2xl bg-muted/50 p-4">
@@ -651,7 +697,7 @@ function CartaoDetalhePage() {
                     <td className="px-2 py-2.5 text-muted-foreground">
                       {categoriaNome(l.categoriaId)}
                     </td>
-                    <td className="px-2 py-2.5 text-muted-foreground">{KIND_LABELS[l.kind]}</td>
+                    <td className="px-2 py-2.5 text-muted-foreground">{KIND_OFICIAL_LABELS[l.kind]}</td>
                     <td className="px-2 py-2.5 text-muted-foreground">{l.parcela}</td>
                     <td className="whitespace-nowrap px-2 py-2.5 text-right font-bold">
                       {formatCurrency(l.valor)}
