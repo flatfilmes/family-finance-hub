@@ -26,7 +26,7 @@ import {
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 
-export const Route = createFileRoute("/_authenticated/compras/categorias/pendentes")({
+export const Route = createFileRoute("/_authenticated/compras_/categorias/pendentes")({
   head: () => ({
     meta: [
       { title: "Itens sem categoria — Família Finance AI" },
