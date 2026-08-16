@@ -80,6 +80,16 @@ export type ParsedBankMovement = {
   eventDate?: string | null;
   descricaoOriginal: string;
   descricaoNormalizada: string;
+  /** Operação bancária impressa no início do Histórico ("Pix - Enviado"). */
+  bankOperation?: string | null;
+  /** Contraparte do lançamento ("EDUARDO GARCIA STANKOWICH"). */
+  counterparty?: string | null;
+  /** Coluna técnica "Lote" — metadata, nunca descrição. */
+  lot?: string | null;
+  /** Coluna técnica "Documento" — metadata, nunca descrição. */
+  documentNumber?: string | null;
+  /** Histórico bruto agregado do documento (mantém datas do evento). */
+  historico?: string | null;
   /** Sinal preservado: positivo entra na conta, negativo sai. */
   valor: number;
   tipo: BankMovementKind;
