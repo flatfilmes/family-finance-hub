@@ -55,6 +55,7 @@ function AuditoriaContaPage() {
   const { data: purchases } = usePurchases(family?.id);
   const { data: invoices } = useCardInvoices(family?.id);
   const { data: imports } = useBankStatementImports(accountId);
+  const { data: statementItems } = useBankStatementItems(accountId);
   const { data: checkpoints } = useBankBalanceCheckpoints(accountId);
   const [mesAberto, setMesAberto] = useState<string | null>(null);
   const [diasAbertos, setDiasAbertos] = useState<Record<string, boolean>>({});
