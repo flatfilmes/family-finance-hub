@@ -193,6 +193,9 @@ export function proximasObrigacoes(input: {
   });
 }
 
+/** Situação de uma parcela dentro da linha do tempo do cartão. */
+export type StatusParcela = "PAGA" | "HISTORICA" | "FATURADA" | "EM_FORMACAO" | "PROJETADA";
+
 export type ParcelamentoAtivo = {
   id: string;
   purchaseId: string | null;
@@ -204,7 +207,11 @@ export type ParcelamentoAtivo = {
   valorParcela: number;
   /** Soma somente das parcelas ainda não quitadas. */
   restante: number;
+  /** Número da próxima parcela ainda não faturada. */
+  proximaParcela: number | null;
+  /** Vencimento da próxima parcela — nunca uma data no passado se ainda há futuro. */
   proximaCobranca: string | null;
+  statusAtual: StatusParcela;
 };
 
 /** Parcelamentos em andamento no cartão, com saldo futuro comprometido. */
@@ -213,10 +220,19 @@ export function parcelamentosAtivos(input: {
   faturas: CardInvoice[];
   despesaPorId: Map<string, Expense>;
   compraPorId: Map<string, Purchase>;
+  hoje?: Date;
 }): ParcelamentoAtivo[] {
-  const doCartao = input.parcelas.filter((p) =>
-    input.faturas.some((i) => i.id === p.card_invoice_id),
-  );
+  const hoje = input.hoje ?? new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const faturaPorId = new Map(input.faturas.map((i) => [i.id, i]));
+  const doCartao = input.parcelas.filter((p) => faturaPorId.has(p.card_invoice_id ?? ""));
+
+  // Uma parcela só é "futura" quando o ciclo dela ainda não fechou.
+  const cicloAberto = (p: ExpenseInstallment) => {
+    const fatura = faturaPorId.get(p.card_invoice_id ?? "");
+    return !!fatura && fatura.status !== "PAGA" && fatura.data_fechamento > hojeIso;
+  };
+
   const porExpense = new Map<string, ExpenseInstallment[]>();
   for (const p of doCartao) {
     if ((p.total_parcelas || 1) <= 1) continue;
@@ -230,10 +246,29 @@ export function parcelamentosAtivos(input: {
     const ordenadas = lista.slice().sort((a, b) => a.numero_parcela - b.numero_parcela);
     const pendentes = ordenadas.filter((p) => p.status === "PENDENTE");
     if (pendentes.length === 0) continue;
-    const atual = pendentes[0]!;
+
+    // Parcela atual = a última já faturada (ciclo fechado); próxima = a primeira
+    // ainda em formação ou projetada. Nunca a data original da compra.
+    const faturadas = pendentes.filter((p) => !cicloAberto(p));
+    const futuras = pendentes.filter((p) => cicloAberto(p));
+    const atual = faturadas[faturadas.length - 1] ?? futuras[0] ?? pendentes[0]!;
+    const proxima = futuras.find((p) => p.numero_parcela > atual.numero_parcela) ?? futuras[0] ?? null;
+
     const despesa = input.despesaPorId.get(expenseId);
     const purchaseId = lista[0]?.purchase_id ?? despesa?.purchase_id ?? null;
     const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
+    const faturaAtual = faturaPorId.get(atual.card_invoice_id ?? "");
+    const statusAtual: StatusParcela =
+      atual.status === "PAGO"
+        ? "PAGA"
+        : faturaAtual && faturaAtual.data_fechamento <= hojeIso
+          ? faturaAtual.data_vencimento < hojeIso
+            ? "HISTORICA"
+            : "FATURADA"
+          : futuras[0]?.id === atual.id
+            ? "EM_FORMACAO"
+            : "PROJETADA";
+
     resultado.push({
       id: expenseId,
       purchaseId,
@@ -244,7 +279,9 @@ export function parcelamentosAtivos(input: {
       restantesQtd: pendentes.length,
       valorParcela: Number(atual.valor_parcela) || 0,
       restante: pendentes.reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0),
-      proximaCobranca: atual.data_vencimento ?? null,
+      proximaParcela: proxima?.numero_parcela ?? null,
+      proximaCobranca: proxima?.data_vencimento ?? null,
+      statusAtual,
     });
   }
   return resultado.sort((a, b) => b.restante - a.restante);
