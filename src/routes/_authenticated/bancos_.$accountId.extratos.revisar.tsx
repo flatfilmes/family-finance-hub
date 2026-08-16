@@ -536,7 +536,88 @@ function RevisarExtrato() {
   );
 }
 
-function Passo({
+/** Situação em uma palavra — nada de texto técnico longo. */
+const SITUACAO_CURTA: Record<keyof typeof MATCH_LABELS, string> = {
+  MATCHED: "Associado",
+  POSSIBLE_MATCH: "Possível",
+  DIVERGENT: "Divergente",
+  NEW: "Novo",
+  IGNORED: "Ignorado",
+};
+
+const SITUACAO_TONE: Record<keyof typeof MATCH_LABELS, "muted" | "ok" | "warn" | "danger"> = {
+  MATCHED: "ok",
+  POSSIBLE_MATCH: "warn",
+  DIVERGENT: "danger",
+  NEW: "muted",
+  IGNORED: "muted",
+};
+
+/** Nunca mostrar UUID cru: só a entidade correspondente (UUID em DEV). */
+function associacaoLegivel(l: StatementDraftRow) {
+  const d = l.sugestao.debug;
+  const par: [string | undefined, string][] = [
+    [d.candidateTransaction, "Movimentação bancária"],
+    [d.candidatePurchase, "Compra existente"],
+    [d.candidateIncome, "Receita cadastrada"],
+    [d.candidateInvoice, "Fatura de cartão"],
+  ];
+  const achou = par.find(([id]) => !!id);
+  if (!achou) return null;
+  return import.meta.env.DEV ? `${achou[1]} (${achou[0]?.slice(0, 8)}…)` : achou[1];
+}
+
+/** "03 AGO" — cabeçalho de dia no estilo extrato bancário. */
+function formatDiaCurto(iso: string) {
+  const [, mes, dia] = iso.split("-");
+  const meses = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+  return `${dia} ${meses[Number(mes) - 1] ?? ""}`.trim();
+}
+
+type DiaExtrato = {
+  data: string | null;
+  itens: { l: StatementDraftRow; i: number }[];
+  /** Saldo corrido do dia (apresentação), derivado do saldo anterior. */
+  saldo: number | null;
+  /** Saldo do dia impresso pelo banco, quando existir. */
+  banco: number | null;
+  confere: boolean;
+};
+
+/** Agrupa a revisão por dia e deriva o saldo de fechamento de cada dia. */
+function agruparPorDia(
+  indexadas: { l: StatementDraftRow; i: number }[],
+  saldoInicial: number | null,
+  checkpoints: { data: string; saldo: number }[],
+): DiaExtrato[] {
+  const mapa = new Map<string, { l: StatementDraftRow; i: number }[]>();
+  for (const item of indexadas) {
+    const chave = item.l.data ?? "";
+    const atual = mapa.get(chave);
+    if (atual) atual.push(item);
+    else mapa.set(chave, [item]);
+  }
+  const chaves = [...mapa.keys()].sort((a, b) => (a === "" ? 1 : b === "" ? -1 : a.localeCompare(b)));
+
+  let corrente = saldoInicial;
+  return chaves.map((chave) => {
+    const itens = mapa.get(chave) ?? [];
+    if (corrente !== null) {
+      corrente = Number((corrente + itens.reduce((a, x) => a + x.l.valor, 0)).toFixed(2));
+    }
+    const banco = checkpoints.find((c) => c.data === chave)?.saldo ?? null;
+    return {
+      data: chave || null,
+      itens,
+      saldo: chave ? corrente : null,
+      banco,
+      confere: banco !== null && corrente !== null && Math.abs(banco - corrente) <= 0.02,
+    };
+  });
+}
+
+/** Um termo da equação do resumo. O valor nunca é truncado. */
+function Termo({
   label,
   valor,
   tone,
@@ -549,20 +630,22 @@ function Passo({
 }) {
   return (
     <div
-      className={`min-w-0 flex-1 rounded-2xl px-4 py-3 ${
-        destaque ? "bg-primary/10" : "bg-muted/50"
+      className={`flex items-baseline justify-between gap-3 rounded-xl px-3 py-2 lg:block lg:flex-none lg:px-0 lg:py-0 ${
+        destaque ? "bg-primary/10 lg:bg-transparent" : ""
       }`}
     >
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <p
-        className={`mt-1 truncate text-lg font-extrabold ${
+        className={`whitespace-nowrap text-right text-lg font-extrabold tabular-nums lg:mt-1 lg:text-left lg:text-2xl ${
           tone === "ok"
             ? "text-emerald-600 dark:text-emerald-400"
             : tone === "danger"
               ? "text-destructive"
-              : ""
+              : destaque
+                ? "text-primary"
+                : ""
         }`}
       >
         {valor}
@@ -571,16 +654,18 @@ function Passo({
   );
 }
 
-function Seta({ sinal }: { sinal: string }) {
+/** Operador da equação: visível também no mobile, alinhado à esquerda. */
+function Operador({ sinal }: { sinal: string }) {
   return (
     <span
       aria-hidden
-      className="hidden shrink-0 items-center justify-center text-sm font-bold text-muted-foreground lg:flex"
+      className="px-3 text-sm font-extrabold text-muted-foreground lg:px-0 lg:pb-1 lg:text-xl"
     >
-      {sinal === "=" ? <ArrowRight className="size-4" /> : sinal}
+      {sinal}
     </span>
   );
 }
+
 
 /** Ação principal contextual + menu com as demais opções. */
 function MenuAcao({
