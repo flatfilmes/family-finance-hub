@@ -191,9 +191,17 @@ function CartaoDetalhePage() {
       (!filtroCategoria || l.categoriaId === filtroCategoria) &&
       matchesSearch(busca, l.estabelecimento),
   );
-  const resumo = resumoOficialDaFatura(filtradas);
+  // Decomposição do ciclo: sempre sobre TODOS os lançamentos (os filtros valem
+  // só para a listagem), para que a soma feche no total oficial da fatura.
+  const resumo = resumoOficialDaFatura(linhas);
   const soma = (kind: KindOficial) => resumo[kind];
-  const totalCiclo = usarOficial ? resumo.total : faturaCiclo.valor;
+  // Regra única: fatura oficial confirmada > estimativa/projeção interna.
+  const totalCiclo = cicloSelecionado?.fonte === "OFFICIAL_STATEMENT"
+    ? cicloSelecionado.valor
+    : usarOficial
+      ? resumo.total
+      : faturaCiclo.valor;
+
   const categoriaNome = (id: string | null) =>
     (categorias ?? []).find((c) => c.id === id)?.nome ?? "—";
 
