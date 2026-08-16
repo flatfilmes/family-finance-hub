@@ -400,11 +400,22 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     lancamentosAtuais ??
     acharValorRotulado(textos, ["total a pagar", "valor a pagar"], ["anterior", "minimo", "financiado"]);
 
+  const dataPagamentoAnterior = acharDataRotulada(
+    textos.filter((l) => plano(l).includes("pagamento efetuado")),
+    ["pagamento efetuado"],
+  );
+
   const metadata: StatementMetadata = {
     data_emissao: emissao,
     total_fatura_anterior: totalAnterior,
     pagamento_anterior: pagamentoAnterior === null ? null : -Math.abs(pagamentoAnterior),
+    previous_invoice_payment:
+      pagamentoAnterior === null
+        ? null
+        : { data: dataPagamentoAnterior, valor: -Math.abs(pagamentoAnterior) },
     lancamentos_atuais: lancamentosAtuais,
+    expected_invoice_total: totalFatura,
+    dolar_conversao: acharValorRotulado(textos, ["dolar de conversao", "dolar conversao"]),
     limite_credito: acharValorRotulado(textos, ["limite total de credito", "limite de credito"]),
     limite_disponivel: acharValorRotulado(textos, ["limite disponivel"]),
     limite_utilizado: acharValorRotulado(textos, ["limite utilizado"]),
@@ -412,6 +423,7 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     future_invoices_amount: acharValorRotulado(textos, ["demais faturas"]),
     future_commitments_total: acharValorRotulado(textos, ["total para proximas faturas"]),
   };
+
 
   const finalPrincipal =
     textos.map((l) => l.match(/final\s*(\d{4})/i)?.[1]).find(Boolean) ?? null;
