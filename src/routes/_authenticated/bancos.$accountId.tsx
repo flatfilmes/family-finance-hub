@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { FileUp, MoreHorizontal, Plus, Receipt, Undo2, Wallet } from "lucide-react";
+import { FileUp, MoreHorizontal, Plus, Receipt, Undo2 } from "lucide-react";
 import { FormDialog } from "@/components/form-dialog";
 import { ConfirmDialog } from "@/components/record-actions";
 import { BankAccountForm } from "@/components/forms/bank-account-form";
@@ -588,34 +588,6 @@ function podeEstornar(t: Transaction) {
   if (t.purchase_id || t.tipo === "PAGAMENTO_CARTAO" || t.tipo === "ABERTURA_SALDO") return false;
   const manual = (t as { manual?: boolean | null }).manual;
   return Boolean(manual) || t.tipo === "TRANSFERENCIA";
-}
-
-/** Ação operacional do cabeçalho da conta. */
-function AcaoConta({
-  icon,
-  children,
-  onClick,
-  variant = "primary",
-}: {
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  onClick: () => void;
-  variant?: "primary" | "ghost";
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-        variant === "primary"
-          ? "bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
-          : "border border-border text-muted-foreground hover:bg-muted"
-      }`}
-    >
-      {icon}
-      {children}
-    </button>
-  );
 }
 
 /** Opção do zero state da conta recém-cadastrada. */
