@@ -428,8 +428,12 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       continue;
     }
 
-    // valor sem data: só entra nas seções de serviços/internacional (anuidade, IOF...)
-    if (!comData && valorLido && (secao === "SERVICOS" || secao === "INTERNACIONAL")) {
+    // valor sem data: seções de serviços/internacional (anuidade, IOF) e parcelas futuras
+    if (
+      !comData &&
+      valorLido &&
+      (secao === "SERVICOS" || secao === "INTERNACIONAL" || secao === "FUTURAS")
+    ) {
       const item = montar(null, valorLido.resto, valorLido.valor, secao, cardLast4, anoBase, mesVencimento);
       if (item) alvo.push(item);
     }
