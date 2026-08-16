@@ -509,7 +509,7 @@ describe("Banco do Brasil — janeiro/2026 lido em ordem documental", () => {
     expect(porDescricao(/TUBARAO COM/)?.data).toBe("2026-01-15");
     expect(porDescricao(/CARLOS/)?.data).toBe("2026-01-16");
     expect(porDescricao(/CLARO/)?.data).toBe("2026-01-20");
-    expect(porDescricao(/Recebido ANDERSON/)?.data).toBe("2026-01-22");
+    expect(porDescricao(/Recebido · ANDERSON/)?.data).toBe("2026-01-22");
     expect(porDescricao(/FULLGAZ/)?.data).toBe("2026-01-26");
   });
 
