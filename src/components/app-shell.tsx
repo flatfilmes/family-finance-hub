@@ -3,7 +3,6 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   LayoutDashboard,
-  Users,
   Settings,
   LogOut,
   Menu,
@@ -22,7 +21,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/minha-familia", label: "Minha Família", icon: Users },
+
   { to: "/compras", label: "Compras", icon: ShoppingBasket },
   { to: "/bancos", label: "Bancos", icon: Landmark },
   { to: "/cartoes", label: "Cartões", icon: CreditCard },
@@ -30,7 +29,6 @@ const NAV = [
   { to: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
-
 
 export function AppShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);

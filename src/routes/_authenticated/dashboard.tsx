@@ -3,13 +3,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { MemberFilter } from "@/components/member-filter";
 import {
   ArrowRight,
-  Users,
   Wallet,
   Brain,
   TrendingUp,
   Receipt,
   CreditCard,
-  Gauge,
   ShoppingCart,
   PieChart,
   ArrowUpDown,
@@ -17,8 +15,8 @@ import {
   HeartPulse,
 } from "lucide-react";
 import { PageHeader, Card } from "@/components/page-header";
-import { useFamily, useFinancialProfile, useMembers, useProfile } from "@/hooks/useFamilyData";
-import { useFinancialSummary, useCreditCards } from "@/hooks/useFinanceData";
+import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
+import { useCreditCards } from "@/hooks/useFinanceData";
 import { useExpenseSummary } from "@/hooks/useExpenses";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
@@ -39,9 +37,8 @@ import {
   TRANSACTION_TYPE_LABELS,
   type Transaction,
 } from "@/lib/transactions";
-import { GOAL_LABELS, isDemoFamily } from "@/lib/family";
+import { isDemoFamily } from "@/lib/family";
 import { formatCurrency } from "@/lib/finance";
-
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
@@ -55,27 +52,21 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: Dashboard,
 });
 
-const FUTURE_MODULES = [
-  "Metas financeiras",
-  "Análises e recomendações de IA",
-];
+const FUTURE_MODULES = ["Metas financeiras", "Análises e recomendações de IA"];
 
 function Dashboard() {
   const { data: profile } = useProfile();
-  const { data: family, isLoading } = useFamily();
+  const { data: family } = useFamily();
   const { data: members } = useMembers(family?.id);
-  const { data: financial } = useFinancialProfile(family?.id);
-  const summary = useFinancialSummary(family?.id);
-  const gastos = useExpenseSummary(family?.id);
-  const orcamento = useBudgetProgress(family?.id);
   const [filtroMembro, setFiltroMembro] = useState("");
   const view = useViewMode();
   const escopo = view.scoped(filtroMembro);
+  const gastos = useExpenseSummary(family?.id, escopo);
+  const orcamento = useBudgetProgress(family?.id, undefined, escopo);
   const engine = useFinancialEngine(family?.id, escopo);
   const compromissos = useFutureCommitments(family?.id, escopo);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
-  const comprometimento = summary.comprometimento;
   const nomeEscopo = (members ?? []).find((m) => m.id === escopo)?.nome;
 
   return (
@@ -101,7 +92,9 @@ function Dashboard() {
             </h2>
             <p className="text-xs text-muted-foreground">
               Seu perfil: {MEMBER_PROFILE_LABELS[view.tipo]}
-              {view.canSwitchView ? " · você pode alternar entre a visão da família e a sua." : " · você vê apenas os seus dados."}
+              {view.canSwitchView
+                ? " · você pode alternar entre a visão da família e a sua."
+                : " · você vê apenas os seus dados."}
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -115,13 +108,15 @@ function Dashboard() {
             />
             {view.canSwitchView && view.mode === "familia" && (
               <div className="w-48">
-                <MemberFilter familyId={family?.id} value={filtroMembro} onChange={setFiltroMembro} />
+                <MemberFilter
+                  familyId={family?.id}
+                  value={filtroMembro}
+                  onChange={setFiltroMembro}
+                />
               </div>
             )}
           </div>
         </div>
-
-
 
         {engine.semDados && !engine.isLoading ? (
           <Card>
@@ -249,7 +244,6 @@ function Dashboard() {
 
             <UltimasMovimentacoes familyId={family?.id} memberId={escopo} />
 
-
             <Card className="mt-4">
               <div className="flex items-center gap-3">
                 <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
@@ -284,45 +278,6 @@ function Dashboard() {
           </>
         )}
       </section>
-
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          icon={<TrendingUp className="size-5" />}
-          label="Receita mensal"
-          value={formatCurrency(summary.receitaMensal)}
-          hint={`${summary.counts.incomes} receita(s) cadastrada(s)`}
-          to="/receitas"
-          loading={summary.isLoading}
-        />
-        <StatCard
-          icon={<Receipt className="size-5" />}
-          label="Contas fixas"
-          value={formatCurrency(summary.contasFixas)}
-          hint={`${summary.counts.expenses} conta(s) cadastrada(s)`}
-          to="/contas-fixas"
-          loading={summary.isLoading}
-        />
-        <StatCard
-          icon={<CreditCard className="size-5" />}
-          label="Limite dos cartões"
-          value={formatCurrency(summary.limiteCartoes)}
-          hint={`${summary.counts.cards} cartão(ões) cadastrado(s)`}
-          to="/cartoes"
-          loading={summary.isLoading}
-        />
-        <StatCard
-          icon={<Gauge className="size-5" />}
-          label="Comprometimento financeiro"
-          value={comprometimento === null ? "—" : `${comprometimento.toFixed(0)}%`}
-          hint={
-            comprometimento === null
-              ? "Cadastre receitas para calcular"
-              : `Sobra estimada: ${formatCurrency(summary.saldo)}`
-          }
-          loading={summary.isLoading}
-        />
-      </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <StatCard
@@ -453,9 +408,7 @@ function Dashboard() {
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border p-3">
                 <p className="text-xs text-muted-foreground">Orçamento total</p>
-                <p className="mt-1 text-lg font-bold">
-                  {formatCurrency(orcamento.totalPlanejado)}
-                </p>
+                <p className="mt-1 text-lg font-bold">{formatCurrency(orcamento.totalPlanejado)}</p>
               </div>
               <div className="rounded-2xl border border-border p-3">
                 <p className="text-xs text-muted-foreground">Gasto total</p>
@@ -469,76 +422,34 @@ function Dashboard() {
               </div>
             </div>
             <ul className="mt-5 space-y-4">
-            {orcamento.items.map((item) => {
-              const cls = BUDGET_STATUS_CLASSES[item.status];
-              return (
-                <li key={item.id}>
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                    <span className="font-semibold">{item.categoria}</span>
-                    <span className="text-muted-foreground">
-                      {formatCurrency(item.gasto)} de {formatCurrency(item.planejado)}
-                    </span>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cls.badge}`}>
-                      {item.percentual.toFixed(0)}% · {BUDGET_STATUS_LABELS[item.status]}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full rounded-full ${cls.bar}`}
-                      style={{ width: `${Math.min(100, item.percentual)}%` }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
+              {orcamento.items.map((item) => {
+                const cls = BUDGET_STATUS_CLASSES[item.status];
+                return (
+                  <li key={item.id}>
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                      <span className="font-semibold">{item.categoria}</span>
+                      <span className="text-muted-foreground">
+                        {formatCurrency(item.gasto)} de {formatCurrency(item.planejado)}
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-xs font-semibold ${cls.badge}`}
+                      >
+                        {item.percentual.toFixed(0)}% · {BUDGET_STATUS_LABELS[item.status]}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full ${cls.bar}`}
+                        style={{ width: `${Math.min(100, item.percentual)}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </>
         )}
       </Card>
-
-
-
-      <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Card>
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-            <Users className="size-5" />
-          </span>
-          <h2 className="mt-4 text-base font-bold">Minha Família</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {isLoading
-              ? "Carregando..."
-              : family
-                ? `${family.nome_da_familia} · ${members?.length ?? 0} membro(s)`
-                : "Nenhuma família criada ainda."}
-          </p>
-          <Link
-            to="/minha-familia"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
-          >
-            {family ? "Gerenciar membros" : "Criar minha família"}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Card>
-
-        <Card>
-          <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
-            <Wallet className="size-5" />
-          </span>
-          <h2 className="mt-4 text-base font-bold">Perfil Financeiro</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {financial?.objetivo_principal
-              ? `Objetivo: ${GOAL_LABELS[financial.objetivo_principal]}`
-              : "Ainda não preenchido."}
-          </p>
-          <Link
-            to="/perfil-financeiro"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary"
-          >
-            {financial ? "Atualizar informações" : "Preencher perfil"}
-            <ArrowRight className="size-4" />
-          </Link>
-        </Card>
-      </div>
 
       <Card className="mt-4">
         <span className="flex size-10 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
@@ -627,7 +538,13 @@ function UltimasMovimentacoes({
   );
 }
 
-function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefined; memberId: string }) {
+function CapacidadeCartoes({
+  familyId,
+  memberId,
+}: {
+  familyId?: string | undefined;
+  memberId: string;
+}) {
   const { data: cards } = useCreditCards(familyId);
   const { data: accounts } = useBankAccounts(familyId);
   const cartoes = filterByMember(cards ?? [], memberId);
@@ -743,9 +660,7 @@ function CapacidadeCartoes({ familyId, memberId }: { familyId?: string | undefin
   );
 }
 
-
 function StatCard({
-
   icon,
   label,
   value,
@@ -771,7 +686,10 @@ function StatCard({
       <p className="mt-1 text-2xl font-extrabold tracking-tight">{loading ? "—" : value}</p>
       <p className="mt-1 text-xs text-muted-foreground">{hint}</p>
       {to && (
-        <Link to={to} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary">
+        <Link
+          to={to}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-primary"
+        >
           Abrir
           <ArrowRight className="size-3.5" />
         </Link>

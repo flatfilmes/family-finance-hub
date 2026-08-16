@@ -1,10 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  budgetStatus,
-  fetchBudgets,
-  monthToRef,
-  type BudgetStatus,
-} from "@/lib/budgets";
+import { budgetStatus, fetchBudgets, monthToRef, type BudgetStatus } from "@/lib/budgets";
 import { currentMonth } from "@/lib/expenses";
 import { useExpenseCategories, useExpenses } from "@/hooks/useExpenses";
 
@@ -29,10 +24,10 @@ export type BudgetProgress = {
 };
 
 /** Compara budgets.valor_planejado com o total de expenses.valor do mês de referência. */
-export function useBudgetProgress(familyId?: string, monthArg?: string) {
+export function useBudgetProgress(familyId?: string, monthArg?: string, memberId = "") {
   const month = monthArg ?? currentMonth();
   const budgets = useBudgets(familyId, month);
-  const expenses = useExpenses(familyId, { month });
+  const expenses = useExpenses(familyId, { month, ...(memberId ? { memberId } : {}) });
   const categories = useExpenseCategories();
 
   const gastoPorCategoria = new Map<string, number>();
@@ -48,8 +43,7 @@ export function useBudgetProgress(familyId?: string, monthArg?: string) {
     return {
       id: b.id,
       categoriaId: b.category_id,
-      categoria:
-        categories.data?.find((c) => c.id === b.category_id)?.nome ?? "Sem categoria",
+      categoria: categories.data?.find((c) => c.id === b.category_id)?.nome ?? "Sem categoria",
       planejado,
       gasto,
       percentual,

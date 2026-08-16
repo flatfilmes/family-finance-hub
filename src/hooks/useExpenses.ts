@@ -31,11 +31,12 @@ export function useExpenses(familyId?: string, filters: ExpenseFilters = {}) {
 }
 
 /** Resumo de gastos reais do mês corrente e comparação com o mês anterior. */
-export function useExpenseSummary(familyId?: string) {
+export function useExpenseSummary(familyId?: string, memberId = "") {
   const month = currentMonth();
   const prev = previousMonth(month);
-  const atual = useExpenses(familyId, { month });
-  const anterior = useExpenses(familyId, { month: prev });
+  const scope = memberId ? { memberId } : {};
+  const atual = useExpenses(familyId, { month, ...scope });
+  const anterior = useExpenses(familyId, { month: prev, ...scope });
   const categories = useExpenseCategories();
 
   const sum = (rows?: { valor: number | string }[]) =>
@@ -57,8 +58,7 @@ export function useExpenseSummary(familyId?: string) {
     }
   }
 
-  const variacao =
-    totalAnterior > 0 ? ((totalMes - totalAnterior) / totalAnterior) * 100 : null;
+  const variacao = totalAnterior > 0 ? ((totalMes - totalAnterior) / totalAnterior) * 100 : null;
 
   return {
     isLoading: atual.isLoading || anterior.isLoading,
