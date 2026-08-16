@@ -12,6 +12,7 @@ import { DEMO_DELETE_CONFIRMATION } from "@/lib/demo";
 import { supabase } from "@/integrations/supabase/client";
 import { DocumentLibraryCard } from "@/components/document-library";
 import { FamilyAdmin } from "@/components/family-admin";
+import { PERMISSION_DESCRIPTIONS, PERMISSION_LABELS } from "@/lib/family";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
   head: () => ({
@@ -285,7 +286,7 @@ function Configuracoes() {
       )}
 
 
-      {secao === "Sistema" && (
+      {secao === "Preferências" && (
         <>
           <Card className="max-w-xl">
             <h2 className="text-base font-bold">Preferências pessoais</h2>
@@ -324,24 +325,26 @@ function Configuracoes() {
             </form>
           </Card>
 
-          <DemoModeCard />
-
           <DocumentLibraryCard />
-
-          <Card className="mt-4 max-w-xl">
-            <h2 className="text-base font-bold">Segurança e conta</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Encerre sua sessão neste dispositivo.
-            </p>
-            <button
-              onClick={handleSignOut}
-              className="mt-4 rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-            >
-              Sair da conta
-            </button>
-          </Card>
         </>
       )}
+
+      {secao === "Segurança" && (
+        <Card className="max-w-xl">
+          <h2 className="text-base font-bold">Segurança e conta</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Encerre sua sessão neste dispositivo.
+          </p>
+          <button
+            onClick={handleSignOut}
+            className="mt-4 rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+          >
+            Sair da conta
+          </button>
+        </Card>
+      )}
+
+      {secao === "Modo Demonstração" && <DemoModeCard />}
     </div>
   );
 }
