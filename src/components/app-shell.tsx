@@ -37,6 +37,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const larguraTotal =
+    pathname.startsWith("/dev/") || pathname.endsWith("/diagnostico-parser");
+
 
   async function handleSignOut() {
     await queryClient.cancelQueries();
