@@ -273,6 +273,142 @@ function CartaoDetalhePage() {
         </div>
       </Card>
 
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionTitle
+              title="Fatura fechada"
+              hint="Ciclo já encerrado — é o valor que precisa ser pago."
+            />
+            {cicloFechado && (
+              <Badge tone={toneEstado(cicloFechado.estado)}>
+                {ESTADO_CICLO_LABELS[cicloFechado.estado]}
+              </Badge>
+            )}
+          </div>
+          {cicloFechado ? (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground">
+                {monthKeyLabel(cicloFechado.competencia)}
+              </p>
+              <p className="mt-1 text-3xl font-black">
+                {formatCurrency(faturaFechadaCiclo.valor)}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Fechamento {formatDate(cicloFechado.invoice.data_fechamento)} · vencimento{" "}
+                {formatDate(cicloFechado.invoice.data_vencimento)}
+                {faturaFechadaCiclo.oficial
+                  ? " · fatura oficial importada"
+                  : " · valor calculado pelo sistema"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAba("fechada");
+                    setFaturaId("");
+                    document
+                      .getElementById("compras-do-ciclo")
+                      ?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  Ver lançamentos
+                </button>
+                {podePagar &&
+                  cicloFechado.invoice.status !== "PAGA" &&
+                  Number(cicloFechado.invoice.valor_total) > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAba("fechada");
+                        setFaturaId("");
+                        setPagando(true);
+                      }}
+                      className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      Pagar fatura
+                    </button>
+                  )}
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Nenhum ciclo fechado até agora neste cartão.
+            </p>
+          )}
+        </Card>
+
+        <Card>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <SectionTitle
+              title="Próxima fatura"
+              hint="Compras feitas depois do fechamento entram aqui."
+            />
+            <Badge tone="muted">Em formação</Badge>
+          </div>
+          {cicloProximo ? (
+            <>
+              <p className="text-sm font-semibold text-muted-foreground">
+                {monthKeyLabel(cicloProximo.competencia)}
+              </p>
+              <p className="mt-1 text-3xl font-black">{formatCurrency(totalProxima)}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Total até agora · fecha {formatDate(cicloProximo.invoice.data_fechamento)} · vence{" "}
+                {formatDate(cicloProximo.invoice.data_vencimento)}
+              </p>
+              <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Compras da próxima fatura
+              </p>
+              {linhasProxima.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Nada lançado no novo ciclo ainda.
+                </p>
+              ) : (
+                <ul className="mt-2 divide-y divide-border">
+                  {linhasProxima.slice(0, 6).map((l) => (
+                    <li key={l.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">
+                          {l.estabelecimento}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {formatDate(l.data)} · {KIND_LABELS[l.kind]}
+                          {l.parcela !== "—" ? ` · ${l.parcela}` : ""}
+                        </span>
+                      </span>
+                      <span className="text-sm font-bold">{formatCurrency(l.valor)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                <span>Compras novas: {formatCurrency(somaProxima("normais"))}</span>
+                <span>Parcelas: {formatCurrency(somaProxima("parceladas"))}</span>
+                <span>Taxas/recorrências: {formatCurrency(somaProxima("recorrentes"))}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAba("proxima");
+                  setFaturaId("");
+                  document
+                    .getElementById("compras-do-ciclo")
+                    ?.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="mt-3 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                Ver tudo da próxima fatura
+              </button>
+            </>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Nenhum ciclo em formação neste momento.
+            </p>
+          )}
+        </Card>
+      </div>
+
       <div id="compras-do-ciclo" />
       <Card className="mt-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
