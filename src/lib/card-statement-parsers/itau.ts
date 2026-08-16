@@ -273,10 +273,47 @@ const MOEDA_ESTRANGEIRA = /\b(usd|eur|gbp|us\$|dolar|euro)\b/;
 
 export function ehMetadataItau(texto: string) {
   const p = plano(texto);
+  if (ehRepasseIof(texto)) return false;
   if (TERMOS_METADATA.some((t) => p.includes(t))) return true;
   if (MOEDA_ESTRANGEIRA.test(p)) return true;
   return false;
 }
+
+// ------------------------------------------------------------------ IOF real
+
+/**
+ * "Repasse de IOF em R$" dentro dos lançamentos internacionais é cobrança
+ * financeira real da fatura atual. Só esta forma é aceita: menções a IOF em
+ * simulações, CET, parcelamento e financiamento continuam proibidas.
+ */
+export function ehRepasseIof(texto: string) {
+  const p = plano(texto);
+  if (!p.includes("repasse de iof") && !p.includes("iof internacional")) return false;
+  return !ehProibido(texto);
+}
+
+/** Lançamento de IOF: sempre TAXA, sem data, valor positivo (saída). */
+export function montarIof(
+  valor: number,
+  cardLast4: string | null,
+  estabelecimento: string | null,
+): StatementEntry {
+  const descricao = estabelecimento ? `Repasse de IOF · ${estabelecimento}` : "Repasse de IOF";
+  return {
+    ambiguo: false,
+    data_lancamento: null,
+    descricao_original: descricao,
+    descricao_normalizada: normalizeDescricao(descricao),
+    estabelecimento_sugerido: null,
+    valor: Math.abs(valor),
+    parcela_atual: null,
+    total_parcelas: null,
+    tipo_sugerido: "TAXA",
+    card_last4: cardLast4,
+    categoria_banco: null,
+  };
+}
+
 
 
 
