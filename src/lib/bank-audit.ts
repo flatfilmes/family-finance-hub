@@ -348,6 +348,8 @@ export function buildBankAudit(input: {
     saldo_final: number | string | null;
     quantidade_lancamentos: number | null;
     status: string;
+    /** Evidência do documento relido: saldos do dia encontrados no PDF. */
+    dados_brutos_json?: unknown;
   }[];
   checkpoints: { data: string; saldo: number }[];
   /** Lançamentos lidos dos PDFs — evidência do documento. */
@@ -371,6 +373,11 @@ export function buildBankAudit(input: {
       saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
       saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
       quantidade: i.quantidade_lancamentos ?? 0,
+      checkpointsPdf: Array.isArray(
+        (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
+      )
+        ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
+        : 0,
       status: i.status,
     }))
     .sort((a, b) => String(a.inicio ?? "").localeCompare(String(b.inicio ?? "")));
