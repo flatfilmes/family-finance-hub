@@ -4,7 +4,7 @@ import { Card, PageHeader } from "@/components/page-header";
 import { useFamily, useMembers } from "@/hooks/useFamilyData";
 import { useIncomes, useFixedExpenses, useCreditCards } from "@/hooks/useFinanceData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
-import { useExpenses } from "@/hooks/useExpenses";
+import { useMonthlySpending } from "@/hooks/useMonthlySpending";
 import { currentMonth, monthLabel } from "@/lib/expenses";
 import { formatCurrency, monthlyIncomeValue, monthlyExpenseValue } from "@/lib/finance";
 import { NoFamily } from "@/components/no-family";
@@ -58,7 +58,7 @@ function RelatoriosPage() {
   const { data: cards } = useCreditCards(family?.id);
   const { data: accounts } = useBankAccounts(family?.id);
   const month = currentMonth();
-  const { data: expenses } = useExpenses(family?.id, { month });
+  const gastoFamilia = useMonthlySpending(family?.id, "", month);
 
   if (!family) return <NoFamily />;
 
@@ -71,7 +71,7 @@ function RelatoriosPage() {
   const saldos = (accounts ?? [])
     .filter((a) => a.ativo)
     .reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-  const gastos = (expenses ?? []).reduce((acc, e) => acc + (Number(e.valor) || 0), 0);
+  const gastos = gastoFamilia.total;
 
   const stats = [
     { label: "Receita mensal da família", value: formatCurrency(receitas) },

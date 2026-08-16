@@ -18,7 +18,7 @@ import {
 import { PageHeader, Card } from "@/components/page-header";
 import { useFamily, useMembers, useProfile } from "@/hooks/useFamilyData";
 import { useCreditCards } from "@/hooks/useFinanceData";
-import { useExpenseSummary } from "@/hooks/useExpenses";
+import { useSpendingSummary } from "@/hooks/useSpendingSummary";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
@@ -79,7 +79,7 @@ function Dashboard() {
   const [filtroMembro, setFiltroMembro] = useState("");
   const view = useViewMode();
   const escopo = view.scoped(filtroMembro);
-  const gastos = useExpenseSummary(family?.id, escopo);
+  const gastos = useSpendingSummary(family?.id, escopo);
   const gastoMes = useMonthlySpending(family?.id, escopo);
 
   const orcamento = useBudgetProgress(family?.id, undefined, escopo);
@@ -297,7 +297,7 @@ function Dashboard() {
           icon={<ShoppingCart className="size-5" />}
           label="Total gasto no mês"
           value={formatCurrency(gastos.totalMes)}
-          hint={`${gastos.count} lançamento(s) em ${monthLabel(gastos.month)}`}
+          hint={`${gastos.count} compra(s) em ${monthLabel(gastos.month)}`}
           to="/compras"
           loading={gastos.isLoading}
         />
