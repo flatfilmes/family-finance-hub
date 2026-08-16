@@ -202,7 +202,16 @@ export function StatementImportDialog({
 
         {erro && <p className="mt-3 text-sm font-semibold text-destructive">{erro}</p>}
 
-        <div className="mt-5 flex flex-wrap justify-end gap-2">
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
+          {podeDiagnosticar && (
+            <button
+              type="button"
+              onClick={() => setDiagnostico(true)}
+              className="mr-auto inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
+            >
+              <Bug className="size-4" /> Modo diagnóstico PDF
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
@@ -210,6 +219,7 @@ export function StatementImportDialog({
           >
             Cancelar
           </button>
+
           {!parsed ? (
             <PrimaryButton type="button" onClick={analisar} disabled={ocupado || !file || !cartao}>
               {ocupado ? (
