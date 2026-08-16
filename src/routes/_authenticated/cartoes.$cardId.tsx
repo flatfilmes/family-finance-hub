@@ -208,6 +208,8 @@ function CartaoDetalhePage() {
   const contasParaPagar = (accounts ?? []).filter((a) => a.ativo);
   const podePagar = !view.isViewer;
   const projetado = estadoSelecionado === "PROJETADA";
+  const emFormacao = estadoSelecionado === "EM_FORMACAO";
+
   const podePagarEsteCiclo =
     podePagar &&
     !!fatura &&
