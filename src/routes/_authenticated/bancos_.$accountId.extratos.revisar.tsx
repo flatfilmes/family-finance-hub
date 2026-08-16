@@ -276,11 +276,15 @@ function RevisarExtrato() {
     `${contagem.total} movimentaç${contagem.total === 1 ? "ão" : "ões"}`,
     contagem.entradas > 0 ? `${contagem.entradas} entradas` : null,
     contagem.saidas > 0 ? `${contagem.saidas} saídas` : null,
-    contagem.associadas > 0 ? `${contagem.associadas} associadas` : null,
-    contagem.novas > 0 ? `${contagem.novas} novas` : null,
-    contagem.possiveis > 0 ? `${contagem.possiveis} a conferir` : null,
     contagem.futuras > 0 ? `${contagem.futuras} futura${contagem.futuras > 1 ? "s" : ""}` : null,
   ].filter(Boolean) as string[];
+
+  // Agrupamento por dia (apresentação): saldo corrido derivado do próprio
+  // extrato, comparado com o "Saldo do dia" impresso pelo banco.
+  const dias = agruparPorDia(indexadas, resumo.saldoInicial, resumo.checkpoints ?? []).filter((d) =>
+    d.itens.some(({ i }) => visiveis.some((v) => v.i === i)),
+  );
+
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 pb-36 pt-6">
