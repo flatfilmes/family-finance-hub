@@ -270,8 +270,10 @@ function ConferirCompra({
       items?: Confianca;
     };
     pagamento_descricao?: string | null;
+    tipo_documento_detectado?: { codigo?: string; confianca?: number; seguro?: boolean } | null;
   } | null;
   const confianca = brutos?.confianca ?? {};
+  const tipoDetectado = brutos?.tipo_documento_detectado ?? null;
   const valorLido = Number(extracao?.valor_total ?? 0);
   const duvidoso = (nivel?: Confianca) => nivel === "BAIXA" || nivel === "MEDIA";
 
