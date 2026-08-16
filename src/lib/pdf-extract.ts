@@ -299,9 +299,8 @@ function acharValorTotal(linhas: PdfLine[]): { valor: number; confianca: Confian
         // Rótulo e valor na mesma linha.
         const cellRotulo =
           linha.cells.find((c) => semAcento(c.text).includes(rotulo)) ?? linha.cells[0]!;
-        const depois = linha.cells.filter(
-          (c) => c.x > cellRotulo.x && MOEDA_RE.test(c.text) && (MOEDA_RE.lastIndex = 0) === 0,
-        );
+        const depois = linha.cells.filter((c) => c.x > cellRotulo.x);
+
         for (const cell of depois) {
           const valores = cell.text.match(MOEDA_RE);
           const valor = valores ? parseValorBr(valores[valores.length - 1]!) : 0;
