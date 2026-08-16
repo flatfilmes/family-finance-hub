@@ -1442,7 +1442,7 @@ export async function confirmStatementImport(input: {
             estabelecimento: item.estabelecimento_sugerido || item.descricao_original,
             data_compra:
               item.data_lancamento ??
-              importacao.data_vencimento ??
+              ancoraDoCicloImportado(card, importacao) ??
               new Date().toISOString().slice(0, 10),
             forma_pagamento: "CREDITO",
             credit_card_id: card.id,
