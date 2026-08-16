@@ -64,6 +64,13 @@ export const IMPORT_STATUS_LABELS: Record<ImportStatus, string> = {
 
 };
 
+/** Regra única de confirmação de uma fatura importada em toda a aplicação. */
+export function isStatementConfirmed(
+  importacao: { status: string } | null | undefined,
+) {
+  return importacao?.status === "CONFIRMED";
+}
+
 export const ACTION_LABELS: Record<ItemAction, string> = {
   PENDENTE: "Pendente",
   PROCESSANDO: "Processando",
@@ -850,7 +857,7 @@ export type UndoResult = {
 
 /** Só faz sentido desfazer o que já foi confirmado (cancelar é para revisão pendente). */
 export function podeDesfazerImportacao(status: ImportStatus) {
-  return status === "CONFIRMED";
+  return isStatementConfirmed({ status });
 }
 
 export async function inspectUndoStatementImport(importId: string): Promise<UndoReport> {
@@ -880,7 +887,7 @@ export async function undoStatementImport(
 
 /** Faturas confirmadas geraram efeito real: não podem ser apagadas direto. */
 export function podeExcluirImportacao(status: ImportStatus) {
-  return status !== "CONFIRMED";
+  return !isStatementConfirmed({ status });
 }
 
 /**

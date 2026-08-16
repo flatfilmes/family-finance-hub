@@ -3,6 +3,7 @@ import type { FixedExpense, Income } from "@/lib/finance";
 import { monthlyExpenseValue, monthlyIncomeValue } from "@/lib/finance";
 import type { Purchase } from "@/lib/purchases";
 import { RECURRENCE_MONTHS, type RecurringExpense } from "@/lib/recurring-expenses";
+import { faturaDoCiclo } from "@/lib/card-details";
 
 /**
  * Motor de obrigações pendentes (sem IA).
@@ -78,6 +79,16 @@ export function buildCommitments(input: {
   installments: ExpenseInstallment[];
   recurring: RecurringExpense[];
   purchases: Purchase[];
+  statementImports?: Array<{
+    id: string;
+    credit_card_id: string;
+    status: string;
+    valor_total_fatura: number | string | null;
+    data_vencimento: string | null;
+    data_fechamento: string | null;
+    periodo_fim: string | null;
+    created_at: string;
+  }>;
 }): CommitmentsBreakdown {
   const { from, to, month } = input;
 
@@ -95,7 +106,16 @@ export function buildCommitments(input: {
     (i) => i.status !== "PAGA" && i.data_vencimento >= from && i.data_vencimento <= to,
   );
   const idsFatura = new Set(faturasPendentes.map((i) => i.id));
-  const totalFaturas = faturasPendentes.reduce((acc, i) => acc + (Number(i.valor_total) || 0), 0);
+  const totalFaturas = faturasPendentes.reduce(
+    (acc, i) =>
+      acc +
+      faturaDoCiclo({
+        cardId: i.credit_card_id,
+        invoice: i,
+        imports: input.statementImports ?? [],
+      }).valor,
+    0,
+  );
 
   // 3) Parcelas da competência: fazem parte da fatura, então são destacadas dela
   //    (nunca somadas por cima — isso seria dupla contagem).

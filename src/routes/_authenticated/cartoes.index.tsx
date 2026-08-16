@@ -3,7 +3,11 @@ import { CreditCard, FileUp } from "lucide-react";
 import { StatementImportDialog } from "@/components/statement-import-dialog";
 import { competenciaImportacao } from "@/components/card-statement-imports";
 import { useStatementImports } from "@/hooks/useCardStatements";
-import { IMPORT_STATUS_LABELS, type StatementImport } from "@/lib/card-statements";
+import {
+  IMPORT_STATUS_LABELS,
+  isStatementConfirmed,
+  type StatementImport,
+} from "@/lib/card-statements";
 import { StatusBadge } from "@/components/status-badge";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
@@ -91,10 +95,13 @@ function CartoesPage() {
   const totalLimite = visiveis
     .filter((c) => c.ativo)
     .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
-  const totalFaturasAbertas = visiveis.reduce((acc, c) => {
-    const fatura = dados.info(c.id)?.faturaAtual;
-    return acc + (fatura && fatura.status !== "PAGA" ? Number(fatura.valor_total) || 0 : 0);
-  }, 0);
+  const composicaoFaturas = visiveis
+    .filter((c) => c.ativo)
+    .map((c) => ({ cartao: c, obrigacao: dados.obrigacaoAbertaDe(c.id) }));
+  const totalFaturasAbertas = composicaoFaturas.reduce(
+    (acc, item) => acc + item.obrigacao.valor,
+    0,
+  );
   const totalUtilizado = visiveis.reduce((acc, c) => acc + dados.utilizadoDe(c.id), 0);
   const saldoContas = contasAtivas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
   const capacidade = saldoContas - totalFaturasAbertas;
@@ -152,7 +159,7 @@ function CartoesPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <StatusBadge tone={imp.status === "CONFIRMED" ? "ok" : "warn"}>
+                  <StatusBadge tone={isStatementConfirmed(imp) ? "ok" : "warn"}>
                     {IMPORT_STATUS_LABELS[imp.status]}
                   </StatusBadge>
                   <Link
@@ -183,6 +190,33 @@ function CartoesPage() {
         />
         <Metric label="Limite total ativo" value={formatCurrency(totalLimite)} big />
       </div>
+
+      {composicaoFaturas.length > 0 && (
+        <Card className="mt-4">
+          <p className="text-sm font-bold">Composição das faturas abertas</p>
+          <ul className="mt-2 divide-y divide-border">
+            {composicaoFaturas.map(({ cartao, obrigacao }) => (
+              <li key={cartao.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+                <span className="min-w-0 truncate">
+                  {cartao.banco} · {cartao.nome_cartao}
+                  <span className="ml-2 text-muted-foreground">
+                    {obrigacao.aberta
+                      ? obrigacao.oficial
+                        ? "OFICIAL"
+                        : "ESTIMADA"
+                      : "PAGA"}
+                  </span>
+                </span>
+                <strong>{formatCurrency(obrigacao.valor)}</strong>
+              </li>
+            ))}
+            <li className="flex items-center justify-between gap-3 py-2 text-sm">
+              <strong>Total</strong>
+              <strong>{formatCurrency(totalFaturasAbertas)}</strong>
+            </li>
+          </ul>
+        </Card>
+      )}
 
       <Card className="mt-4">
         <Badge tone={statusTone}>{statusPagamento.toUpperCase()}</Badge>

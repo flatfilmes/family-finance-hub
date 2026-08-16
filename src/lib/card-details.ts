@@ -2,6 +2,7 @@ import { upcomingInstallmentMonths, type CardInvoice, type ExpenseInstallment } 
 import { chargesInMonths, type RecurringExpense } from "@/lib/recurring-expenses";
 import type { Purchase } from "@/lib/purchases";
 import type { Expense } from "@/lib/expenses";
+import { isStatementConfirmed } from "@/lib/card-statements";
 
 export type Kind = "normais" | "parceladas" | "recorrentes";
 
@@ -210,7 +211,7 @@ export function importacaoOficialDoCiclo(input: {
   if (!input.invoice) return null;
   const mes = (v?: string | null) => (v ? v.slice(0, 7) : null);
   const candidatas = input.imports
-    .filter((i) => i.credit_card_id === input.cardId && i.status === "CONFIRMED")
+    .filter((i) => i.credit_card_id === input.cardId && isStatementConfirmed(i))
     .filter((i) => {
       if (i.data_vencimento) return i.data_vencimento === input.invoice!.data_vencimento;
       if (i.data_fechamento) return mes(i.data_fechamento) === mes(input.invoice!.data_fechamento);
@@ -246,6 +247,38 @@ export function faturaDoCiclo(input: {
     label: "Fatura estimada",
     vencimento: input.invoice?.data_vencimento ?? null,
     importId: null,
+  };
+}
+
+export type ObrigacaoAbertaCartao = FaturaDoCiclo & {
+  cardId: string;
+  invoiceId: string | null;
+  aberta: boolean;
+};
+
+/**
+ * Uma única obrigação aberta por cartão/ciclo. A importação confirmada substitui
+ * a estimativa; uma fatura interna paga permanece no histórico, mas vale zero no consolidado.
+ */
+export function obrigacaoAbertaDoCartao(input: {
+  cardId: string;
+  invoice: {
+    id: string;
+    status: string;
+    data_vencimento: string;
+    data_fechamento: string;
+    valor_total: number | string;
+  } | null;
+  imports: ImportacaoFatura[];
+}): ObrigacaoAbertaCartao {
+  const fatura = faturaDoCiclo(input);
+  const aberta = !!input.invoice && input.invoice.status !== "PAGA";
+  return {
+    ...fatura,
+    valor: aberta ? fatura.valor : 0,
+    cardId: input.cardId,
+    invoiceId: input.invoice?.id ?? null,
+    aberta,
   };
 }
 

@@ -8,6 +8,7 @@ import { filterByMember } from "@/components/member-filter";
 import { DEFAULT_SETTINGS } from "@/lib/financial-engine";
 import { averageVariableIncome } from "@/lib/financial-engine";
 import { currentMonth } from "@/lib/expenses";
+import { useStatementImports } from "@/hooks/useCardStatements";
 import {
   buildCommitments,
   endOfMonthIso,
@@ -34,6 +35,7 @@ export function useFreeCash(familyId?: string, memberId = "") {
   const installments = useInstallments(familyId);
   const recurring = useRecurringExpenses(familyId);
   const purchases = usePurchases(familyId);
+  const statementImports = useStatementImports(familyId);
   const settings = useFinancialSettings(familyId);
 
   const contas = filterByMember(accounts.data ?? [], memberId).filter((a) => a.ativo);
@@ -58,6 +60,9 @@ export function useFreeCash(familyId?: string, memberId = "") {
     installments: parcelas,
     recurring: filterByMember(recurring.data ?? [], memberId),
     purchases: filterByMember(purchases.data ?? [], memberId),
+    statementImports: (statementImports.data ?? []).filter((i) =>
+      cartoes.some((c) => c.id === i.credit_card_id),
+    ),
   };
 
   // Comprometido da competência: obrigações ainda pendentes até o fim do mês.
@@ -86,7 +91,8 @@ export function useFreeCash(familyId?: string, memberId = "") {
       invoices.isLoading ||
       installments.isLoading ||
       recurring.isLoading ||
-      purchases.isLoading,
+      purchases.isLoading ||
+      statementImports.isLoading,
     month,
     hoje,
     saldoBancario,
