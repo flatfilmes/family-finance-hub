@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { FileUp, ImagePlus, Receipt, Wallet } from "lucide-react";
+import { FileUp, ImagePlus, Plus, Receipt, Undo2, Wallet } from "lucide-react";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -22,6 +22,17 @@ import type { Purchase } from "@/lib/purchases";
 import { NoFamily } from "@/components/no-family";
 import { BalanceDialog } from "@/components/bank/balance-dialog";
 import { BankStatementDialog } from "@/components/bank/statement-import-dialog";
+import { MovementDialog } from "@/components/bank/movement-dialog";
+import { TransferDialog } from "@/components/transfer-dialog";
+import { useReverseBankTransaction } from "@/hooks/useBankMovements";
+import { MOVEMENT_NATURE_LABELS, type MovementNature } from "@/lib/bank-movements";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 import { usePermissions } from "@/hooks/usePermissions";
 
 export const Route = createFileRoute("/_authenticated/bancos/$accountId")({
@@ -47,6 +58,8 @@ export const Route = createFileRoute("/_authenticated/bancos/$accountId")({
 
 /** Classificação legível da origem de cada movimentação bancária. */
 function origemDoMovimento(t: Transaction, compra?: Purchase) {
+  const natureza = (t as { natureza?: string | null }).natureza as MovementNature | null | undefined;
+  if (natureza && MOVEMENT_NATURE_LABELS[natureza]) return MOVEMENT_NATURE_LABELS[natureza];
   if (t.tipo === "PAGAMENTO_CARTAO") return "Pagamento de cartão";
   if (t.tipo === "ENTRADA") return "Entrada";
   if (t.tipo === "TRANSFERENCIA") return "Transferência";
@@ -69,6 +82,11 @@ function origemDoMovimento(t: Transaction, compra?: Purchase) {
 }
 
 const ORIGENS = [
+  "Dinheiro em espécie",
+  "Receita",
+  "Transferência externa",
+  "Estorno",
+  "Despesa",
   "Entrada",
   "PIX",
   "Débito",
@@ -90,7 +108,8 @@ function ContaDetalhePage() {
   const memberName = useMemberName(family?.id);
 
   const perms = usePermissions();
-  const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM">(null);
+  const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM" | "DEPOSITO" | "RETIRADA" | "TRANSFERENCIA">(null);
+  const estornar = useReverseBankTransaction(family?.id);
   const [saldoSugerido, setSaldoSugerido] = useState<number | null>(null);
   const [periodo, setPeriodo] = useState(currentMonth());
   const [filtroOrigem, setFiltroOrigem] = useState("");
@@ -181,14 +200,43 @@ function ContaDetalhePage() {
           <div className="flex flex-wrap items-center gap-2">
             {podeOperar && (
               <>
-                <AcaoConta icon={<Wallet className="size-3.5" />} onClick={() => setAcao("SALDO")}>
-                  {temPosicao ? "Ajustar saldo" : "Informar saldo"}
-                </AcaoConta>
-                <AcaoConta icon={<FileUp className="size-3.5" />} onClick={() => setAcao("PDF")}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90">
+                    <Plus className="size-3.5" />
+                    Nova movimentação
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onSelect={() => setAcao("DEPOSITO")}>
+                      Depósito
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setAcao("RETIRADA")}>
+                      Retirada
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setAcao("TRANSFERENCIA")}>
+                      Transferência
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <AcaoConta
+                  variant="ghost"
+                  icon={<FileUp className="size-3.5" />}
+                  onClick={() => setAcao("PDF")}
+                >
                   Importar extrato
                 </AcaoConta>
-                <AcaoConta icon={<ImagePlus className="size-3.5" />} onClick={() => setAcao("IMAGEM")}>
+                <AcaoConta
+                  variant="ghost"
+                  icon={<ImagePlus className="size-3.5" />}
+                  onClick={() => setAcao("IMAGEM")}
+                >
                   Enviar print
+                </AcaoConta>
+                <AcaoConta
+                  variant="ghost"
+                  icon={<Wallet className="size-3.5" />}
+                  onClick={() => setAcao("SALDO")}
+                >
+                  {temPosicao ? "Ajustar saldo" : "Informar saldo"}
                 </AcaoConta>
               </>
             )}
@@ -228,13 +276,27 @@ function ContaDetalhePage() {
               onClick={() => setAcao("IMAGEM")}
             />
             <ZeroOption
-              titulo="Começar do zero"
-              descricao="Seguir lançando pelas compras do dia a dia."
-              onClick={() => undefined}
+              titulo="Registrar um depósito"
+              descricao="Entrada de dinheiro na conta. Não vira receita."
+              onClick={() => setAcao("DEPOSITO")}
             />
           </div>
         </Card>
       )}
+
+      <MovementDialog
+        account={acao === "DEPOSITO" || acao === "RETIRADA" ? conta : null}
+        familyId={family.id}
+        direcao={acao === "RETIRADA" ? "SAIDA" : "ENTRADA"}
+        onClose={() => setAcao(null)}
+      />
+      <TransferDialog
+        open={acao === "TRANSFERENCIA"}
+        onOpenChange={(v) => setAcao(v ? "TRANSFERENCIA" : null)}
+        familyId={family.id}
+        accounts={(accounts ?? []).filter((a) => a.ativo)}
+        defaultOrigem={conta.id}
+      />
 
       <BalanceDialog
         account={acao === "SALDO" ? conta : null}
@@ -325,6 +387,7 @@ function ContaDetalhePage() {
                   <th className="px-2 py-2">Tipo</th>
                   <th className="px-2 py-2">Origem</th>
                   <th className="px-2 py-2 text-right">Valor</th>
+                  <th className="px-2 py-2 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -370,6 +433,30 @@ function ContaDetalhePage() {
                       >
                         {TRANSACTION_STATUS_LABELS[t.status]}
                       </span>
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5 text-right">
+                      {podeOperar && podeEstornar(t) ? (
+                        <button
+                          type="button"
+                          disabled={estornar.isPending}
+                          onClick={() =>
+                            estornar.mutate(
+                              { transactionId: t.id },
+                              {
+                                onSuccess: () =>
+                                  toast.success(
+                                    "Estorno registrado. O lançamento original continua no histórico.",
+                                  ),
+                                onError: (err: Error) => toast.error(err.message),
+                              },
+                            )
+                          }
+                          className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                        >
+                          <Undo2 className="size-3" />
+                          Estornar
+                        </button>
+                      ) : null}
                     </td>
                   </tr>
                 ))}
@@ -427,21 +514,37 @@ function Linha({ label, valor }: { label: string; valor: number }) {
   );
 }
 
+/**
+ * Só movimentações manuais do ledger podem ser estornadas por aqui.
+ * Compras, faturas e aberturas de saldo têm o próprio fluxo de correção.
+ */
+function podeEstornar(t: Transaction) {
+  if (t.purchase_id || t.tipo === "PAGAMENTO_CARTAO" || t.tipo === "ABERTURA_SALDO") return false;
+  const manual = (t as { manual?: boolean | null }).manual;
+  return Boolean(manual) || t.tipo === "TRANSFERENCIA";
+}
+
 /** Ação operacional do cabeçalho da conta. */
 function AcaoConta({
   icon,
   children,
   onClick,
+  variant = "primary",
 }: {
   icon: React.ReactNode;
   children: React.ReactNode;
   onClick: () => void;
+  variant?: "primary" | "ghost";
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+      className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+        variant === "primary"
+          ? "bg-primary text-primary-foreground shadow-soft hover:bg-primary/90"
+          : "border border-border text-muted-foreground hover:bg-muted"
+      }`}
     >
       {icon}
       {children}
