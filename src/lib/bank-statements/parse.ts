@@ -10,7 +10,12 @@
  * A arquitetura já está preparada para CSV e OFX: basta outra função que
  * devolva `ParsedBankStatement`.
  */
-import { extractPdfLines, parseValorBr, type PdfLine } from "@/lib/pdf-extract";
+import {
+  extractPdfPageLayouts,
+  layoutPageLines,
+  parseValorBr,
+  type PdfLine,
+} from "@/lib/pdf-extract";
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import {
   isBancoDoBrasil,
@@ -18,7 +23,7 @@ import {
 } from "@/lib/bank-statement-parsers/banco-do-brasil";
 import {
   isItauBankStatement,
-  parseItauBankStatementLines,
+  parseItauBankStatementLayouts,
 } from "@/lib/bank-statement-parsers/itau";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "./types";
 
