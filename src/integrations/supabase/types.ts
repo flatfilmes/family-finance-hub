@@ -179,6 +179,263 @@ export type Database = {
           },
         ]
       }
+      card_statement_imports: {
+        Row: {
+          confirmado_em: string | null
+          created_at: string
+          created_by: string | null
+          credit_card_id: string
+          dados_brutos_json: Json | null
+          data_fechamento: string | null
+          data_vencimento: string | null
+          document_id: string | null
+          emissor: string | null
+          erro_mensagem: string | null
+          family_id: string
+          final_cartao: string | null
+          fingerprint: string | null
+          id: string
+          member_id: string | null
+          nome_arquivo: string
+          parser: string
+          periodo_fim: string | null
+          periodo_inicio: string | null
+          quantidade_lancamentos: number
+          status: Database["public"]["Enums"]["card_statement_status"]
+          titular: string | null
+          total_extraido: number
+          updated_at: string
+          valor_total_fatura: number
+        }
+        Insert: {
+          confirmado_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_id: string
+          dados_brutos_json?: Json | null
+          data_fechamento?: string | null
+          data_vencimento?: string | null
+          document_id?: string | null
+          emissor?: string | null
+          erro_mensagem?: string | null
+          family_id: string
+          final_cartao?: string | null
+          fingerprint?: string | null
+          id?: string
+          member_id?: string | null
+          nome_arquivo: string
+          parser?: string
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+          quantidade_lancamentos?: number
+          status?: Database["public"]["Enums"]["card_statement_status"]
+          titular?: string | null
+          total_extraido?: number
+          updated_at?: string
+          valor_total_fatura?: number
+        }
+        Update: {
+          confirmado_em?: string | null
+          created_at?: string
+          created_by?: string | null
+          credit_card_id?: string
+          dados_brutos_json?: Json | null
+          data_fechamento?: string | null
+          data_vencimento?: string | null
+          document_id?: string | null
+          emissor?: string | null
+          erro_mensagem?: string | null
+          family_id?: string
+          final_cartao?: string | null
+          fingerprint?: string | null
+          id?: string
+          member_id?: string | null
+          nome_arquivo?: string
+          parser?: string
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+          quantidade_lancamentos?: number
+          status?: Database["public"]["Enums"]["card_statement_status"]
+          titular?: string | null
+          total_extraido?: number
+          updated_at?: string
+          valor_total_fatura?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_statement_imports_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_imports_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_imports_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_imports_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_statement_items: {
+        Row: {
+          categoria_sugerida_id: string | null
+          confidence_score: number | null
+          created_at: string
+          credit_card_id: string
+          data_lancamento: string | null
+          decisao: string | null
+          descricao_normalizada: string
+          descricao_original: string
+          diferenca: number | null
+          erro_mensagem: string | null
+          estabelecimento_sugerido: string | null
+          family_id: string
+          id: string
+          import_id: string
+          installment_id_matched: string | null
+          match_status: Database["public"]["Enums"]["statement_match_status"]
+          ordem: number
+          parcela_atual: number | null
+          purchase_id_criada: string | null
+          purchase_id_matched: string | null
+          recurring_expense_id_matched: string | null
+          tipo_sugerido: Database["public"]["Enums"]["statement_item_kind"]
+          total_parcelas: number | null
+          updated_at: string
+          user_action: Database["public"]["Enums"]["statement_item_action"]
+          valor: number
+        }
+        Insert: {
+          categoria_sugerida_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          credit_card_id: string
+          data_lancamento?: string | null
+          decisao?: string | null
+          descricao_normalizada?: string
+          descricao_original: string
+          diferenca?: number | null
+          erro_mensagem?: string | null
+          estabelecimento_sugerido?: string | null
+          family_id: string
+          id?: string
+          import_id: string
+          installment_id_matched?: string | null
+          match_status?: Database["public"]["Enums"]["statement_match_status"]
+          ordem?: number
+          parcela_atual?: number | null
+          purchase_id_criada?: string | null
+          purchase_id_matched?: string | null
+          recurring_expense_id_matched?: string | null
+          tipo_sugerido?: Database["public"]["Enums"]["statement_item_kind"]
+          total_parcelas?: number | null
+          updated_at?: string
+          user_action?: Database["public"]["Enums"]["statement_item_action"]
+          valor?: number
+        }
+        Update: {
+          categoria_sugerida_id?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          credit_card_id?: string
+          data_lancamento?: string | null
+          decisao?: string | null
+          descricao_normalizada?: string
+          descricao_original?: string
+          diferenca?: number | null
+          erro_mensagem?: string | null
+          estabelecimento_sugerido?: string | null
+          family_id?: string
+          id?: string
+          import_id?: string
+          installment_id_matched?: string | null
+          match_status?: Database["public"]["Enums"]["statement_match_status"]
+          ordem?: number
+          parcela_atual?: number | null
+          purchase_id_criada?: string | null
+          purchase_id_matched?: string | null
+          recurring_expense_id_matched?: string | null
+          tipo_sugerido?: Database["public"]["Enums"]["statement_item_kind"]
+          total_parcelas?: number | null
+          updated_at?: string
+          user_action?: Database["public"]["Enums"]["statement_item_action"]
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_statement_items_categoria_sugerida_id_fkey"
+            columns: ["categoria_sugerida_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "card_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_installment_id_matched_fkey"
+            columns: ["installment_id_matched"]
+            isOneToOne: false
+            referencedRelation: "expense_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_purchase_id_criada_fkey"
+            columns: ["purchase_id_criada"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_purchase_id_matched_fkey"
+            columns: ["purchase_id_matched"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_statement_items_recurring_expense_id_matched_fkey"
+            columns: ["recurring_expense_id_matched"]
+            isOneToOne: false
+            referencedRelation: "recurring_expenses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           ativo: boolean
@@ -1657,6 +1914,106 @@ export type Database = {
           },
         ]
       }
+      reconciliation_audit: {
+        Row: {
+          campo: string
+          created_at: string
+          created_by: string | null
+          entidade: string
+          entidade_id: string
+          family_id: string
+          id: string
+          origem: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          campo: string
+          created_at?: string
+          created_by?: string | null
+          entidade: string
+          entidade_id: string
+          family_id: string
+          id?: string
+          origem?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          campo?: string
+          created_at?: string
+          created_by?: string | null
+          entidade?: string
+          entidade_id?: string
+          family_id?: string
+          id?: string
+          origem?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliation_audit_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reconciliations: {
+        Row: {
+          confidence_score: number | null
+          created_at: string
+          family_id: string
+          id: string
+          observacao: string | null
+          reconciled_at: string
+          reconciled_by: string | null
+          source_id: string
+          source_type: string
+          status: Database["public"]["Enums"]["reconciliation_status"]
+          target_id: string
+          target_type: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          created_at?: string
+          family_id: string
+          id?: string
+          observacao?: string | null
+          reconciled_at?: string
+          reconciled_by?: string | null
+          source_id: string
+          source_type: string
+          status?: Database["public"]["Enums"]["reconciliation_status"]
+          target_id: string
+          target_type: string
+        }
+        Update: {
+          confidence_score?: number | null
+          created_at?: string
+          family_id?: string
+          id?: string
+          observacao?: string | null
+          reconciled_at?: string
+          reconciled_by?: string | null
+          source_id?: string
+          source_type?: string
+          status?: Database["public"]["Enums"]["reconciliation_status"]
+          target_id?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reconciliations_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       recurring_expenses: {
         Row: {
           ativo: boolean
@@ -1905,6 +2262,13 @@ export type Database = {
     Enums: {
       bank_account_type: "CORRENTE" | "POUPANCA" | "PAGAMENTO" | "INVESTIMENTO"
       budget_period: "MENSAL"
+      card_statement_status:
+        | "UPLOADED"
+        | "PROCESSING"
+        | "READY_FOR_REVIEW"
+        | "CONFIRMED"
+        | "CANCELLED"
+        | "ERROR"
       document_read_strategy:
         | "DANFE_PDF_TABULAR"
         | "NFCE_QRCODE"
@@ -1994,6 +2358,23 @@ export type Database = {
         | "COMPRA_RECORRENTE"
         | "COMPRA_PARCELADA"
         | "CONTA_RECORRENTE"
+      reconciliation_status: "PENDENTE" | "CONFIRMADA" | "DESFEITA"
+      statement_item_action: "PENDENTE" | "PROCESSANDO" | "CONCLUIDO" | "ERRO"
+      statement_item_kind:
+        | "COMPRA"
+        | "PAGAMENTO"
+        | "ESTORNO"
+        | "JUROS"
+        | "TAXA"
+        | "AJUSTE"
+        | "OUTRO"
+      statement_match_status:
+        | "MATCHED"
+        | "UNMATCHED"
+        | "DIVERGENT"
+        | "POSSIBLE_MATCH"
+        | "IGNORED"
+        | "CONFIRMED_NEW"
       transaction_status: "CONFIRMADA" | "PENDENTE" | "CANCELADA"
       transaction_type:
         | "ENTRADA"
@@ -2129,6 +2510,14 @@ export const Constants = {
     Enums: {
       bank_account_type: ["CORRENTE", "POUPANCA", "PAGAMENTO", "INVESTIMENTO"],
       budget_period: ["MENSAL"],
+      card_statement_status: [
+        "UPLOADED",
+        "PROCESSING",
+        "READY_FOR_REVIEW",
+        "CONFIRMED",
+        "CANCELLED",
+        "ERROR",
+      ],
       document_read_strategy: [
         "DANFE_PDF_TABULAR",
         "NFCE_QRCODE",
@@ -2223,6 +2612,25 @@ export const Constants = {
         "COMPRA_RECORRENTE",
         "COMPRA_PARCELADA",
         "CONTA_RECORRENTE",
+      ],
+      reconciliation_status: ["PENDENTE", "CONFIRMADA", "DESFEITA"],
+      statement_item_action: ["PENDENTE", "PROCESSANDO", "CONCLUIDO", "ERRO"],
+      statement_item_kind: [
+        "COMPRA",
+        "PAGAMENTO",
+        "ESTORNO",
+        "JUROS",
+        "TAXA",
+        "AJUSTE",
+        "OUTRO",
+      ],
+      statement_match_status: [
+        "MATCHED",
+        "UNMATCHED",
+        "DIVERGENT",
+        "POSSIBLE_MATCH",
+        "IGNORED",
+        "CONFIRMED_NEW",
       ],
       transaction_status: ["CONFIRMADA", "PENDENTE", "CANCELADA"],
       transaction_type: [
