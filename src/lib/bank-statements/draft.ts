@@ -49,3 +49,14 @@ export function clearStatementDraft() {
     /* nada a limpar */
   }
 }
+
+/** Último rascunho lido nesta sessão, independente da conta (uso: diagnóstico). */
+export function loadLatestStatementDraft(): StatementDraft | null {
+  if (memoria) return memoria;
+  try {
+    const bruto = sessionStorage.getItem(CHAVE);
+    return bruto ? (JSON.parse(bruto) as StatementDraft) : null;
+  } catch {
+    return null;
+  }
+}

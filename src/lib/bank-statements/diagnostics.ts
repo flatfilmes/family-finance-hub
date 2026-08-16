@@ -502,3 +502,102 @@ export function diagnosticsToCsv(d: BankParserDiagnostics): string {
   );
   return [cabecalho.join(","), ...linhas].join("\n");
 }
+
+/**
+ * Diagnóstico a partir de um extrato JÁ lido (rascunho da revisão), sem o PDF.
+ * As etapas de itens crus e montagem de linhas ficam indisponíveis — o que o
+ * parser decidiu (transações, checkpoints, ignorados, validação) continua todo
+ * visível, e isso é declarado explicitamente na tela.
+ */
+export function diagnosticsFromParsedStatement(
+  parsed: ParsedBankStatement,
+  fileName: string,
+): BankParserDiagnostics {
+  const statement = toCanonicalStatement(parsed, { statementId: fileName });
+  const validation = validateStatement(statement);
+  const pipeline = (parsed as { pipeline?: ItauPipelineDiagnostics }).pipeline;
+
+  const linhas: LinhaBruta[] = [
+    ...parsed.aceitos.map((a) => ({
+      page: a.page ?? 1,
+      y: 0,
+      raw: a.raw,
+      date: null,
+      description: a.raw,
+      amount: a.valor,
+      balance: null,
+    })),
+    ...parsed.rejeitados.map((r) => ({
+      page: r.page ?? 1,
+      y: 0,
+      raw: r.raw,
+      date: null,
+      description: r.raw,
+      amount: r.valor,
+      balance: null,
+    })),
+  ];
+  const rows = anotarRows(linhas, parsed, statement, []);
+
+  const ignored: DiagIgnored[] = parsed.rejeitados.map((r) => {
+    const { code, treatment } = classificarIgnorado(r.reason);
+    return {
+      raw: r.raw,
+      valor: r.valor,
+      page: r.page ?? null,
+      reason: code,
+      treatment: `${treatment} — ${r.reason}`,
+    };
+  });
+
+  const detectedBank = pipeline?.detection.detectedBank ?? parsed.identificacao?.banco ?? "—";
+  const monthKey = statement.periodEnd?.slice(0, 7) ?? null;
+  const esperado = monthKey && parsed.parser.includes("BB") ? goldenFor(monthKey) : undefined;
+
+  return {
+    file: fileName,
+    readAt: new Date().toISOString(),
+    detection: {
+      detectedBank,
+      score: pipeline?.detection.confidence ?? 0,
+      matchedSignals: pipeline?.detection.matchedSignals ?? [],
+      parser: statement.parser,
+      parserVersion: statement.parserVersion,
+    },
+    statement,
+    validation,
+    rawItems: [],
+    rows,
+    ignored,
+    counts: {
+      rawItems: pipeline?.rawItems ?? 0,
+      rows: rows.length,
+      transactions: statement.transactions.length,
+      checkpoints: statement.checkpoints.length,
+      ignored: ignored.length,
+    },
+    columns: pipeline?.columns ?? null,
+    failure: detectarFalha({
+      rawItems: pipeline?.rawItems ?? 1,
+      rows: rows.length,
+      transactions: statement.transactions.length,
+      detectedBank,
+      rowsAceitas: parsed.aceitos.length,
+      periodo: !!statement.periodStart && !!statement.periodEnd,
+    }),
+    golden: esperado
+      ? {
+          monthKey: monthKey as string,
+          expected: esperado,
+          found: {
+            transactions: statement.transactions.length,
+            opening: statement.openingBalance.amount,
+            closing: statement.closingBalance.amount,
+          },
+          difference: statement.transactions.length - esperado.transactions,
+          missingRows: rows.filter((r) => r.status === "ERROR"),
+        }
+      : null,
+    error: null,
+  };
+}
