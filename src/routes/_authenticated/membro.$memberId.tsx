@@ -30,7 +30,6 @@ import {
   type BankAccount,
 } from "@/lib/bank-accounts";
 import { ConfirmDialog, RecordActions, type RecordAction } from "@/components/record-actions";
-import { AdjustBalanceDialog } from "@/components/forms/adjust-balance-dialog";
 import {
   MEMBER_PROFILE_DESCRIPTIONS,
   MEMBER_PROFILE_LABELS,
@@ -108,7 +107,6 @@ function MembroPage() {
   const [editIncome, setEditIncome] = useState<Income | null>(null);
   const [editAccount, setEditAccount] = useState<BankAccount | null>(null);
   const [editCard, setEditCard] = useState<CreditCard | null>(null);
-  const [ajusteConta, setAjusteConta] = useState<BankAccount | null>(null);
   const [confirmacao, setConfirmacao] = useState<{
     title: string;
     description: string;
@@ -250,7 +248,6 @@ function MembroPage() {
 
   const accountActions = (a: BankAccount): RecordAction[] => [
     { label: "Editar", onSelect: () => setEditAccount(a), disabled: !podeGerenciar },
-    { label: "Ajustar saldo", onSelect: () => setAjusteConta(a), disabled: !podeGerenciar },
     {
       label: a.ativo ? "Arquivar" : "Reativar",
       disabled: !podeGerenciar,
@@ -656,7 +653,7 @@ function MembroPage() {
           if (!open) setEditAccount(null);
         }}
         title="Editar conta bancária"
-        description="O saldo é corrigido pela ação Ajustar saldo."
+        description="Somente dados cadastrais. Saldo e movimentações ficam em Bancos."
       >
         {editAccount && (
           <BankAccountForm
@@ -687,12 +684,6 @@ function MembroPage() {
           />
         )}
       </FormDialog>
-
-      <AdjustBalanceDialog
-        account={ajusteConta}
-        familyId={family.id}
-        onClose={() => setAjusteConta(null)}
-      />
 
       <ConfirmDialog
         open={!!confirmacao}
