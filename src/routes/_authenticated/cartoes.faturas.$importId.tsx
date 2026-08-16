@@ -390,6 +390,10 @@ function RevisarFaturaPage() {
                         {item.tipo_sugerido !== "COMPRA" && (
                           <StatusBadge tone="muted">{KIND_LABELS[item.tipo_sugerido]}</StatusBadge>
                         )}
+                        {item.card_last4 && (
+                          <StatusBadge tone="muted">Final {item.card_last4}</StatusBadge>
+                        )}
+
                         {item.parcela_atual && item.total_parcelas && (
                           <StatusBadge tone="info">
                             {item.parcela_atual}/{item.total_parcelas}
