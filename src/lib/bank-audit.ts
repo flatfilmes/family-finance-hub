@@ -40,7 +40,9 @@ export const SEVERITY_TONES: Record<Severity, "danger" | "warn" | "info" | "mute
 
 /** Situação de um mês auditado — específica, nunca genérica. */
 export type MonthStatus =
-  | "VALIDADO"
+  | "VALIDADO_COMPLETO"
+  | "VALIDADO_MENSAL"
+  | "CHECKPOINTS_INCOMPLETOS"
   | "CHECKPOINTS_AUSENTES"
   | "MOVIMENTOS_INCOMPLETOS"
   | "DIVERGENCIA_DIARIA"
@@ -51,7 +53,9 @@ export type MonthStatus =
   | "SEM_EXTRATO";
 
 export const MONTH_STATUS_LABELS: Record<MonthStatus, string> = {
-  VALIDADO: "Validado",
+  VALIDADO_COMPLETO: "Validado (dia a dia)",
+  VALIDADO_MENSAL: "Validado só no mês",
+  CHECKPOINTS_INCOMPLETOS: "Checkpoints incompletos",
   CHECKPOINTS_AUSENTES: "Checkpoints ausentes",
   MOVIMENTOS_INCOMPLETOS: "Movimentos incompletos",
   DIVERGENCIA_DIARIA: "Divergência diária",
@@ -64,7 +68,9 @@ export const MONTH_STATUS_LABELS: Record<MonthStatus, string> = {
 
 export const MONTH_STATUS_TONES: Record<MonthStatus, "ok" | "danger" | "warn" | "info" | "muted"> =
   {
-    VALIDADO: "ok",
+    VALIDADO_COMPLETO: "ok",
+    VALIDADO_MENSAL: "warn",
+    CHECKPOINTS_INCOMPLETOS: "warn",
     CHECKPOINTS_AUSENTES: "info",
     MOVIMENTOS_INCOMPLETOS: "danger",
     DIVERGENCIA_DIARIA: "danger",
