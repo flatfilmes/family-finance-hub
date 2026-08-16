@@ -1,3 +1,7 @@
+import { CreditCard } from "lucide-react";
+import { SearchInput, matchesSearch } from "@/components/search-input";
+import { EmptyState } from "@/components/empty-state";
+import { TONE_DOTS, usageTone } from "@/lib/status";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Card, Field, PageHeader, inputClass } from "@/components/page-header";
 import { Badge, Metric } from "@/components/detail-page";
@@ -43,14 +47,18 @@ function CartoesPage() {
   const [filtroMembro, setFiltroMembro] = useStickyState("cartoes:membro", "");
   const [filtroBanco, setFiltroBanco] = useStickyState("cartoes:banco", "");
   const [mes, setMes] = useStickyState("cartoes:mes", "");
+  const [busca, setBusca] = useStickyState("cartoes:busca", "");
 
   if (!family) return <NoFamily />;
 
   const bancos = Array.from(new Set(dados.cards.map((c) => c.banco))).sort();
 
-  const lista = filterByMember(dados.cards, view.scoped(filtroMembro)).filter((c) =>
-    filtroBanco ? c.banco === filtroBanco : true,
+  const lista = filterByMember(dados.cards, view.scoped(filtroMembro)).filter(
+    (c) =>
+      (filtroBanco ? c.banco === filtroBanco : true) &&
+      matchesSearch(busca, c.banco, c.nome_cartao, memberName(c.member_id)),
   );
+  const temFiltro = Boolean(busca || filtroBanco || mes || filtroMembro);
 
   const visiveis = lista.filter((c) => {
     if (!mes) return true;
@@ -111,6 +119,14 @@ function CartoesPage() {
       </Card>
 
       <Card className="mt-4">
+        <div className="mb-3">
+          <SearchInput
+            value={busca}
+            onChange={setBusca}
+            label="Buscar cartão"
+            placeholder="Cartão, banco ou titular"
+          />
+        </div>
         <div className="grid gap-4 sm:grid-cols-3">
           {view.isAdmin ? (
             <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
@@ -203,7 +219,7 @@ function CartoesPage() {
 
                 <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
                   <div
-                    className={`h-full rounded-full ${uso >= 100 ? "bg-red-500" : uso >= 80 ? "bg-amber-500" : "bg-primary"}`}
+                    className={`h-full rounded-full ${TONE_DOTS[usageTone(uso)]}`}
                     style={{ width: `${uso}%` }}
                   />
                 </div>
@@ -212,10 +228,37 @@ function CartoesPage() {
           })
         ) : (
           <Card>
-            <p className="text-sm text-muted-foreground">
-              Nenhum cartão encontrado. Abra o perfil de uma pessoa em Configurações e cadastre o
-              cartão na aba “Cartões”.
-            </p>
+            <EmptyState
+              icon={<CreditCard className="size-5" />}
+              title={temFiltro ? "Nenhum cartão com esses filtros" : "Nenhum cartão cadastrado"}
+              description={
+                temFiltro
+                  ? "Ajuste a busca, o banco ou o período de vencimento."
+                  : "Os cartões são cadastrados no perfil de cada pessoa, na aba “Cartões”."
+              }
+              action={
+                temFiltro ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBusca("");
+                      setFiltroBanco("");
+                      setMes("");
+                    }}
+                    className="min-h-11 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    Limpar filtros
+                  </button>
+                ) : (
+                  <Link
+                    to="/configuracoes"
+                    className="inline-flex min-h-11 items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+                  >
+                    Ir para Família e Finanças
+                  </Link>
+                )
+              }
+            />
           </Card>
         )}
       </div>
