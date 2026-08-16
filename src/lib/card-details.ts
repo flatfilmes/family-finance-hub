@@ -60,7 +60,9 @@ export function linhasDaFatura(input: {
 
   for (const parcela of doInvoice) {
     const despesa = input.despesaPorId.get(parcela.expense_id);
-    const compra = despesa?.purchase_id ? input.compraPorId.get(despesa.purchase_id) : undefined;
+    // A parcela já aponta para a compra (fonte de verdade); a despesa legada é só fallback.
+    const purchaseId = parcela.purchase_id ?? despesa?.purchase_id ?? null;
+    const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
     const tipo = (compra?.tipo_compra ?? despesa?.tipo_compra ?? "COMPRA_NORMAL") as string;
     linhas.push({
       id: parcela.id,
@@ -158,7 +160,8 @@ export function parcelamentosAtivos(input: {
     if (pendentes.length === 0) continue;
     const atual = pendentes[0]!;
     const despesa = input.despesaPorId.get(expenseId);
-    const compra = despesa?.purchase_id ? input.compraPorId.get(despesa.purchase_id) : undefined;
+    const purchaseId = lista[0]?.purchase_id ?? despesa?.purchase_id ?? null;
+    const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
     resultado.push({
       id: expenseId,
       descricao: compra?.estabelecimento ?? despesa?.descricao ?? "Parcelamento",

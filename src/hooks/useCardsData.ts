@@ -39,11 +39,16 @@ export function useCardsData(familyId?: string) {
     return m;
   }, [purchases.data]);
 
-  /** Compras que já viraram parcelas na fatura — não podem ser somadas de novo. */
-  const comprasComParcelas = useMemo(
-    () => new Set((despesas.data ?? []).map((e) => e.purchase_id).filter(Boolean) as string[]),
-    [despesas.data],
-  );
+  /**
+   * Compras que já viraram parcelas na fatura — não podem ser somadas de novo.
+   * A ligação oficial é expense_installments.purchase_id; a despesa legada é fallback.
+   */
+  const comprasComParcelas = useMemo(() => {
+    const ids = new Set<string>();
+    for (const p of parcelas.data ?? []) if (p.purchase_id) ids.add(p.purchase_id);
+    for (const e of despesas.data ?? []) if (e.purchase_id) ids.add(e.purchase_id);
+    return ids;
+  }, [parcelas.data, despesas.data]);
 
   const info = (cardId: string) => overview.porCartao.find((o) => o.card.id === cardId);
   const comprasDoCartao = (cardId: string) =>
