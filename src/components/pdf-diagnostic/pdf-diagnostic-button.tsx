@@ -3,6 +3,7 @@ import { Bug } from "lucide-react";
 import { PdfDiagnosticDialog } from "@/components/pdf-diagnostic/pdf-diagnostic-dialog";
 import { useFamily } from "@/hooks/useFamilyData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { pdfDiagnosticFlagEnabled } from "@/lib/pdf-diagnostic/availability";
 import type { DiagnosticSource, ParserDryRun } from "@/lib/pdf-diagnostic";
 
 /**
