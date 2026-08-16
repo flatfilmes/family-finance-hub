@@ -59,6 +59,8 @@ export type NewPurchaseItem = {
   unidade: string;
   valor_unitario: string;
   categoria_id: string;
+  /** Categoria sugerida automaticamente (base do aprendizado futuro). */
+  categoria_sugerida?: string;
 };
 
 export function itemTotal(item: Pick<NewPurchaseItem, "quantidade" | "valor_unitario">) {
