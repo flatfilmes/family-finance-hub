@@ -21,9 +21,12 @@ import {
   categoriaDoBanco,
   ehMetadataItau,
   ehProibido,
+  ehRepasseIof,
   ehRuido,
   lerValorFinal,
   montar,
+  montarIof,
+
   plano,
   secaoDaLinha,
   type Secao,
