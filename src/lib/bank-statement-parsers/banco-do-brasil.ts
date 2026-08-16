@@ -15,7 +15,7 @@
  * Modo diagnóstico PDF.
  */
 import { extractPdfLines, parseValorBr, type PdfCell, type PdfLine } from "@/lib/pdf-extract";
-import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
+import { lerData, semAcento } from "@/lib/card-statement-parsers/generic";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "@/lib/bank-statements/types";
 import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
 import { montarDescricaoBb, removerColunasTecnicas } from "./bb-description";

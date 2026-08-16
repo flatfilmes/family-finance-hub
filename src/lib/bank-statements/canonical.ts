@@ -38,6 +38,13 @@ export type CanonicalTransaction = {
   sourceRow: number;
   rawText: string;
   kind: ParsedBankMovement["tipo"];
+  /** Operação bancária impressa pelo documento, quando identificada. */
+  bankOperation?: string | null;
+  /** Contraparte do lançamento, quando identificada. */
+  counterparty?: string | null;
+  /** Colunas técnicas do extrato — metadata, nunca descrição. */
+  lot?: string | null;
+  documentNumber?: string | null;
 };
 
 export type CanonicalCheckpoint = {
@@ -156,6 +163,10 @@ function toTransactions(
       sourceRow,
       rawText,
       kind: m.tipo,
+      bankOperation: m.bankOperation ?? null,
+      counterparty: m.counterparty ?? null,
+      lot: m.lot ?? null,
+      documentNumber: m.documentNumber ?? null,
     };
   });
 }
