@@ -87,6 +87,8 @@ export type BankParserExecutionInput = {
   hasOpeningBalanceRow: boolean;
   hasDailyBalanceRows: boolean;
   hasClosingBalanceRow: boolean;
+  /** Prova de que o parser real foi chamado nesta execução. */
+  executed: boolean;
 };
 
 export type ParserExecutionError = {
@@ -412,11 +414,13 @@ export async function runObservableBankStatementParser(file: Blob): Promise<Bank
     hasOpeningBalanceRow: textoPlano.includes("SALDO ANTERIOR"),
     hasDailyBalanceRows: textoPlano.includes("SALDO DO DIA"),
     hasClosingBalanceRow: /S\s?A\s?L\s?D\s?O\b|SALDO FINAL|SALDO ATUAL/.test(textoPlano),
+    executed: false,
   };
 
   if (errors.length) return { detection, parser, parsed: null, input, internalStages: [], errors };
 
   let parsed: ParsedBankStatement | null = null;
+  input.executed = true;
   try {
     const saida =
       requestedBank === "BANCO_DO_BRASIL"
