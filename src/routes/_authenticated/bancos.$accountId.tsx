@@ -432,7 +432,7 @@ function ContaDetalhePage() {
         <Metric label="Saídas do período" value={formatCurrency(saidas)} />
         <Metric label="Pagamentos de cartão" value={formatCurrency(pagamentos)} />
         <Metric
-          label="Saldo líquido do período"
+          label="Movimento líquido do período"
           value={formatCurrency(resultado)}
           tone={resultado < 0 ? "danger" : "ok"}
         />
