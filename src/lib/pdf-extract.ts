@@ -431,19 +431,19 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
     "i",
   );
 
-  for (const texto of textos.slice(inicio + 1, fim)) {
+  const adicionarProduto = (texto: string) => {
     const l = semAcento(texto);
-    if (LINHA_IGNORADA.some((t) => l.startsWith(t))) continue;
+    if (LINHA_IGNORADA.some((t) => l.startsWith(t))) return;
     const m = texto.match(linhaProduto);
-    if (!m) continue;
+    if (!m) return;
 
     const descricao = limparDescricao(m[2] ?? "");
-    if (descricao.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) continue;
+    if (descricao.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) return;
 
     const quantidade = parseValorBr(m[5] ?? "") || 1;
     const unitario = parseValorBr(m[6] ?? "");
     const totalItem = parseValorBr(m[7] ?? "");
-    if (totalItem <= 0 && unitario <= 0) continue;
+    if (totalItem <= 0 && unitario <= 0) return;
 
     items.push({
       descricao_produto: descricao,
@@ -452,6 +452,25 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
       valor_unitario: unitario > 0 ? unitario : totalItem / (quantidade || 1),
       valor_total: totalItem > 0 ? totalItem : unitario * quantidade,
     });
+  };
+
+  const trechoTabela = textos.slice(inicio + 1, fim).join(" ");
+  const inicioProduto = /(?:^|\s)([A-Z0-9]{2,}(?:-[A-Z0-9]+){2,})\s+/g;
+  const marcadores = [...trechoTabela.matchAll(inicioProduto)];
+
+  // Alguns DANFEs chegam do pdf.js com toda a tabela em uma única linha.
+  // Nesse caso, separa cada produto pelo código antes de aplicar o mesmo parser.
+  if (marcadores.length > 0) {
+    for (let i = 0; i < marcadores.length; i++) {
+      const atual = marcadores[i];
+      if (!atual || atual.index === undefined) continue;
+      const proximo = marcadores[i + 1];
+      const inicioTrecho = atual.index + (atual[0].startsWith(" ") ? 1 : 0);
+      const fimTrecho = proximo?.index ?? trechoTabela.length;
+      adicionarProduto(trechoTabela.slice(inicioTrecho, fimTrecho).trim());
+    }
+  } else {
+    for (const texto of textos.slice(inicio + 1, fim)) adicionarProduto(texto);
   }
 
   return items;

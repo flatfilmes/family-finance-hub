@@ -556,10 +556,10 @@ function RevisarDocumento({
   const pagamentoLido = brutos?.pagamento_descricao ?? null;
   const valorLido = Number(extracao?.valor_total ?? 0);
 
-  // Produtos lidos: prioriza a tabela de itens; se ela estiver vazia, usa a
-  // cópia guardada no JSON da extração (nunca perde o que o parser encontrou).
+  // Um produto só conta como lido quando existe de fato na tabela de itens.
+  // A cópia bruta não pode mascarar uma falha de persistência.
   const produtosLidos = useMemo<NewPurchaseItem[]>(() => {
-    const daTabela = (itensPdf ?? []).map((i) => ({
+    return (itensPdf ?? []).map((i) => ({
       product_id: "",
       descricao_produto: i.descricao_produto,
       quantidade: String(Number(i.quantidade) || 1),
@@ -567,18 +567,7 @@ function RevisarDocumento({
       valor_unitario: String(Number(i.valor_unitario) || 0),
       categoria_id: i.categoria_sugerida ?? "",
     }));
-    if (daTabela.length > 0) return daTabela;
-    return (brutos?.items ?? [])
-      .filter((i) => (i.descricao_produto ?? "").trim() !== "")
-      .map((i) => ({
-        product_id: "",
-        descricao_produto: i.descricao_produto!.trim(),
-        quantidade: String(Number(i.quantidade) || 1),
-        unidade: i.unidade || "UN",
-        valor_unitario: String(Number(i.valor_unitario) || 0),
-        categoria_id: "",
-      }));
-  }, [itensPdf, brutos]);
+  }, [itensPdf]);
 
   useEffect(() => {
     if (!itensExtraidos || itensExtraidos.length === 0) return;

@@ -329,20 +329,29 @@ export async function processDocumentPdf(input: {
 
     let itensGravados: DocumentExtractionItem[] = [];
     if (lido.items.length > 0) {
+      const payload = lido.items.map((i) => ({
+        extraction_id: extraction.id,
+        descricao_produto: i.descricao_produto,
+        quantidade: i.quantidade,
+        unidade: i.unidade || "UN",
+        valor_unitario: i.valor_unitario,
+        valor_total: i.valor_total,
+      }));
       const { data: inseridos, error: itemsError } = await supabase
         .from("document_extraction_items")
-        .insert(
-          lido.items.map((i) => ({
-            extraction_id: extraction.id,
-            descricao_produto: i.descricao_produto,
-            quantidade: i.quantidade,
-            unidade: i.unidade || "UN",
-            valor_unitario: i.valor_unitario,
-            valor_total: i.valor_total,
-          })),
-        )
+        .insert(payload)
         .select();
-      if (itemsError) throw itemsError;
+      if (itemsError) {
+        console.error("Falha ao persistir produtos extraídos", {
+          payload,
+          erro: itemsError,
+          quantidadeIdentificada: lido.items.length,
+          quantidadePersistida: 0,
+        });
+        throw new Error(
+          `Falha ao salvar produtos: ${itemsError.message}${itemsError.details ? ` (${itemsError.details})` : ""}`,
+        );
+      }
       itensGravados = inseridos ?? [];
       if (itensGravados.length !== lido.items.length) {
         throw new Error(
