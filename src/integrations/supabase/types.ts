@@ -80,6 +80,7 @@ export type Database = {
           dados_brutos_json: Json | null
           erro_mensagem: string | null
           family_id: string
+          fingerprint: string | null
           formato: Database["public"]["Enums"]["bank_statement_format"]
           id: string
           member_id: string | null
@@ -103,6 +104,7 @@ export type Database = {
           dados_brutos_json?: Json | null
           erro_mensagem?: string | null
           family_id: string
+          fingerprint?: string | null
           formato?: Database["public"]["Enums"]["bank_statement_format"]
           id?: string
           member_id?: string | null
@@ -126,6 +128,7 @@ export type Database = {
           dados_brutos_json?: Json | null
           erro_mensagem?: string | null
           family_id?: string
+          fingerprint?: string | null
           formato?: Database["public"]["Enums"]["bank_statement_format"]
           id?: string
           member_id?: string | null
@@ -179,13 +182,18 @@ export type Database = {
           id: string
           import_id: string
           incluir: boolean
+          income_id_matched: string | null
           match_status: Database["public"]["Enums"]["bank_statement_match"]
           ordem: number
+          processado: boolean
+          purchase_id_criada: string | null
           purchase_id_matched: string | null
+          review_action: string
           tipo_sugerido: Database["public"]["Enums"]["bank_movement_kind"]
           transaction_id_criada: string | null
           transaction_id_matched: string | null
           transfer_account_id: string | null
+          transfer_group_id: string | null
           updated_at: string
           valor: number
         }
@@ -202,13 +210,18 @@ export type Database = {
           id?: string
           import_id: string
           incluir?: boolean
+          income_id_matched?: string | null
           match_status?: Database["public"]["Enums"]["bank_statement_match"]
           ordem?: number
+          processado?: boolean
+          purchase_id_criada?: string | null
           purchase_id_matched?: string | null
+          review_action?: string
           tipo_sugerido?: Database["public"]["Enums"]["bank_movement_kind"]
           transaction_id_criada?: string | null
           transaction_id_matched?: string | null
           transfer_account_id?: string | null
+          transfer_group_id?: string | null
           updated_at?: string
           valor: number
         }
@@ -225,13 +238,18 @@ export type Database = {
           id?: string
           import_id?: string
           incluir?: boolean
+          income_id_matched?: string | null
           match_status?: Database["public"]["Enums"]["bank_statement_match"]
           ordem?: number
+          processado?: boolean
+          purchase_id_criada?: string | null
           purchase_id_matched?: string | null
+          review_action?: string
           tipo_sugerido?: Database["public"]["Enums"]["bank_movement_kind"]
           transaction_id_criada?: string | null
           transaction_id_matched?: string | null
           transfer_account_id?: string | null
+          transfer_group_id?: string | null
           updated_at?: string
           valor?: number
         }
@@ -262,6 +280,20 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_income_id_matched_fkey"
+            columns: ["income_id_matched"]
+            isOneToOne: false
+            referencedRelation: "incomes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_items_purchase_id_criada_fkey"
+            columns: ["purchase_id_criada"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
           {
@@ -2587,7 +2619,12 @@ export type Database = {
         | "AJUSTE"
         | "OUTRO"
       bank_statement_format: "PDF" | "CSV" | "OFX" | "IMAGEM"
-      bank_statement_match: "MATCHED" | "POSSIBLE_MATCH" | "NEW" | "IGNORED"
+      bank_statement_match:
+        | "MATCHED"
+        | "POSSIBLE_MATCH"
+        | "NEW"
+        | "IGNORED"
+        | "DIVERGENT"
       bank_statement_status:
         | "UPLOADED"
         | "PROCESSING"
@@ -2856,7 +2893,13 @@ export const Constants = {
         "OUTRO",
       ],
       bank_statement_format: ["PDF", "CSV", "OFX", "IMAGEM"],
-      bank_statement_match: ["MATCHED", "POSSIBLE_MATCH", "NEW", "IGNORED"],
+      bank_statement_match: [
+        "MATCHED",
+        "POSSIBLE_MATCH",
+        "NEW",
+        "IGNORED",
+        "DIVERGENT",
+      ],
       bank_statement_status: [
         "UPLOADED",
         "PROCESSING",

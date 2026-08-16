@@ -1,11 +1,35 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { ParsedBankMovement, ParsedBankStatement } from "./types";
+import type { ParsedBankMovement, ParsedBankStatement, ReviewAction } from "./types";
+import { ACOES_SEM_EFEITO } from "./types";
 import type { ReconcileSuggestion } from "./reconcile";
 
 export type StatementDraftRow = ParsedBankMovement & {
   incluir: boolean;
+  acao: ReviewAction;
   sugestao: ReconcileSuggestion;
 };
+
+/** Impressão digital determinística do arquivo — evita importar o mesmo extrato duas vezes. */
+export async function statementFingerprint(file: Blob) {
+  const buffer = await file.arrayBuffer();
+  const hash = await crypto.subtle.digest("SHA-256", buffer);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** Já existe uma importação com este mesmo arquivo nesta conta? */
+export async function findExistingStatementImport(accountId: string, fingerprint: string) {
+  const { data, error } = await supabase
+    .from("bank_statement_imports")
+    .select("*")
+    .eq("bank_account_id", accountId)
+    .eq("fingerprint", fingerprint)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  return data?.[0] ?? null;
+}
 
 /** Grava a importação e os lançamentos revisados. Nada vira movimentação aqui. */
 export async function createBankStatementImport(input: {
@@ -16,6 +40,7 @@ export async function createBankStatementImport(input: {
   formato: "PDF" | "CSV" | "OFX" | "IMAGEM";
   parser: string;
   createdBy: string | null;
+  fingerprint: string | null;
   resumo: ParsedBankStatement;
   linhas: StatementDraftRow[];
 }) {
@@ -33,6 +58,7 @@ export async function createBankStatementImport(input: {
       nome_arquivo: input.nomeArquivo,
       formato: input.formato,
       parser: input.parser,
+      fingerprint: input.fingerprint,
       periodo_inicio: input.resumo.periodoInicio,
       periodo_fim: input.resumo.periodoFim,
       saldo_inicial: input.resumo.saldoInicial,
@@ -60,10 +86,13 @@ export async function createBankStatementImport(input: {
         tipo_sugerido: l.tipo,
         match_status: l.sugestao.matchStatus,
         confidence_score: l.sugestao.confidence,
+        review_action: l.acao,
         purchase_id_matched: l.sugestao.purchaseId ?? null,
         card_invoice_id_matched: l.sugestao.cardInvoiceId ?? null,
         transfer_account_id: l.sugestao.transferAccountId ?? null,
-        incluir: l.incluir,
+        transaction_id_matched: l.sugestao.transactionId ?? null,
+        income_id_matched: l.sugestao.incomeId ?? null,
+        incluir: !ACOES_SEM_EFEITO.includes(l.acao),
         ordem: i,
       })),
     );
@@ -73,13 +102,13 @@ export async function createBankStatementImport(input: {
   return imp;
 }
 
-/** Transforma em movimentações apenas o que foi aprovado na revisão. */
+/** Executa as ações revisadas. Idempotente: confirmar de novo não duplica nada. */
 export async function confirmBankStatementImport(importId: string) {
   const { data, error } = await supabase.rpc("confirm_bank_statement_import", {
     _import_id: importId,
   });
   if (error) throw error;
-  return data as { criadas: number; ignoradas: number };
+  return data as unknown as { criadas: number; associadas: number; ignoradas: number };
 }
 
 export async function fetchBankStatementImports(accountId: string) {

@@ -23,9 +23,40 @@ export const MOVEMENT_KINDS = Object.keys(MOVEMENT_KIND_LABELS) as BankMovementK
 export const MATCH_LABELS: Record<BankStatementMatch, string> = {
   MATCHED: "Já existe no sistema",
   POSSIBLE_MATCH: "Possível correspondência",
+  DIVERGENT: "Divergente",
   NEW: "Novo lançamento",
   IGNORED: "Ignorado",
 };
+
+/** Ação escolhida na revisão — decide o efeito financeiro da confirmação. */
+export type ReviewAction =
+  | "ASSOCIATE_EXISTING"
+  | "CREATE_TRANSACTION"
+  | "CREATE_PURCHASE"
+  | "MATCH_INCOME"
+  | "MATCH_TRANSFER"
+  | "MATCH_CARD_PAYMENT"
+  | "REGISTER_FEE"
+  | "REGISTER_REFUND"
+  | "IGNORE";
+
+export const REVIEW_ACTION_LABELS: Record<ReviewAction, string> = {
+  ASSOCIATE_EXISTING: "Associar ao que já existe",
+  CREATE_TRANSACTION: "Criar movimentação",
+  CREATE_PURCHASE: "Criar compra",
+  MATCH_INCOME: "Registrar recebimento da receita",
+  MATCH_TRANSFER: "Registrar transferência entre contas",
+  MATCH_CARD_PAYMENT: "Associar pagamento de fatura",
+  REGISTER_FEE: "Registrar tarifa",
+  REGISTER_REFUND: "Registrar estorno",
+  IGNORE: "Ignorar",
+};
+
+export const REVIEW_ACTIONS = Object.keys(REVIEW_ACTION_LABELS) as ReviewAction[];
+
+/** Ações que não produzem nenhum efeito financeiro novo. */
+export const ACOES_SEM_EFEITO: ReviewAction[] = ["IGNORE", "ASSOCIATE_EXISTING"];
+
 
 /** Lançamento lido de um extrato, ainda sem nenhuma persistência. */
 export type ParsedBankMovement = {
