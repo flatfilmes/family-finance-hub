@@ -426,6 +426,10 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
 
   const items: ExtractedItem[] = [];
   const unidades = UNIDADES_CONHECIDAS.join("|");
+  const linhaProdutoCompleta = new RegExp(
+    `^\\s*(\\S+)\\s+(.+?)\\s+(\\d{8,14})\\s+\\d{8}\\s+\\d{3}\\s+\\d{4}\\s+(${unidades})\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)(?:\\s+[\\d.,]+){5}(?:\\s+(.+))?$`,
+    "i",
+  );
   const linhaProduto = new RegExp(
     `^\\s*(\\S+)\\s+(.+?)\\s+(\\d{8})\\s+.*?\\b(${unidades})\\b\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)`,
     "i",
@@ -434,10 +438,12 @@ function acharProdutosDanfe(linhas: PdfLine[]): ExtractedItem[] {
   const adicionarProduto = (texto: string) => {
     const l = semAcento(texto);
     if (LINHA_IGNORADA.some((t) => l.startsWith(t))) return;
-    const m = texto.match(linhaProduto);
+    const completo = texto.match(linhaProdutoCompleta);
+    const m = completo ?? texto.match(linhaProduto);
     if (!m) return;
 
-    const descricao = limparDescricao(m[2] ?? "");
+    const complemento = completo ? limparDescricao(completo[9] ?? "") : "";
+    const descricao = limparDescricao(`${m[2] ?? ""}${complemento ? ` ${complemento}` : ""}`);
     if (descricao.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 3) return;
 
     const quantidade = parseValorBr(m[5] ?? "") || 1;
