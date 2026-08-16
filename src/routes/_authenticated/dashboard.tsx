@@ -30,6 +30,16 @@ import { BUDGET_STATUS_CLASSES, BUDGET_STATUS_LABELS } from "@/lib/budgets";
 import { monthLabel, formatDate } from "@/lib/expenses";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useFutureCommitments } from "@/hooks/useFutureCommitments";
+import { useMonthlySpending } from "@/hooks/useMonthlySpending";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 
 import {
   TRANSACTION_STATUS_CLASSES,
