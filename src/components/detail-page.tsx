@@ -67,7 +67,7 @@ export function Metric({
 }: {
   label: string;
   value: string;
-  hint?: string;
+  hint?: string | undefined;
   tone?: "ok" | "danger";
   big?: boolean;
 }) {
