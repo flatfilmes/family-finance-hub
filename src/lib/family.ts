@@ -73,7 +73,7 @@ export async function fetchFinancialProfile(familyId: string) {
 export async function createFamily(input: { nome: string; ownerNome: string }) {
   const { data, error } = await supabase.rpc("create_family_with_owner", {
     p_family_name: input.nome,
-    p_first_member_name: input.ownerNome || undefined,
+    ...(input.ownerNome ? { p_first_member_name: input.ownerNome } : {}),
   });
   if (error) {
     if (import.meta.env.DEV) console.error("create_family_with_owner", error);
