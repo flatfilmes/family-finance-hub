@@ -253,7 +253,7 @@ export type BankAudit = {
   duplicidades: DuplicateGroup[];
   semAssociacao: PendingItem[];
   semCategoria: PendingItem[];
-  pagamentosCartaoSemFatura: Transaction[];
+  pagamentosCartaoSemFatura: CardPaymentPending[];
   transferenciasProvaveis: TransferHint[];
   /** Todas as inconsistências de data encontradas na conta. */
   datasInconsistentes: DateMismatch[];
