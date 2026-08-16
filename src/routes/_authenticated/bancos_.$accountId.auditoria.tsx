@@ -228,7 +228,7 @@ function AuditoriaContaPage() {
           label="Datas inconsistentes"
           value={String(r.datasInconsistentes)}
           hint="Ledger diferente da data do extrato"
-          {...(r.datasInconsistentes ? { tone: "warn" as const } : {})}
+          {...(r.datasInconsistentes ? { tone: "danger" as const } : {})}
         />
         <Metric
           label="Associações inválidas"
