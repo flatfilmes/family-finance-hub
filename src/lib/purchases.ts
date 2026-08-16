@@ -64,14 +64,13 @@ export const PAYMENT_METHOD_SHORT: Record<PaymentMethodValue, string> = {
   A_DEFINIR: "A definir",
 };
 
-export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = {
-  PAGO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
-  COMPROMETIDO: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
-  PENDENTE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  PENDENTE_PAGAMENTO: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
-  PARCIALMENTE_PAGA: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
-  CANCELADO: "bg-muted text-muted-foreground",
-};
+/** Cores derivadas da linguagem única de status (src/lib/status.ts). */
+export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = Object.fromEntries(
+  (Object.keys(PAYMENT_STATUS_TONES) as PurchasePaymentStatus[]).map((s) => [
+    s,
+    TONE_CLASSES[PAYMENT_STATUS_TONES[s]],
+  ]),
+) as Record<PurchasePaymentStatus, string>;
 
 /** Forma "pagar depois": a compra existe, o pagamento ainda não. */
 export const PAGAR_DEPOIS = "A_DEFINIR" as const;
