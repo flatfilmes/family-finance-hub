@@ -31,7 +31,10 @@ import { BankStatementDialog } from "@/components/bank/statement-import-dialog";
 import { MovementDialog } from "@/components/bank/movement-dialog";
 import { TransferDialog } from "@/components/transfer-dialog";
 import { useReverseBankTransaction } from "@/hooks/useBankMovements";
+import { useBankBalanceCheckpoints } from "@/hooks/useBankLedger";
+import { buildDailyBankLedger, movementEffect } from "@/lib/bank-ledger";
 import { MOVEMENT_NATURE_LABELS, type MovementNature } from "@/lib/bank-movements";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
