@@ -76,6 +76,15 @@ export type ParsedBankStatement = {
   saldoInicial: number | null;
   saldoFinal: number | null;
   movimentos: ParsedBankMovement[];
+  /** Lançamentos futuros (previstos): nunca entram no período realizado. */
+  futuros?: ParsedBankMovement[];
+  /** Dados institucionais lidos do documento, apenas para exibição. */
+  identificacao?: {
+    banco: string | null;
+    agencia: string | null;
+    conta: string | null;
+    titular: string | null;
+  };
   aceitos: { raw: string; valor: number | null; page?: number | null }[];
   rejeitados: { raw: string; valor: number | null; page?: number | null; reason: string }[];
 };

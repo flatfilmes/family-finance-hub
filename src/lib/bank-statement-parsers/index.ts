@@ -10,6 +10,7 @@
  */
 import type { ParsedBankStatement } from "@/lib/bank-statements/types";
 import { readBankStatementPdf } from "./generic";
+import { BB_PARSER_ID, readBancoDoBrasilPdf } from "./banco-do-brasil";
 
 export type BankStatementParser = {
   id: string;
@@ -25,7 +26,17 @@ export const GENERIC_PDF_PARSER: BankStatementParser = {
   ler: readBankStatementPdf,
 };
 
-export const BANK_STATEMENT_PARSERS: BankStatementParser[] = [GENERIC_PDF_PARSER];
+export const BANCO_DO_BRASIL_PARSER: BankStatementParser = {
+  id: BB_PARSER_ID,
+  nome: "Extrato Banco do Brasil (PDF)",
+  formatos: ["PDF"],
+  ler: readBancoDoBrasilPdf,
+};
+
+export const BANK_STATEMENT_PARSERS: BankStatementParser[] = [
+  BANCO_DO_BRASIL_PARSER,
+  GENERIC_PDF_PARSER,
+];
 
 /** Escolhe o parser adequado. Sem evidência de banco, usa o genérico. */
 export function selectBankStatementParser(_fileName?: string): BankStatementParser {
@@ -33,3 +44,4 @@ export function selectBankStatementParser(_fileName?: string): BankStatementPars
 }
 
 export * from "./generic";
+export * from "./banco-do-brasil";
