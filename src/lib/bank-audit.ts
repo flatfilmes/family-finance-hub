@@ -968,7 +968,7 @@ export function auditToCsv(audit: BankAudit) {
         d.dataExtrato ?? m.key,
         `${d.descricao} — ledger ${d.dataLedger}${d.dataNoHistorico ? ` · histórico ${d.dataNoHistorico}` : ""}`,
         String(d.valor),
-        "Data divergente",
+        d.invalido ? "Associação inválida (fora da tolerância)" : "Data divergente",
       ]);
     }
     for (const d of m.days) {
@@ -982,7 +982,13 @@ export function auditToCsv(audit: BankAudit) {
     }
   }
   for (const p of audit.problemas) {
-    linhas.push(["Problema", p.referencia ?? "", `${p.titulo} — ${p.detalhe}`, "", p.severity]);
+    linhas.push([
+      `Problema · ${ISSUE_CATEGORY_LABELS[p.categoria]}`,
+      p.referencia ?? "",
+      `${p.titulo} — ${p.detalhe}`,
+      "",
+      p.severity,
+    ]);
   }
   return linhas
     .map((l) => l.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";"))
