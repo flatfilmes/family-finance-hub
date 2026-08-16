@@ -2737,6 +2737,10 @@ export type Database = {
         Args: { _account_id: string; _motivo?: string; _novo_saldo: number }
         Returns: string
       }
+      apply_statement_posting_dates: {
+        Args: { _correcoes: Json; _import_id: string }
+        Returns: Json
+      }
       archive_bank_account: {
         Args: { _account_id: string; _ativo: boolean }
         Returns: undefined
