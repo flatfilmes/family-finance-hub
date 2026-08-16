@@ -28,13 +28,13 @@ export type ReconcileSuggestion = {
   motivo: string;
   /** Rastro de decisão — usado no modo diagnóstico e no debug de match. */
   debug: {
-    candidateTransaction?: string;
-    candidatePurchase?: string;
-    candidateIncome?: string;
-    candidateInvoice?: string;
+    candidateTransaction?: string | undefined;
+    candidatePurchase?: string | undefined;
+    candidateIncome?: string | undefined;
+    candidateInvoice?: string | undefined;
     score: number;
     decision: string;
-    rejectionReason?: string;
+    rejectionReason?: string | undefined;
   };
 };
 
