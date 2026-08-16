@@ -4,6 +4,7 @@ import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { filterByMember } from "@/components/member-filter";
 import { addMonthsToKey, currentMonthKey } from "@/lib/card-invoices";
 import { chargesInMonths } from "@/lib/recurring-expenses";
+import { occurrencesByCompetencia } from "@/lib/card-recurrences";
 
 export type CommitmentMonth = {
   mes: string;
@@ -36,9 +37,13 @@ export function useFutureCommitments(familyId?: string, memberId = "") {
       (!memberId || faturasVisiveis.some((i) => i.id === p.card_invoice_id)),
   );
 
-  // Recorrências no cartão já aparecem como parcelas — evita contar duas vezes.
-  const recorrencias = filterByMember(recorrentes.data ?? [], memberId).filter(
-    (r) => r.ativo && !r.credit_card_id,
+  const ativas = filterByMember(recorrentes.data ?? [], memberId).filter((r) => r.ativo);
+  // Recorrências fora do cartão: competência pelo mês da própria cobrança.
+  const recorrencias = ativas.filter((r) => !r.credit_card_id);
+  // Recorrências no cartão: a ocorrência é atribuída ao CICLO pela regra de
+  // fechamento, exatamente como na página do cartão (fonte única).
+  const recorrenciasCartao = ativas.filter(
+    (r) => r.credit_card_id && cartoes.some((c) => c.id === r.credit_card_id),
   );
 
   const porMes: CommitmentMonth[] = meses.map((mes) => {
@@ -52,12 +57,23 @@ export function useFutureCommitments(familyId?: string, memberId = "") {
       (acc, r) => acc + (chargesInMonths(r, meses)[mes] ?? 0),
       0,
     );
+    const recCartao = recorrenciasCartao.reduce((acc, r) => {
+      const card = cartoes.find((c) => c.id === r.credit_card_id);
+      if (!card) return acc;
+      // Não duplica quando a competência já virou parcela registrada.
+      const jaLancada =
+        !!r.purchase_id &&
+        parcelas.some(
+          (p) => p.purchase_id === r.purchase_id && p.data_vencimento.slice(0, 7) === mes,
+        );
+      return acc + (jaLancada ? 0 : (occurrencesByCompetencia(r, card, meses)[mes] ?? 0));
+    }, 0);
     return {
       mes,
-      cartao: doMes,
+      cartao: doMes + recCartao,
       parcelas: parceladas,
-      recorrencias: rec,
-      total: doMes + rec,
+      recorrencias: rec + recCartao,
+      total: doMes + recCartao + rec,
     };
   });
 

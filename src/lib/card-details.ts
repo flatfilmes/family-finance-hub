@@ -1,14 +1,18 @@
 import {
   cycleForDate,
-  upcomingInstallmentMonths,
   type CardInvoice,
   type ExpenseInstallment,
 } from "@/lib/card-invoices";
-import { chargesInMonths, type RecurringExpense } from "@/lib/recurring-expenses";
+import { type RecurringExpense } from "@/lib/recurring-expenses";
+import {
+  recurringOccurrencesForCycle,
+  type RecurringOccurrence,
+} from "@/lib/card-recurrences";
 import type { Purchase } from "@/lib/purchases";
 import type { CreditCard } from "@/lib/finance";
 import type { Expense } from "@/lib/expenses";
 import { isStatementConfirmed } from "@/lib/card-statements";
+
 
 export type Kind = "normais" | "parceladas" | "recorrentes";
 
@@ -120,33 +124,77 @@ export function linhasDaFatura(input: {
 
 
 /**
- * Próximas faturas do cartão: parcelas futuras já registradas + projeção das
- * recorrências ativas. Nunca soma o valor total da compra parcelada.
+ * Recorrências que pertencem a um ciclo do cartão, já sem as competências que
+ * viraram parcela/lançamento registrado (evita dupla contagem).
+ */
+export function recorrenciasDoCiclo(input: {
+  card: Pick<CreditCard, "dia_fechamento" | "dia_vencimento">;
+  invoice: {
+    id: string;
+    data_inicio_ciclo?: string | null;
+    data_fechamento: string;
+    data_vencimento: string;
+  };
+  recorrencias: RecurringExpense[];
+  parcelas: ExpenseInstallment[];
+}): RecurringOccurrence[] {
+  const jaLancadas = new Set<string>();
+  for (const p of input.parcelas) {
+    if (p.card_invoice_id === input.invoice.id && p.purchase_id) jaLancadas.add(p.purchase_id);
+  }
+  return recurringOccurrencesForCycle({
+    card: input.card,
+    cycle: input.invoice,
+    recorrencias: input.recorrencias.filter((r) => r.ativo),
+    jaLancadas,
+  });
+}
+
+/**
+ * Próximas faturas do cartão: parcelas ainda pendentes de cada ciclo futuro +
+ * as ocorrências recorrentes atribuídas ÀQUELE ciclo pela regra de fechamento.
+ * Nunca soma o valor total da compra parcelada nem repete o total mensal de
+ * recorrências em todos os meses.
  */
 export function proximasObrigacoes(input: {
+  card: Pick<CreditCard, "dia_fechamento" | "dia_vencimento">;
   parcelas: ExpenseInstallment[];
   faturas: CardInvoice[];
   recorrencias: RecurringExpense[];
+  meses?: number;
+  hoje?: Date;
 }) {
-  const doCartao = input.parcelas.filter(
-    (p) => p.status === "PENDENTE" && input.faturas.some((i) => i.id === p.card_invoice_id),
-  );
-  const base = upcomingInstallmentMonths(doCartao, 3);
-  const meses = base.map((m) => m.key);
-  const ativas = input.recorrencias.filter((r) => r.ativo);
-  // Se a competência já virou parcela registrada, não projeta de novo (evita dupla contagem).
-  const jaLancada = (purchaseId: string | null, mes: string) =>
-    !!purchaseId &&
-    doCartao.some((p) => p.purchase_id === purchaseId && p.data_vencimento.slice(0, 7) === mes);
-  return base.map((m) => {
-    const recorrente = ativas.reduce(
-      (acc, r) =>
-        acc + (jaLancada(r.purchase_id, m.key) ? 0 : (chargesInMonths(r, meses)[m.key] ?? 0)),
-      0,
-    );
-    return { ...m, parcelas: m.total, recorrencias: recorrente, total: m.total + recorrente };
+  const hoje = input.hoje ?? new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const futuras = input.faturas
+    .filter((i) => i.data_fechamento > hojeIso)
+    .sort((a, b) => (a.data_vencimento < b.data_vencimento ? -1 : 1))
+    .slice(0, input.meses ?? 3);
+
+  return futuras.map((invoice) => {
+    const parcelas = input.parcelas
+      .filter((p) => p.card_invoice_id === invoice.id && p.status === "PENDENTE")
+      .reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0);
+    const ocorrencias = recorrenciasDoCiclo({
+      card: input.card,
+      invoice,
+      recorrencias: input.recorrencias,
+      parcelas: input.parcelas,
+    });
+    const recorrencias = ocorrencias.reduce((acc, o) => acc + o.valor, 0);
+    return {
+      key: invoice.data_vencimento.slice(0, 7),
+      invoiceId: invoice.id,
+      parcelas: Math.round(parcelas * 100) / 100,
+      recorrencias: Math.round(recorrencias * 100) / 100,
+      ocorrencias,
+      total: Math.round((parcelas + recorrencias) * 100) / 100,
+    };
   });
 }
+
+/** Situação de uma parcela dentro da linha do tempo do cartão. */
+export type StatusParcela = "PAGA" | "HISTORICA" | "FATURADA" | "EM_FORMACAO" | "PROJETADA";
 
 export type ParcelamentoAtivo = {
   id: string;
@@ -159,7 +207,11 @@ export type ParcelamentoAtivo = {
   valorParcela: number;
   /** Soma somente das parcelas ainda não quitadas. */
   restante: number;
+  /** Número da próxima parcela ainda não faturada. */
+  proximaParcela: number | null;
+  /** Vencimento da próxima parcela — nunca uma data no passado se ainda há futuro. */
   proximaCobranca: string | null;
+  statusAtual: StatusParcela;
 };
 
 /** Parcelamentos em andamento no cartão, com saldo futuro comprometido. */
@@ -168,10 +220,19 @@ export function parcelamentosAtivos(input: {
   faturas: CardInvoice[];
   despesaPorId: Map<string, Expense>;
   compraPorId: Map<string, Purchase>;
+  hoje?: Date;
 }): ParcelamentoAtivo[] {
-  const doCartao = input.parcelas.filter((p) =>
-    input.faturas.some((i) => i.id === p.card_invoice_id),
-  );
+  const hoje = input.hoje ?? new Date();
+  const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+  const faturaPorId = new Map(input.faturas.map((i) => [i.id, i]));
+  const doCartao = input.parcelas.filter((p) => faturaPorId.has(p.card_invoice_id ?? ""));
+
+  // Uma parcela só é "futura" quando o ciclo dela ainda não fechou.
+  const cicloAberto = (p: ExpenseInstallment) => {
+    const fatura = faturaPorId.get(p.card_invoice_id ?? "");
+    return !!fatura && fatura.status !== "PAGA" && fatura.data_fechamento > hojeIso;
+  };
+
   const porExpense = new Map<string, ExpenseInstallment[]>();
   for (const p of doCartao) {
     if ((p.total_parcelas || 1) <= 1) continue;
@@ -185,10 +246,29 @@ export function parcelamentosAtivos(input: {
     const ordenadas = lista.slice().sort((a, b) => a.numero_parcela - b.numero_parcela);
     const pendentes = ordenadas.filter((p) => p.status === "PENDENTE");
     if (pendentes.length === 0) continue;
-    const atual = pendentes[0]!;
+
+    // Parcela atual = a última já faturada (ciclo fechado); próxima = a primeira
+    // ainda em formação ou projetada. Nunca a data original da compra.
+    const faturadas = pendentes.filter((p) => !cicloAberto(p));
+    const futuras = pendentes.filter((p) => cicloAberto(p));
+    const atual = faturadas[faturadas.length - 1] ?? futuras[0] ?? pendentes[0]!;
+    const proxima = futuras.find((p) => p.numero_parcela > atual.numero_parcela) ?? futuras[0] ?? null;
+
     const despesa = input.despesaPorId.get(expenseId);
     const purchaseId = lista[0]?.purchase_id ?? despesa?.purchase_id ?? null;
     const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
+    const faturaAtual = faturaPorId.get(atual.card_invoice_id ?? "");
+    const statusAtual: StatusParcela =
+      atual.status === "PAGO"
+        ? "PAGA"
+        : faturaAtual && faturaAtual.data_fechamento <= hojeIso
+          ? faturaAtual.data_vencimento < hojeIso
+            ? "HISTORICA"
+            : "FATURADA"
+          : futuras[0]?.id === atual.id
+            ? "EM_FORMACAO"
+            : "PROJETADA";
+
     resultado.push({
       id: expenseId,
       purchaseId,
@@ -199,7 +279,9 @@ export function parcelamentosAtivos(input: {
       restantesQtd: pendentes.length,
       valorParcela: Number(atual.valor_parcela) || 0,
       restante: pendentes.reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0),
-      proximaCobranca: atual.data_vencimento ?? null,
+      proximaParcela: proxima?.numero_parcela ?? null,
+      proximaCobranca: proxima?.data_vencimento ?? null,
+      statusAtual,
     });
   }
   return resultado.sort((a, b) => b.restante - a.restante);
@@ -555,6 +637,8 @@ export type CicloClassificado<T> = {
   oficial: boolean;
   valor: number;
   fonte: FonteValorCiclo;
+  /** Recorrências atribuídas a ESTE ciclo (vazio quando o valor é oficial). */
+  recorrencias: RecurringOccurrence[];
 };
 
 
@@ -562,36 +646,80 @@ type InvoiceBase = {
   id: string;
   credit_card_id: string;
   status: string;
+  data_inicio_ciclo?: string | null;
   data_fechamento: string;
   data_vencimento: string;
   valor_total: number | string;
+};
+
+/** Contexto opcional para projetar recorrências dentro do ciclo. */
+type ContextoRecorrencias = {
+  card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null | undefined;
+  recorrencias?: RecurringExpense[] | undefined;
+  parcelas?: ExpenseInstallment[] | undefined;
 };
 
 /**
  * REGRA ÚNICA do valor exibido de um ciclo:
  * - importação CONFIRMED do ciclo  => valor oficial da fatura (nunca substituído
  *   por soma de compras/parcelas/recorrências);
- * - ciclo em formação              => estimativa interna do ciclo;
- * - ciclos futuros                 => projeção (parcelas/recorrências previstas).
+ * - ciclo em formação              => estimativa interna + recorrências do ciclo;
+ * - ciclos futuros                 => projeção (parcelas + recorrências do ciclo).
+ *
+ * As recorrências entram pela DATA REAL da ocorrência, atribuída ao ciclo pela
+ * regra de fechamento do cartão — nunca pelo mês nominal.
  */
-export function getCycleDisplayValue(input: {
-  cardId: string;
-  invoice: { data_vencimento: string; data_fechamento: string; valor_total: number | string } | null;
-  imports: ImportacaoFatura[];
-  estado: EstadoCiclo;
-}): { valor: number; fonte: FonteValorCiclo; importId: string | null } {
+export function getCycleDisplayValue(
+  input: {
+    cardId: string;
+    invoice:
+      | {
+          id?: string;
+          data_inicio_ciclo?: string | null;
+          data_vencimento: string;
+          data_fechamento: string;
+          valor_total: number | string;
+        }
+      | null;
+    imports: ImportacaoFatura[];
+    estado: EstadoCiclo;
+  } & ContextoRecorrencias,
+): {
+  valor: number;
+  fonte: FonteValorCiclo;
+  importId: string | null;
+  recorrencias: RecurringOccurrence[];
+} {
   const oficial = importacaoOficialDoCiclo(input);
   if (oficial) {
     return {
       valor: Number(oficial.valor_total_fatura) || 0,
       fonte: "OFFICIAL_STATEMENT",
       importId: oficial.id,
+      recorrencias: [],
     };
   }
+  const ocorrencias =
+    input.card && input.invoice
+      ? recorrenciasDoCiclo({
+          card: input.card,
+          invoice: {
+            id: input.invoice.id ?? "",
+            data_inicio_ciclo: input.invoice.data_inicio_ciclo ?? null,
+            data_fechamento: input.invoice.data_fechamento,
+            data_vencimento: input.invoice.data_vencimento,
+          },
+          recorrencias: input.recorrencias ?? [],
+          parcelas: input.parcelas ?? [],
+        })
+      : [];
+  const base = Number(input.invoice?.valor_total ?? 0) || 0;
+  const recorrente = ocorrencias.reduce((acc, o) => acc + o.valor, 0);
   return {
-    valor: Number(input.invoice?.valor_total ?? 0) || 0,
+    valor: Math.round((base + recorrente) * 100) / 100,
     fonte: input.estado === "PROJETADA" ? "PROJECTED" : "ESTIMATED",
     importId: null,
+    recorrencias: ocorrencias,
   };
 }
 
@@ -601,11 +729,13 @@ export function getCycleDisplayValue(input: {
  * - primeiro ciclo ainda não fechado => fatura em formação;
  * - demais ciclos futuros => apenas projeção de parcelas, nunca "fatura aberta".
  */
-export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
-  invoices: T[];
-  imports: ImportacaoFatura[];
-  hoje?: Date;
-}): CicloClassificado<T>[] {
+export function classificarCiclosDoCartao<T extends InvoiceBase>(
+  input: {
+    invoices: T[];
+    imports: ImportacaoFatura[];
+    hoje?: Date;
+  } & ContextoRecorrencias,
+): CicloClassificado<T>[] {
   const hoje = input.hoje ?? new Date();
   const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
   const ordenadas = input.invoices
@@ -630,12 +760,16 @@ export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
       emFormacaoUsada = true;
     } else estado = "PROJETADA";
 
-    // Fonte de verdade única — a fatura oficial confirmada sempre prevalece.
+    // Fonte de verdade única — a fatura oficial confirmada sempre prevalece;
+    // sem documento oficial, entram parcelas do ciclo + recorrências do ciclo.
     const display = getCycleDisplayValue({
       cardId: invoice.credit_card_id,
       invoice,
       imports: input.imports,
       estado,
+      card: input.card,
+      recorrencias: input.recorrencias,
+      parcelas: input.parcelas,
     });
 
     return {
@@ -646,8 +780,112 @@ export function classificarCiclosDoCartao<T extends InvoiceBase>(input: {
       oficial: !!oficialImport,
       valor: display.valor,
       fonte: display.fonte,
+      recorrencias: display.recorrencias,
     };
   });
+}
+
+/** Composição auditável de UM ciclo — fonte única de todas as telas. */
+export type ComposicaoCiclo = {
+  competencia: string;
+  estado: EstadoCiclo;
+  source: FonteValorCiclo;
+  normalPurchases: number;
+  installments: number;
+  recurringOccurrences: number;
+  fees: number;
+  credits: number;
+  total: number;
+  linhas: LinhaOficial[];
+  ocorrencias: RecurringOccurrence[];
+};
+
+/**
+ * buildCardCycleComposition — a ÚNICA função de composição de ciclo.
+ *
+ * - ciclo com fatura oficial confirmada: a decomposição vem dos lançamentos do
+ *   documento e o total é sempre o valor oficial (mudar o tipo de um lançamento
+ *   move valor entre naturezas, nunca altera o total);
+ * - ciclo em formação/projetado: compras e parcelas do ciclo + ocorrências
+ *   recorrentes atribuídas ao ciclo pela regra de fechamento.
+ */
+export function buildCardCycleComposition(input: {
+  ciclo: CicloClassificado<InvoiceBase> | null;
+  /** Lançamentos oficiais quando existe importação confirmada do ciclo. */
+  itensOficiais?: LancamentoOficial[] | null;
+  /** Linhas internas (parcelas + compras do ciclo) quando não há documento oficial. */
+  linhasInternas?: LinhaOficial[];
+  compraPorId?: Map<string, Purchase>;
+}): ComposicaoCiclo {
+  const ciclo = input.ciclo;
+  const vazio: ComposicaoCiclo = {
+    competencia: ciclo?.competencia ?? "",
+    estado: ciclo?.estado ?? "PROJETADA",
+    source: ciclo?.fonte ?? "PROJECTED",
+    normalPurchases: 0,
+    installments: 0,
+    recurringOccurrences: 0,
+    fees: 0,
+    credits: 0,
+    total: 0,
+    linhas: [],
+    ocorrencias: [],
+  };
+  if (!ciclo) return vazio;
+
+  const oficial = ciclo.fonte === "OFFICIAL_STATEMENT" && (input.itensOficiais?.length ?? 0) > 0;
+
+  if (oficial) {
+    const linhas = linhasOficiaisDaFatura({
+      items: input.itensOficiais!,
+      vencimento: ciclo.invoice.data_vencimento,
+      ...(input.compraPorId ? { compraPorId: input.compraPorId } : {}),
+    });
+    const resumo = resumoOficialDaFatura(linhas);
+    return {
+      ...vazio,
+      source: "OFFICIAL_STATEMENT",
+      normalPurchases: resumo.normais,
+      installments: resumo.parceladas,
+      recurringOccurrences: resumo.recorrentes,
+      fees: resumo.taxas,
+      credits: resumo.creditos,
+      // O total oficial da fatura nunca é substituído pela soma das naturezas.
+      total: ciclo.valor,
+      linhas,
+      ocorrencias: [],
+    };
+  }
+
+  // Ocorrências recorrentes viram linhas do ciclo (mesma verdade do resumo).
+  const linhasRecorrentes: LinhaOficial[] = ciclo.recorrencias.map((o) => ({
+    id: o.id,
+    itemId: o.id,
+    data: o.data,
+    estabelecimento: o.nome,
+    memberId: null,
+    categoriaId: null,
+    kind: "recorrentes",
+    parcela: "—",
+    valor: o.valor,
+    purchaseId: o.purchaseId,
+  }));
+  const linhas = [...(input.linhasInternas ?? []), ...linhasRecorrentes].sort((a, b) =>
+    a.data < b.data ? 1 : -1,
+  );
+  const resumo = resumoOficialDaFatura(linhas);
+  return {
+    ...vazio,
+    source: ciclo.fonte,
+    normalPurchases: resumo.normais,
+    installments: resumo.parceladas,
+    recurringOccurrences: resumo.recorrentes,
+    fees: resumo.taxas,
+    credits: resumo.creditos,
+    total: resumo.total,
+    linhas,
+    ocorrencias: ciclo.recorrencias,
+  };
 }
 
 
