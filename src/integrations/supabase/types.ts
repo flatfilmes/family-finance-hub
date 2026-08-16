@@ -2247,6 +2247,7 @@ export type Database = {
         Args: { _bank_account_id: string; _data?: string; _invoice_id: string }
         Returns: string
       }
+      purge_demo_families: { Args: { demo_ids: string[] }; Returns: number }
       sync_installment_invoices: {
         Args: { _family_id?: string }
         Returns: number
