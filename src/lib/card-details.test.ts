@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { isStatementConfirmed } from "@/lib/card-statements";
-import { faturasFechadasEmAberto, obrigacaoAbertaDoCartao } from "@/lib/card-details";
+import {
+  agruparCiclos,
+  classificarCiclosDoCartao,
+  faturasFechadasEmAberto,
+  obrigacaoAbertaDoCartao,
+} from "@/lib/card-details";
 
 const invoice = {
   id: "invoice-aug",
@@ -99,5 +104,60 @@ describe("faturasFechadasEmAberto", () => {
         hoje,
       }),
     ).toHaveLength(0);
+  });
+});
+
+describe("classificarCiclosDoCartao", () => {
+  const hoje = new Date(2026, 7, 16);
+  const ciclo = (mes: string, status = "ABERTA", valor = 100) => ({
+    id: `i-${mes}`,
+    credit_card_id: "card-1",
+    status,
+    data_fechamento: `${mes}-10`,
+    data_vencimento: `${mes}-17`,
+    valor_total: valor,
+  });
+  const imports = [
+    {
+      id: "imp-1",
+      credit_card_id: "card-1",
+      status: "CONFIRMED",
+      valor_total_fatura: 6577.67,
+      data_vencimento: "2026-08-17",
+      data_fechamento: "2026-08-10",
+      periodo_fim: "2026-08-10",
+      created_at: "2026-08-12",
+    },
+  ];
+
+  it("separa ciclos reais, fatura em formação e projeções", () => {
+    const ciclos = classificarCiclosDoCartao({
+      invoices: [
+        ciclo("2026-06"),
+        ciclo("2026-07", "PAGA"),
+        ciclo("2026-08"),
+        ciclo("2026-09"),
+        ciclo("2026-10"),
+        ciclo("2027-05"),
+      ],
+      imports,
+      hoje,
+    });
+    const estados = Object.fromEntries(ciclos.map((c) => [c.competencia, c.estado]));
+    expect(estados).toEqual({
+      "2026-06": "VENCIDA",
+      "2026-07": "PAGA",
+      "2026-08": "FECHADA",
+      "2026-09": "EM_FORMACAO",
+      "2026-10": "PROJETADA",
+      "2027-05": "PROJETADA",
+    });
+
+    const grupos = agruparCiclos(ciclos);
+    expect(grupos.atual?.competencia).toBe("2026-08");
+    expect(grupos.atual?.valor).toBe(6577.67);
+    expect(grupos.emFormacao?.competencia).toBe("2026-09");
+    expect(grupos.projecoes).toHaveLength(2);
+    expect(grupos.historico.map((c) => c.competencia)).toEqual(["2026-07", "2026-06"]);
   });
 });
