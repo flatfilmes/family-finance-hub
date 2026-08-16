@@ -313,7 +313,13 @@ export async function processDocumentPdf(input: {
         data_compra: lido.data_compra,
         valor_total: lido.valor_total,
         forma_pagamento: lido.forma_pagamento,
-        dados_brutos_json: { linhas: lido.linhas, arquivo: doc.nome_arquivo },
+        dados_brutos_json: {
+          linhas: lido.linhas,
+          arquivo: doc.nome_arquivo,
+          confianca: lido.confianca,
+          pagamento_descricao: lido.pagamento_descricao,
+        },
+
       })
       .select()
       .single();
