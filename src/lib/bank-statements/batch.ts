@@ -44,8 +44,9 @@ export async function parseStatementFilesIndependently<F>(
 ): Promise<BatchFile[]> {
   const resultados: BatchFile[] = [];
   for (let i = 0; i < files.length; i++) {
+    const file = files[i] as F;
     try {
-      const r = await parseFile(files[i], i);
+      const r = await parseFile(file, i);
       resultados.push({ ...r, id: `${i}`, status: r.parsed ? "OK" : "ERRO" });
     } catch (e) {
       resultados.push({
@@ -76,11 +77,13 @@ export function detectPeriodOverlaps(files: BatchFile[]): BatchOverlap[] {
   const out: BatchOverlap[] = [];
   for (let i = 0; i < validos.length; i++) {
     for (let j = i + 1; j < validos.length; j++) {
-      const a = validos[i].parsed!;
-      const b = validos[j].parsed!;
+      const fa = validos[i]!;
+      const fb = validos[j]!;
+      const a = fa.parsed!;
+      const b = fb.parsed!;
       const inicio = a.periodoInicio! > b.periodoInicio! ? a.periodoInicio! : b.periodoInicio!;
       const fim = a.periodoFim! < b.periodoFim! ? a.periodoFim! : b.periodoFim!;
-      if (inicio <= fim) out.push({ aId: validos[i].id, bId: validos[j].id, inicio, fim });
+      if (inicio <= fim) out.push({ aId: fa.id, bId: fb.id, inicio, fim });
     }
   }
   return out;
