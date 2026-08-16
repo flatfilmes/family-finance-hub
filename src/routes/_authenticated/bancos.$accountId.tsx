@@ -220,7 +220,16 @@ function ContaDetalhePage() {
   const saidasPix = somaPorOrigem("PIX", ["SAIDA"]) + somaPorOrigem("Débito", ["SAIDA"]);
   const saidasBoleto = somaPorOrigem("Boleto", ["SAIDA"]);
   const saidasDiretas = soma("SAIDA", realizados);
-  const saidasOutras = saidasDiretas - saidasPix - saidasBoleto;
+  // Tarifas, IOF e juros são saídas reais: nunca podem sumir do resumo.
+  const saidasTarifas = realizados
+    .filter(
+      (t) =>
+        t.tipo === "SAIDA" &&
+        !t.purchase_id &&
+        /iof|tarifa|taxa|juros|anuidade/i.test(t.descricao ?? ""),
+    )
+    .reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
+  const saidasOutras = saidasDiretas - saidasPix - saidasBoleto - saidasTarifas;
 
   const entradasLista = realizados.filter((t) => t.tipo === "ENTRADA");
 
@@ -423,7 +432,7 @@ function ContaDetalhePage() {
         <Metric label="Saídas do período" value={formatCurrency(saidas)} />
         <Metric label="Pagamentos de cartão" value={formatCurrency(pagamentos)} />
         <Metric
-          label="Saldo líquido do período"
+          label="Movimento líquido do período"
           value={formatCurrency(resultado)}
           tone={resultado < 0 ? "danger" : "ok"}
         />
@@ -656,8 +665,9 @@ function ContaDetalhePage() {
           <SectionTitle title="Saídas do período" hint="Como o dinheiro saiu desta conta." />
           <ul className="divide-y divide-border">
             <Linha label="Compras via PIX / débito" valor={saidasPix} />
-            <Linha label="Boletos" valor={saidasBoleto} />
+            <Linha label="Boletos e contas de consumo" valor={saidasBoleto} />
             <Linha label="Pagamentos de cartão" valor={pagamentos} />
+            <Linha label="Tarifas, IOF e juros" valor={saidasTarifas} />
             <Linha label="Transferências" valor={transferencias} />
             <Linha label="Outras saídas" valor={saidasOutras} />
           </ul>

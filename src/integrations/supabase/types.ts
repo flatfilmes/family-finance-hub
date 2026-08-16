@@ -2830,6 +2830,10 @@ export type Database = {
         Args: { _family_id: string; _keep_structure: boolean }
         Returns: Json
       }
+      recalc_bank_account_balance: {
+        Args: { _account_id: string }
+        Returns: number
+      }
       register_bank_movement: {
         Args: {
           _account_id: string
