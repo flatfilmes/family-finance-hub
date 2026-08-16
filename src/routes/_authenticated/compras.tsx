@@ -139,11 +139,13 @@ function Compras() {
   const compraDetalhe = lista.find((p) => p.id === detalhe) ?? null;
   const parcelasDaLista = usePurchaseInstallmentsByPurchases(lista.map((p) => p.id));
   /** Parcela do período de uma compra parcelada (base do valor em destaque). */
-  const parcelaDaCompra = (purchaseId: string) =>
-    parcelaDoPeriodo(
+  const parcelaDaCompra = (purchaseId: string) => {
+    const parcela = parcelaDoPeriodo(
       (parcelasDaLista.data ?? []).filter((p) => p.purchase_id === purchaseId),
       filtroMes,
     );
+    return parcela && parcela.total_parcelas > 1 ? parcela : null;
+  };
   const totalListado = lista.reduce((acc, p) => {
     const parcela = parcelaDaCompra(p.id);
     return acc + (parcela ? parcela.valor_parcela : Number(p.valor_total) || 0);
