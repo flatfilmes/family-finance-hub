@@ -259,6 +259,7 @@ export type BankAudit = {
     movimentosLedger: number;
     faltantes: number;
     datasInconsistentes: number;
+    associacoesInvalidas: number;
     semAssociacao: number;
     semCategoria: number;
     lacunas: number;
@@ -719,13 +720,26 @@ export function buildBankAudit(input: {
   const problemas: AuditIssue[] = [];
   for (const m of meses) {
     if (m.status === "VALIDADO" || m.status === "SEM_EXTRATO") continue;
-    if (m.status === "CHECKPOINTS_AUSENTES") {
+    if (m.status === "INVALID_MATCHES") {
+      const ex = m.associacoesInvalidas[0]!;
+      problemas.push({
+        id: `inval-${m.key}`,
+        severity: "CRITICO",
+        categoria: "FINANCEIRA",
+        titulo: `${m.key} — ${m.associacoesInvalidas.length} associação(ões) automática(s) com movimentação de outro mês`,
+        detalhe: `Ex.: "${ex.descricao}" (${ex.dataExtrato}) foi associada a uma movimentação de ${ex.dataLedger}, ${Math.abs(ex.diasDeDiferenca ?? 0)} dias de distância. Reprocesse o mês para desfazer o vínculo e lançar o movimento na data correta.`,
+        referencia: m.key,
+      });
+      continue;
+    }
+    if (m.status === "SOURCE_FILE_MISSING" || m.status === "CHECKPOINTS_AUSENTES") {
       problemas.push({
         id: `chk-${m.key}`,
         severity: "PENDENCIA",
+        categoria: "FINANCEIRA",
         titulo: `${m.key} — sem saldos diários para conferir`,
         detalhe:
-          "O extrato deste mês foi importado sem os \"Saldo do dia\". Reprocesse o documento para gerar os checkpoints antes de concluir qualquer diagnóstico.",
+          "O extrato deste mês foi importado sem os \"Saldo do dia\". Reenvie o PDF em \"Reprocessar checkpoints\" para gerar a conferência diária.",
         referencia: m.key,
       });
       continue;
@@ -734,6 +748,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `mov-${m.key}`,
         severity: "CRITICO",
+        categoria: "FINANCEIRA",
         titulo: `${m.key} — ${m.faltantes.length} movimentação(ões) do PDF não existem no ledger`,
         detalhe: m.faltantes
           .slice(0, 5)
@@ -747,6 +762,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `dia-${m.key}`,
         severity: "CRITICO",
+        categoria: "FINANCEIRA",
         titulo: `Primeira divergência encontrada em ${m.primeiraDivergencia.date}`,
         detalhe: `Calculado ${m.primeiraDivergencia.calculado} × banco ${m.primeiraDivergencia.informado} (diferença ${m.primeiraDivergencia.diferenca}). Último dia correto: ${m.primeiraDivergencia.ultimoDiaCorreto ?? "nenhum antes deste"}.`,
         referencia: m.key,
@@ -757,6 +773,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `mes-${m.key}`,
         severity: "CRITICO",
+        categoria: "FINANCEIRA",
         titulo: `${m.key} — fechamento do mês não bate`,
         detalhe: `Diferença de ${m.difference} entre o saldo informado pelo banco e o calculado.${
           m.checkpoints === 0
@@ -780,6 +797,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `data-${m.key}`,
         severity: "ATENCAO",
+        categoria: "DADOS",
         titulo: `${m.key} — ${m.datasInconsistentes.length} movimentação(ões) com data divergente do extrato`,
         detalhe: `Ex.: "${primeira.descricao}" está em ${primeira.dataLedger} no ledger, mas o extrato informa ${primeira.dataExtrato}.`,
         referencia: m.key,
@@ -792,6 +810,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `cont-${c.anterior.id}`,
         severity: "ATENCAO",
+        categoria: "FINANCEIRA",
         titulo: "Quebra de continuidade entre extratos",
         detalhe: `O extrato anterior fecha em um valor diferente do que o seguinte abre. Diferença de ${c.diferenca}.`,
       });
@@ -800,6 +819,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `gap-${c.anterior.id}`,
         severity: c.confere ? "INFORMATIVO" : "ATENCAO",
+        categoria: "FINANCEIRA",
         titulo: `Período sem extrato: ${c.lacuna.inicio} a ${c.lacuna.fim}`,
         detalhe: c.confere
           ? "Continuidade financeira preservada, mas sem detalhamento."
@@ -810,6 +830,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `over-${c.anterior.id}`,
         severity: "ATENCAO",
+        categoria: "FINANCEIRA",
         titulo: "Períodos sobrepostos entre extratos",
         detalhe: "Dois extratos cobrem o mesmo intervalo — risco de contagem em dobro.",
       });
@@ -819,6 +840,7 @@ export function buildBankAudit(input: {
     problemas.push({
       id: `dup-${d.key}`,
       severity: "ATENCAO",
+      categoria: "FINANCEIRA",
       titulo: `Possível duplicidade em ${d.date}`,
       detalhe: `${d.descricao} — ${d.ids.length} lançamentos idênticos.`,
     });
@@ -828,6 +850,7 @@ export function buildBankAudit(input: {
     problemas.push({
       id: `cartao-${t.id}`,
       severity: mismatch ? "ATENCAO" : "PENDENCIA",
+      categoria: "DADOS",
       titulo: mismatch
         ? "Pagamento de cartão com data divergente do extrato"
         : "Pagamento de cartão sem fatura associada",
@@ -840,6 +863,7 @@ export function buildBankAudit(input: {
     problemas.push({
       id: "assoc",
       severity: "PENDENCIA",
+      categoria: "DADOS",
       titulo: `${semAssociacao.length} movimentações sem associação`,
       detalhe: "O saldo fecha, mas essas movimentações ainda não têm origem definida.",
     });
@@ -848,6 +872,7 @@ export function buildBankAudit(input: {
     problemas.push({
       id: "categoria",
       severity: "INFORMATIVO",
+      categoria: "DADOS",
       titulo: `${semCategoria.length} movimentações sem categoria`,
       detalhe: "Financeiramente corretas, apenas sem classificação de gasto.",
     });
@@ -888,6 +913,7 @@ export function buildBankAudit(input: {
       movimentosLedger: meses.reduce((acc, m) => acc + m.movimentosLedger, 0),
       faltantes: meses.reduce((acc, m) => acc + m.faltantes.length, 0),
       datasInconsistentes: datasInconsistentes.length,
+      associacoesInvalidas: datasInconsistentes.filter((d) => d.invalido).length,
       semAssociacao: semAssociacao.length,
       semCategoria: semCategoria.length,
       lacunas,
