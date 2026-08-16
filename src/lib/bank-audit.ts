@@ -777,7 +777,7 @@ export function buildBankAudit(input: {
       problemas.push({
         id: `parcial-${m.key}`,
         severity: "PENDENCIA",
-        categoria: "QUALIDADE",
+        categoria: "DADOS",
         titulo: `${m.key} — fecha no mês, mas não foi conferido dia a dia`,
         detalhe: `O saldo final confere, porém ${m.checkpointsConferem} de ${m.checkpoints} saldo(s) diário(s) foram conferidos${m.checkpointsPdf ? ` e o PDF traz ${m.checkpointsPdf}` : ""}. Reenvie o PDF em "Reprocessar checkpoints" para conferir a cronologia completa.`,
         referencia: m.key,
