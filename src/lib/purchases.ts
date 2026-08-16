@@ -12,6 +12,7 @@ export type PurchaseItemInsert = Database["public"]["Tables"]["purchase_items"][
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 
 export type PurchasePaymentStatus = Database["public"]["Enums"]["purchase_payment_status"];
+export type PaymentMethodValue = Database["public"]["Enums"]["payment_method"];
 
 /** Tipos de compra usados no evento "compra" (origem de toda movimentação financeira). */
 export const PURCHASE_KINDS = [
@@ -32,6 +33,8 @@ export const PAYMENT_STATUS_LABELS: Record<PurchasePaymentStatus, string> = {
   PAGO: "Pago",
   COMPROMETIDO: "Comprometido no cartão",
   PENDENTE: "Pendente (boleto)",
+  PENDENTE_PAGAMENTO: "Pendente",
+  PARCIALMENTE_PAGA: "Parcialmente paga",
   CANCELADO: "Cancelado",
 };
 
@@ -39,9 +42,56 @@ export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = {
   PAGO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   COMPROMETIDO: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   PENDENTE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  PENDENTE_PAGAMENTO: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  PARCIALMENTE_PAGA: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
   CANCELADO: "bg-muted text-muted-foreground",
 };
 
+/** Forma "pagar depois": a compra existe, o pagamento ainda não. */
+export const PAGAR_DEPOIS = "A_DEFINIR" as const;
+
+/** Formas de pagamento realmente selecionáveis ao registrar um pagamento. */
+export const PAYMENT_METHODS_REAIS = [
+  "PIX",
+  "DINHEIRO",
+  "DEBITO",
+  "CREDITO",
+  "BOLETO",
+  "TRANSFERENCIA",
+  "OUTRO",
+] as const;
+
+/** Compra registrada sem pagamento realizado. */
+export function isPendentePagamento(p: Pick<Purchase, "status_pagamento">) {
+  return p.status_pagamento === "PENDENTE_PAGAMENTO" || p.status_pagamento === "PARCIALMENTE_PAGA";
+}
+
+/** Pendente cuja data prevista de pagamento já passou. */
+export function isAtrasada(
+  p: Pick<Purchase, "status_pagamento" | "data_prevista_pagamento">,
+  hoje = new Date().toISOString().slice(0, 10),
+) {
+  return isPendentePagamento(p) && !!p.data_prevista_pagamento && p.data_prevista_pagamento < hoje;
+}
+
+/** Filtro de status usado na página Compras. */
+export type PaymentFilter = "" | "PAGAS" | "PENDENTES" | "ATRASADAS" | "PARCIAIS";
+
+export const PAYMENT_FILTER_LABELS: Record<PaymentFilter, string> = {
+  "": "Todas",
+  PAGAS: "Pagas",
+  PENDENTES: "Pendentes",
+  ATRASADAS: "Atrasadas",
+  PARCIAIS: "Parcialmente pagas",
+};
+
+export function matchesPaymentFilter(p: Purchase, filtro: PaymentFilter, hoje?: string) {
+  if (!filtro) return true;
+  if (filtro === "PAGAS") return p.status_pagamento === "PAGO";
+  if (filtro === "PENDENTES") return isPendentePagamento(p);
+  if (filtro === "ATRASADAS") return isAtrasada(p, hoje);
+  return p.status_pagamento === "PARCIALMENTE_PAGA";
+}
 
 /** Formas de pagamento que saem direto de uma conta bancária. */
 export const BANK_PAYMENT_METHODS = ["PIX", "DEBITO", "TRANSFERENCIA"] as const;
@@ -341,4 +391,78 @@ export async function updatePurchaseItemCategory(input: {
     })
     .eq("id", input.itemId);
   if (error) throw error;
+}
+
+/**
+ * Registra o pagamento de uma compra que estava pendente.
+ *
+ * O impacto financeiro só acontece agora:
+ * - Pix / débito / transferência: as triggers debitam a conta e criam a saída;
+ * - dinheiro / outro: apenas registra o pagamento (nenhuma conta é afetada);
+ * - crédito: vira compromisso na fatura do cartão (nada sai do banco).
+ */
+export async function registerPurchasePayment(input: {
+  purchase: Purchase;
+  formaPagamento: PaymentMethodValue;
+  dataPagamento: string;
+  bankAccountId?: string | null;
+  creditCardId?: string | null;
+  cards?: CreditCard[];
+}) {
+  const { purchase, formaPagamento, dataPagamento } = input;
+  const usaBanco = usesBankAccount(formaPagamento);
+  const credito = formaPagamento === "CREDITO";
+
+  const { data: atualizada, error } = await supabase
+    .from("purchases")
+    .update({
+      forma_pagamento: formaPagamento,
+      bank_account_id: usaBanco ? input.bankAccountId || null : null,
+      credit_card_id: credito ? input.creditCardId || null : null,
+      data_pagamento_real: dataPagamento,
+    })
+    .eq("id", purchase.id)
+    .select()
+    .single();
+  if (error) throw error;
+
+  // Crédito: cria a despesa vinculada e a parcela na fatura correta do cartão.
+  if (credito && atualizada.credit_card_id) {
+    const card = (input.cards ?? []).find((c) => c.id === atualizada.credit_card_id);
+    if (card) {
+      const valorTotal = Number(atualizada.valor_total) || 0;
+      const { data: expense, error: expenseError } = await supabase
+        .from("expenses")
+        .insert({
+          family_id: atualizada.family_id,
+          member_id: atualizada.member_id,
+          created_by: atualizada.created_by,
+          purchase_id: atualizada.id,
+          descricao: atualizada.estabelecimento,
+          valor: valorTotal,
+          data_compra: atualizada.data_compra,
+          forma_pagamento: "CREDITO",
+          tipo_compra: "CARTAO_CREDITO",
+          cartao_id: card.id,
+          parcelas_total: 1,
+          parcela_atual: 1,
+        })
+        .select()
+        .single();
+      if (expenseError) throw expenseError;
+
+      await generateInstallments({
+        familyId: atualizada.family_id,
+        expenseId: expense.id,
+        card,
+        dataCompra: dataPagamento,
+        valorTotal,
+        parcelas: 1,
+        memberId: atualizada.member_id,
+        purchaseId: atualizada.id,
+      });
+    }
+  }
+
+  return atualizada;
 }

@@ -1550,6 +1550,8 @@ export type Database = {
           created_by: string | null
           credit_card_id: string | null
           data_compra: string
+          data_pagamento_real: string | null
+          data_prevista_pagamento: string | null
           estabelecimento: string
           family_id: string
           forma_pagamento: Database["public"]["Enums"]["payment_method"]
@@ -1573,6 +1575,8 @@ export type Database = {
           created_by?: string | null
           credit_card_id?: string | null
           data_compra?: string
+          data_pagamento_real?: string | null
+          data_prevista_pagamento?: string | null
           estabelecimento: string
           family_id: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"]
@@ -1596,6 +1600,8 @@ export type Database = {
           created_by?: string | null
           credit_card_id?: string | null
           data_compra?: string
+          data_pagamento_real?: string | null
+          data_prevista_pagamento?: string | null
           estabelecimento?: string
           family_id?: string
           forma_pagamento?: Database["public"]["Enums"]["payment_method"]
@@ -1955,12 +1961,15 @@ export type Database = {
         | "BOLETO"
         | "TRANSFERENCIA"
         | "OUTRO"
+        | "A_DEFINIR"
       purchase_import_status: "PENDENTE_APROVACAO" | "APROVADO" | "REJEITADO"
       purchase_payment_status:
         | "PAGO"
         | "COMPROMETIDO"
         | "PENDENTE"
         | "CANCELADO"
+        | "PENDENTE_PAGAMENTO"
+        | "PARCIALMENTE_PAGA"
       purchase_type:
         | "A_VISTA"
         | "CARTAO_CREDITO"
@@ -2179,6 +2188,7 @@ export const Constants = {
         "BOLETO",
         "TRANSFERENCIA",
         "OUTRO",
+        "A_DEFINIR",
       ],
       purchase_import_status: ["PENDENTE_APROVACAO", "APROVADO", "REJEITADO"],
       purchase_payment_status: [
@@ -2186,6 +2196,8 @@ export const Constants = {
         "COMPROMETIDO",
         "PENDENTE",
         "CANCELADO",
+        "PENDENTE_PAGAMENTO",
+        "PARCIALMENTE_PAGA",
       ],
       purchase_type: [
         "A_VISTA",

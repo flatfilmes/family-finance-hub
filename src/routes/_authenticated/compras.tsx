@@ -27,6 +27,8 @@ import {
   type PurchaseType,
 } from "@/lib/expenses";
 import {
+  PAGAR_DEPOIS,
+  PAYMENT_FILTER_LABELS,
   PAYMENT_STATUS_CLASSES,
   PAYMENT_STATUS_LABELS,
   PURCHASE_KINDS,
@@ -34,12 +36,21 @@ import {
   UNIDADES,
   createPurchase,
   deletePurchase,
+  isAtrasada,
+  isPendentePagamento,
   itemTotal,
+  matchesPaymentFilter,
   parcelaDoPeriodo,
   purchaseTotal,
   usesBankAccount,
   type NewPurchaseItem,
+  type PaymentFilter,
+  type Purchase,
 } from "@/lib/purchases";
+import {
+  PagamentosPendentesCard,
+  RegistrarPagamentoDialog,
+} from "@/components/purchase-payment";
 import {
   RECURRENCES,
   RECURRENCE_LABELS,
@@ -105,6 +116,7 @@ function Compras() {
   const [observacao, setObservacao] = useState("");
   const [parcelas, setParcelas] = useState("1");
   const [periodicidade, setPeriodicidade] = useState<ExpenseRecurrence>("MENSAL");
+  const [dataPrevista, setDataPrevista] = useState("");
 
   const [items, setItems] = useState<NewPurchaseItem[]>([{ ...emptyItem }]);
   const [showForm, setShowForm] = useState(false);
@@ -117,7 +129,9 @@ function Compras() {
   const [filtroPagamento, setFiltroPagamento] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroMes, setFiltroMes] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<PaymentFilter>("");
   const [detalhe, setDetalhe] = useState<string | null>(null);
+  const [pagando, setPagando] = useState<Purchase | null>(null);
 
   const total = purchaseTotal(items);
 
@@ -125,6 +139,7 @@ function Compras() {
   const porEscopo = filterByMember(purchases ?? [], escopo).filter(
     (p) =>
       (!filtroPagamento || p.forma_pagamento === filtroPagamento) &&
+      matchesPaymentFilter(p, filtroStatus) &&
       (!filtroTipo || p.tipo_compra === filtroTipo) &&
       (!filtroMes || p.data_compra.slice(0, 7) === filtroMes),
   );
@@ -166,6 +181,7 @@ function Compras() {
     setObservacao("");
     setParcelas("1");
     setPeriodicidade("MENSAL");
+    setDataPrevista("");
     setItems([{ ...emptyItem }]);
   };
 
@@ -197,6 +213,8 @@ function Compras() {
           credit_card_id: formaPagamento === "CREDITO" ? cartaoId || null : null,
           bank_account_id: usesBankAccount(formaPagamento) ? contaId || null : null,
           observacao: observacao.trim() || null,
+          data_prevista_pagamento:
+            formaPagamento === PAGAR_DEPOIS ? dataPrevista || null : null,
         },
         items: items.filter((i) => i.descricao_produto.trim() !== ""),
         parcelas: Number(parcelas) || 1,
@@ -384,6 +402,16 @@ function Compras() {
                       </option>
                     ))}
                 </select>
+              </Field>
+            )}
+            {formaPagamento === PAGAR_DEPOIS && (
+              <Field label="Previsão de pagamento (opcional)">
+                <input
+                  type="date"
+                  value={dataPrevista}
+                  onChange={(e) => setDataPrevista(e.target.value)}
+                  className={inputClass}
+                />
               </Field>
             )}
             {tipoCompra === "COMPRA_PARCELADA" && (
@@ -611,6 +639,19 @@ function Compras() {
               ))}
             </select>
           </Field>
+          <Field label="Status de pagamento">
+            <select
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value as PaymentFilter)}
+              className={inputClass}
+            >
+              {(Object.keys(PAYMENT_FILTER_LABELS) as PaymentFilter[]).map((f) => (
+                <option key={f} value={f}>
+                  {PAYMENT_FILTER_LABELS[f]}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label="Período (mês)">
             <input
               type="month"
@@ -625,6 +666,13 @@ function Compras() {
 
 
 
+
+      <PagamentosPendentesCard
+        familyId={family.id}
+        purchases={filterByMember(purchases ?? [], escopo)}
+        podeLancar={view.podeLancar}
+        onRegistrar={setPagando}
+      />
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -666,6 +714,11 @@ function Compras() {
                         {formatDate(p.data_compra)} · {memberName(p.member_id)} ·{" "}
                         {PAYMENT_METHOD_LABELS[p.forma_pagamento]} ·{" "}
                         {PURCHASE_TYPE_LABELS[p.tipo_compra]}
+                        {isPendentePagamento(p) &&
+                          (p.data_prevista_pagamento
+                            ? ` · previsto para ${formatDate(p.data_prevista_pagamento)}`
+                            : " · sem data prevista")}
+                        {isAtrasada(p) && " · atrasada"}
                       </span>
                     </span>
                   </button>
@@ -685,6 +738,15 @@ function Compras() {
                     )}
                   </span>
 
+                  {view.podeLancar && isPendentePagamento(p) && (
+                    <button
+                      type="button"
+                      onClick={() => setPagando(p)}
+                      className="rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                    >
+                      Registrar pagamento
+                    </button>
+                  )}
                   {view.podeLancar && (
                     <button
                       aria-label={`Excluir compra em ${p.estabelecimento}`}
@@ -707,6 +769,10 @@ function Compras() {
 
       {compraDetalhe && (
         <PurchaseDetail purchase={compraDetalhe} onClose={() => setDetalhe(null)} />
+      )}
+
+      {pagando && (
+        <RegistrarPagamentoDialog purchase={pagando} onClose={() => setPagando(null)} />
       )}
     </div>
   );

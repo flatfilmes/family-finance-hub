@@ -30,6 +30,7 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   BOLETO: "Boleto",
   TRANSFERENCIA: "Transferência",
   OUTRO: "Outro",
+  A_DEFINIR: "Pagar depois (pagamento pendente)",
 };
 
 function parseMonth(month: string): [number, number] {
