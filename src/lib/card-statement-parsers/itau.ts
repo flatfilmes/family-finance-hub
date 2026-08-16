@@ -525,6 +525,9 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
   let cardLast4: string | null = finalPrincipal;
   let dataPendente: string | null = null;
   let descricaoPendente = "";
+  /** "Repasse de IOF em R$" lido sem valor na mesma linha: aguarda o valor. */
+  let iofPendente = false;
+
 
   const limpaPendente = () => {
     dataPendente = null;
