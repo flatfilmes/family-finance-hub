@@ -188,7 +188,7 @@ export function buildAttentionItems(input: AttentionInput): AttentionItem[] {
       prioridade: "BAIXA",
       titulo: `${input.itensSemCategoria} produto(s) sem categoria`,
       detalhe: "Classificar melhora a análise de consumo do Dashboard",
-      acao: { label: "Corrigir", to: "/compras" },
+      acao: { label: "Corrigir", to: "/compras/categorias/pendentes" },
     });
   }
 
