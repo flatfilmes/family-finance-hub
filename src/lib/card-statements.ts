@@ -14,7 +14,7 @@ import { cycleForDate, generateInstallments } from "@/lib/card-invoices";
 import { suggestCategoryId } from "@/lib/category-suggest";
 import type { CreditCard } from "@/lib/finance";
 import { normalizeDescricao, type ParsedStatement, type StatementEntry } from "@/lib/card-statement-parsers";
-import { resolveReviewType, type ReviewType } from "@/lib/statement-types";
+import { resolveReviewType } from "@/lib/statement-types";
 import { fetchStatementTypeRules, tipoPorRegra } from "@/lib/statement-type-rules";
 import type { Tone } from "@/lib/status";
 

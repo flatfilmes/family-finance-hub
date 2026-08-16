@@ -16,6 +16,12 @@ import {
   type StatementImport,
   type StatementItem,
 } from "@/lib/card-statements";
+import {
+  deleteStatementTypeRule,
+  fetchStatementTypeRules,
+  saveStatementTypeRule,
+} from "@/lib/statement-type-rules";
+import type { ReviewType } from "@/lib/statement-types";
 import { readCardStatementPdf, type ParsedStatement } from "@/lib/card-statement-parsers";
 import type { CreditCard } from "@/lib/finance";
 
@@ -177,4 +183,39 @@ export function useUndoStatementImport(familyId?: string) {
       queryClient.invalidateQueries();
     },
   });
+}
+
+
+/** Regras de tipo de lançamento aprendidas nas revisões. */
+export function useStatementTypeRules(familyId?: string) {
+  return useQuery({
+    queryKey: ["statement-type-rules", familyId],
+    queryFn: () => fetchStatementTypeRules(familyId!),
+    enabled: !!familyId,
+  });
+}
+
+export function useStatementTypeRuleActions(familyId?: string) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ["statement-type-rules", familyId] });
+  };
+  return {
+    save: useMutation({
+      mutationFn: (input: { descricao: string; tipo: ReviewType; cardId: string | null }) =>
+        saveStatementTypeRule({
+          familyId: familyId!,
+          createdBy: user?.id ?? null,
+          descricao: input.descricao,
+          tipo: input.tipo,
+          cardId: input.cardId,
+        }),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({
+      mutationFn: (id: string) => deleteStatementTypeRule(id),
+      onSuccess: invalidate,
+    }),
+  };
 }
