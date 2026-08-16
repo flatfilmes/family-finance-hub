@@ -817,7 +817,14 @@ export function buildBankAudit(input: {
     const pareceCartao = t.tipo === "PAGAMENTO_CARTAO" || /CARTAO|CARTÃO/i.test(t.descricao ?? "");
     if (pareceCartao && (!t.card_invoice_id || !invoiceIds.has(t.card_invoice_id))) {
       // A data que vale é a contábil (coluna "Dia"); a do histórico é só pista.
-      const doHistorico = dataNoHistorico(t.descricao ?? "", t.data_movimento.slice(0, 4));
+      const periodoDoMovimento = comPeriodo.find(
+        (e) => t.data_movimento >= e.inicio! && t.data_movimento <= e.fim!,
+      );
+      const doHistorico = dataNoHistorico(
+        t.descricao ?? "",
+        periodoDoMovimento?.inicio ?? t.data_movimento,
+        periodoDoMovimento?.fim ?? t.data_movimento,
+      );
       pagamentosCartaoSemFatura.push({
         transaction: t,
         dataNoHistorico: doHistorico,
