@@ -12,6 +12,7 @@ import { DEMO_DELETE_CONFIRMATION } from "@/lib/demo";
 import { supabase } from "@/integrations/supabase/client";
 import { DocumentLibraryCard } from "@/components/document-library";
 import { FamilyAdmin } from "@/components/family-admin";
+import { DataBackupSection } from "@/components/data-backup";
 import { PERMISSION_DESCRIPTIONS, PERMISSION_LABELS } from "@/lib/family";
 
 export const Route = createFileRoute("/_authenticated/configuracoes")({
@@ -27,7 +28,13 @@ export const Route = createFileRoute("/_authenticated/configuracoes")({
 });
 
 /** Uma única área cadastral (família + estrutura financeira) e o restante do sistema. */
-const SECOES = ["Família e Finanças", "Preferências", "Segurança", "Modo Demonstração"] as const;
+const SECOES = [
+  "Família e Finanças",
+  "Preferências",
+  "Segurança",
+  "Dados e Backup",
+  "Modo Demonstração",
+] as const;
 type Secao = (typeof SECOES)[number];
 
 /** Sub-navegação interna da área cadastral, para a página não ficar longa demais. */
@@ -343,6 +350,8 @@ function Configuracoes() {
           </button>
         </Card>
       )}
+
+      {secao === "Dados e Backup" && <DataBackupSection />}
 
       {secao === "Modo Demonstração" && <DemoModeCard />}
     </div>
