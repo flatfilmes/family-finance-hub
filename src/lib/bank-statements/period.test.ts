@@ -77,7 +77,9 @@ describe("resolveStatementPeriod", () => {
     ]);
     expect(ago.origem).toBe("DOCUMENTO");
     expect(ago.mesReferencia).toBe("2026-08");
-    expect(ago.aberturaData).toBe("2026-08-02");
+    // O período oficial começa em 01/08; um saldo de 02/08 é checkpoint interno,
+    // não abertura anterior ao statement.
+    expect(ago.aberturaData).toBeNull();
   });
 });
 
