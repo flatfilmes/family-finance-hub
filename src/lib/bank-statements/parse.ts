@@ -28,6 +28,10 @@ const RUIDO = [
   "agencia",
   "conta corrente",
   "cnpj",
+  // Linhas de controle de saldo nunca são movimentação.
+  "saldo",
+  "s a l d o",
+
   "cpf",
   "ouvidoria",
   "sac",
