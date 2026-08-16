@@ -58,6 +58,8 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
       counts,
       output: { status: "PARSER_EXECUTION_FAILED", error: d.error, stage: d.failure.stage },
       debug: { accepted: [], rejected: [], metadata: [{ campo: "erro", valor: d.error }] },
+      pipelineStages: d.pipelineStages,
+      errors: d.errors,
     };
 
   // Nenhum parser específico reconheceu o layout.
@@ -97,6 +99,8 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
     counts,
     failure: d.failure,
     checkpointTrace: trace,
+    pipelineStages: d.pipelineStages,
+    errors: d.errors,
   };
 
   return {

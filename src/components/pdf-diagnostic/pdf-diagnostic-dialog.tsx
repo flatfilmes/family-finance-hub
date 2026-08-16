@@ -84,7 +84,32 @@ export function PdfDiagnosticDialog({
         try {
           setParser(await parserDryRun(file));
         } catch (e) {
-          setParser(null);
+          const error = e instanceof Error ? e : new Error("Falha desconhecida no parser.");
+          setParser({
+            parser: "PARSER_EXECUTION_FAILED",
+            bank: null,
+            status: "PARSER_EXECUTION_FAILED",
+            error: error.message,
+            stage: "PARSER_EXECUTION",
+            signals: [],
+            counts: { rawItems: lido.items.length, rows: 0, transactions: 0, checkpoints: 0 },
+            output: { status: "PARSER_EXECUTION_FAILED", error: error.message },
+            debug: { accepted: [], rejected: [], metadata: [] },
+            pipelineStages: [
+              { stage: "PDFJS", status: "PASS", count: lido.items.length },
+              { stage: "VISUAL_ROWS", status: "FAIL", count: 0 },
+              { stage: "BANK_DETECTION", status: "FAIL" },
+              { stage: "PARSER_SELECTION", status: "FAIL" },
+              { stage: "PARSER_EXECUTION", status: "FAIL" },
+              { stage: "VALIDATION", status: "FAIL" },
+            ],
+            errors: [{
+              name: error.name,
+              message: error.message,
+              stage: "PARSER_EXECUTION",
+              ...(import.meta.env.DEV && error.stack ? { stack: error.stack } : {}),
+            }],
+          });
           setErro(
             `Leitura bruta OK, mas o parser falhou: ${e instanceof Error ? e.message : "erro"}`,
           );

@@ -27,6 +27,8 @@ export type DiagnosticPackage = {
   accepted: unknown[];
   rejected: unknown[];
   metadata: unknown[];
+  pipelineStages: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
+  errors: Array<{ name: string; message: string; stage: string; stack?: string }>;
 };
 
 export function buildDiagnosticPackage(input: {
@@ -64,5 +66,14 @@ export function buildDiagnosticPackage(input: {
     accepted: input.parser?.debug?.accepted ?? [],
     rejected: input.parser?.debug?.rejected ?? [],
     metadata: input.parser?.debug?.metadata ?? [],
+    pipelineStages: input.parser?.pipelineStages ?? [
+      { stage: "PDFJS", status: input.dump.items.length ? "PASS" : "FAIL", count: input.dump.items.length },
+      { stage: "VISUAL_ROWS", status: input.visualRows.length ? "PASS" : "FAIL", count: input.visualRows.length },
+      { stage: "BANK_DETECTION", status: "FAIL" },
+      { stage: "PARSER_SELECTION", status: "FAIL" },
+      { stage: "PARSER_EXECUTION", status: "FAIL" },
+      { stage: "VALIDATION", status: "FAIL" },
+    ],
+    errors: input.parser?.errors ?? [],
   };
 }
