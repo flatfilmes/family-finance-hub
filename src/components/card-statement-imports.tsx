@@ -238,7 +238,8 @@ export function DeleteStatementImportDialog({
             Esta fatura já foi confirmada e teve efeito no sistema.
           </p>
           <p className="text-muted-foreground">
-            Para excluir esta fatura processada, primeiro desfaça/cancele a revisão.
+            Use "Desfazer importação" no menu da fatura: os efeitos exclusivos dela são revertidos e
+            só então o registro pode ser excluído.
           </p>
           <div className="flex justify-end pt-2">
             <button
@@ -429,6 +430,11 @@ export function CardStatementImports({
         importacao={paraExcluir}
         familyId={familyId}
         onClose={() => setParaExcluir(null)}
+      />
+      <UndoStatementImportDialog
+        importacao={paraDesfazer}
+        familyId={familyId}
+        onClose={() => setParaDesfazer(null)}
       />
     </Card>
   );
