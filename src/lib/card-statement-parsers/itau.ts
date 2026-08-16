@@ -561,25 +561,9 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     }
   }
 
-  // pagamento anterior entra como item informativo (nunca vira compra)
-  if (metadata.pagamento_anterior) {
-    entries.unshift({
-      data_lancamento:
-        acharDataRotulada(
-          textos.filter((l) => plano(l).includes("pagamento efetuado")),
-          ["pagamento efetuado"],
-        ) ?? null,
-      descricao_original: "Pagamento efetuado da fatura anterior",
-      descricao_normalizada: "PAGAMENTO EFETUADO FATURA ANTERIOR",
-      estabelecimento_sugerido: null,
-      valor: metadata.pagamento_anterior,
-      parcela_atual: null,
-      total_parcelas: null,
-      tipo_sugerido: "PAGAMENTO",
-      card_last4: finalPrincipal,
-      categoria_banco: null,
-    });
-  }
+  // O pagamento da fatura anterior é histórico: fica apenas em
+  // metadata.previous_invoice_payment e nunca vira lançamento.
+
 
   // telemetria de desenvolvimento (nunca exibida ao usuário)
   if (import.meta.env?.DEV) {
