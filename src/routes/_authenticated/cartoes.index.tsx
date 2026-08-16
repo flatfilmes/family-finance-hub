@@ -131,120 +131,43 @@ function CartoesPage() {
         <StatementImportDialog cards={dados.cards} onClose={() => setImportando(false)} />
       )}
 
-      {(importacoes.data ?? []).length > 0 && (
+      {ultimasPorCartao.length > 0 && (
         <Card className="mb-4">
-          <p className="text-base font-bold">Faturas importadas</p>
+          <p className="text-base font-bold">Últimas importações</p>
+          <p className="text-xs text-muted-foreground">
+            Um resumo por cartão. A lista completa fica dentro de cada cartão.
+          </p>
           <ul className="mt-2 divide-y divide-border">
-            {(importacoes.data ?? []).slice(0, 5).map((imp) => {
-              const excluivel = podeExcluirImportacao(imp.status);
-              return (
-                <li key={imp.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{imp.nome_arquivo}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {imp.quantidade_lancamentos} lançamento(s) ·{" "}
-                      {formatCurrency(Number(imp.valor_total_fatura) || 0)}
-                      {imp.data_vencimento ? ` · vence em ${formatDate(imp.data_vencimento)}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <StatusBadge tone={imp.status === "CONFIRMED" ? "ok" : "warn"}>
-                      {IMPORT_STATUS_LABELS[imp.status]}
-                    </StatusBadge>
-                    <Link
-                      to="/cartoes/faturas/$importId"
-                      params={{ importId: imp.id }}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Revisar
-                    </Link>
-                    {perms.isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => setParaExcluir(imp)}
-                        title={
-                          excluivel
-                            ? "Excluir fatura importada"
-                            : "Para excluir esta fatura processada, primeiro desfaça/cancele a revisão."
-                        }
-                        aria-label={`Excluir fatura ${imp.nome_arquivo}`}
-                        className="inline-flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
+            {ultimasPorCartao.map(({ cartao, imp }) => (
+              <li key={cartao.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {cartao.banco} · {cartao.nome_cartao}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    Fatura {competenciaImportacao(imp)} ·{" "}
+                    {formatCurrency(Number(imp.valor_total_fatura) || 0)}
+                    {imp.data_vencimento ? ` · vence em ${formatDate(imp.data_vencimento)}` : ""}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <StatusBadge tone={imp.status === "CONFIRMED" ? "ok" : "warn"}>
+                    {IMPORT_STATUS_LABELS[imp.status]}
+                  </StatusBadge>
+                  <Link
+                    to="/cartoes/$cardId"
+                    params={{ cardId: cartao.id }}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    Ver faturas
+                  </Link>
+                </div>
+              </li>
+            ))}
           </ul>
         </Card>
       )}
 
-      <FormDialog
-        open={!!paraExcluir}
-        onOpenChange={(aberto) => !aberto && setParaExcluir(null)}
-        title="Excluir fatura importada"
-        description={paraExcluir?.nome_arquivo ?? ""}
-      >
-        {paraExcluir && podeExcluirImportacao(paraExcluir.status) ? (
-          <div className="space-y-3 text-sm">
-            <p className="text-muted-foreground">
-              Serão apagados apenas os dados desta importação: os{" "}
-              {paraExcluir.quantidade_lancamentos} lançamento(s) lidos do PDF, a revisão e os
-              metadados da leitura.
-            </p>
-            <p className="text-muted-foreground">
-              Compras, parcelas, recorrências e faturas já registradas no sistema{" "}
-              <strong>não são afetadas</strong>.
-            </p>
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                type="button"
-                className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground"
-                onClick={() => setParaExcluir(null)}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={excluir.isPending}
-                className="rounded-full bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground disabled:opacity-60"
-                onClick={() => {
-                  const alvo = paraExcluir;
-                  excluir.mutate(alvo.id, {
-                    onSuccess: () => {
-                      toast.success("Fatura importada excluída.");
-                      setParaExcluir(null);
-                    },
-                    onError: (e: Error) => toast.error(e.message),
-                  });
-                }}
-              >
-                {excluir.isPending ? "Excluindo..." : "Excluir fatura"}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <p className="font-semibold text-destructive">
-              Esta fatura já foi confirmada e teve efeito no sistema.
-            </p>
-            <p className="text-muted-foreground">
-              Para excluir esta fatura processada, primeiro desfaça/cancele a revisão.
-            </p>
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                className="rounded-full bg-muted px-4 py-2 text-sm font-semibold"
-                onClick={() => setParaExcluir(null)}
-              >
-                Entendi
-              </button>
-            </div>
-          </div>
-        )}
-      </FormDialog>
 
 
 
