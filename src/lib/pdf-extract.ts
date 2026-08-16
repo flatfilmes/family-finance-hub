@@ -63,7 +63,76 @@ const MOEDA_RE = /\d{1,3}(?:\.\d{3})*,\d{2,4}|\d+,\d{2,4}/g;
 const semAcento = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-/** Extrai as linhas do PDF preservando as colunas (posição x de cada trecho). */
+/** Item bruto de texto do PDF com posição preservada. */
+export type PdfTextItem = { text: string; x: number; y: number; width: number };
+
+const Y_TOLERANCIA = 3;
+
+function agruparEmLinhas(itens: PdfTextItem[], page: number, column: PdfLine["column"]): PdfLine[] {
+  const porLinha = new Map<number, PdfCell[]>();
+  for (const it of itens) {
+    const chave = Math.round(it.y / Y_TOLERANCIA) * Y_TOLERANCIA;
+    const lista = porLinha.get(chave) ?? [];
+    lista.push({ x: it.x, width: it.width, text: it.text });
+    porLinha.set(chave, lista);
+  }
+  const linhas: PdfLine[] = [];
+  for (const [y, partes] of [...porLinha.entries()].sort((a, b) => b[0] - a[0])) {
+    const cells = partes.sort((a, b) => a.x - b.x).filter((c) => c.text);
+    const text = cells.map((c) => c.text).join(" ").replace(/\s+/g, " ").trim();
+    if (text) linhas.push({ y, text, cells, page, column });
+  }
+  return linhas;
+}
+
+/**
+ * Procura um corte vertical (duas colunas) próximo ao meio da página.
+ * Só aceita o corte quando praticamente nenhum item atravessa a faixa central.
+ */
+function acharCorteDeColuna(itens: PdfTextItem[], pageWidth: number): number | null {
+  if (!pageWidth || itens.length < 12) return null;
+  const centro = pageWidth / 2;
+  let melhor: { x: number; cruza: number } | null = null;
+  for (let x = pageWidth * 0.4; x <= pageWidth * 0.6; x += 1) {
+    const cruza = itens.filter((i) => i.x < x && i.x + i.width > x).length;
+    if (!melhor || cruza < melhor.cruza || (cruza === melhor.cruza && Math.abs(x - centro) < Math.abs(melhor.x - centro))) {
+      melhor = { x, cruza };
+    }
+  }
+  if (!melhor || melhor.cruza > 2) return null;
+  const esquerda = itens.filter((i) => i.x + i.width <= melhor!.x).length;
+  const direita = itens.filter((i) => i.x >= melhor!.x).length;
+  if (esquerda < 5 || direita < 5) return null;
+  return melhor.x;
+}
+
+/**
+ * Monta as linhas visuais de uma página respeitando o layout em duas colunas:
+ * primeiro a coluna esquerda inteira, depois a direita — nunca intercaladas.
+ */
+export function layoutPageLines(itens: PdfTextItem[], pageWidth: number, page = 1): PdfLine[] {
+  const limpos = itens.filter((i) => i.text.trim());
+  if (!limpos.length) return [];
+  const corte = acharCorteDeColuna(limpos, pageWidth);
+  if (corte === null) return agruparEmLinhas(limpos, page, "UNICA");
+
+  const esquerda = limpos.filter((i) => i.x + i.width <= corte);
+  const direita = limpos.filter((i) => i.x >= corte);
+  const largura = limpos.filter((i) => i.x < corte && i.x + i.width > corte);
+
+  const topoColunas = Math.max(...[...esquerda, ...direita].map((i) => i.y));
+  const cabecalho = largura.filter((i) => i.y > topoColunas);
+  const rodape = largura.filter((i) => i.y <= topoColunas);
+
+  return [
+    ...agruparEmLinhas(cabecalho, page, "UNICA"),
+    ...agruparEmLinhas(esquerda, page, "ESQUERDA"),
+    ...agruparEmLinhas(direita, page, "DIREITA"),
+    ...agruparEmLinhas(rodape, page, "UNICA"),
+  ];
+}
+
+/** Extrai as linhas do PDF preservando colunas e posição (x, y) de cada trecho. */
 export async function extractPdfLines(file: Blob): Promise<PdfLine[]> {
   const pdfjs = await import("pdfjs-dist");
   const worker = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
@@ -76,29 +145,26 @@ export async function extractPdfLines(file: Blob): Promise<PdfLine[]> {
   for (let p = 1; p <= doc.numPages; p++) {
     const page = await doc.getPage(p);
     const content = await page.getTextContent();
-    const porLinha = new Map<number, PdfCell[]>();
+    const pageWidth = page.getViewport({ scale: 1 }).width;
 
-    for (const item of content.items as { str: string; transform: number[] }[]) {
+    const itens: PdfTextItem[] = [];
+    for (const item of content.items as { str: string; transform: number[]; width?: number }[]) {
       if (!item.str || !item.str.trim()) continue;
-      const y = Math.round(item.transform[5] ?? 0);
-      const x = item.transform[4] ?? 0;
-      const chave = Math.round(y / 3) * 3;
-      const lista = porLinha.get(chave) ?? [];
-      lista.push({ x, text: item.str.replace(/\s+/g, " ").trim() });
-      porLinha.set(chave, lista);
+      itens.push({
+        text: item.str.replace(/\s+/g, " ").trim(),
+        x: item.transform[4] ?? 0,
+        y: Math.round(item.transform[5] ?? 0),
+        width: item.width ?? 0,
+      });
     }
 
-    const ordenadas = [...porLinha.entries()].sort((a, b) => b[0] - a[0]);
-    for (const [y, partes] of ordenadas) {
-      const cells = partes.sort((a, b) => a.x - b.x).filter((c) => c.text);
-      const text = cells.map((c) => c.text).join(" ").replace(/\s+/g, " ").trim();
-      if (text) linhas.push({ y, text, cells });
-    }
+    linhas.push(...layoutPageLines(itens, pageWidth, p));
   }
 
   await doc.cleanup();
   return linhas;
 }
+
 
 /** Extrai o texto de um PDF, uma linha por linha visual. */
 export async function extractPdfText(file: Blob): Promise<string[]> {
