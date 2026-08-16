@@ -352,20 +352,21 @@ function RevisarFaturaPage() {
               </select>
             </Field>
             {finais.length > 0 && (
-              <Field label="Cartão">
+              <Field label="Cartão utilizado (informativo)">
                 <select
                   className={inputClass}
                   value={filtroCartao}
                   onChange={(e) => setFiltroCartao(e.target.value)}
                 >
-                  <option value="">Todos</option>
+                  <option value="">Todos os cartões</option>
                   {finais.map((final) => (
                     <option key={final} value={final}>
-                      Final {final}
+                      •••• {final}
                     </option>
                   ))}
                 </select>
               </Field>
+
             )}
           </div>
           {selecionados.length > 0 && !jaConfirmada && !foraDeControle && (
