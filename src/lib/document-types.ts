@@ -240,7 +240,7 @@ export function buildTypeStats(
       aprovados: meus.filter((c) => c.resultado === "APROVADO").length,
       comErro: meus.filter((c) => c.resultado === "FALHOU" || c.resultado === "REGRESSAO").length,
       aguardando: meus.filter((c) => c.resultado === "AGUARDANDO_TESTE" || c.resultado === "EM_TESTE").length,
-      ultimoTeste: datas.length > 0 ? datas[datas.length - 1] : null,
+      ultimoTeste: datas.length > 0 ? (datas[datas.length - 1] ?? null) : null,
     };
   });
 }
