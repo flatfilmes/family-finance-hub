@@ -78,6 +78,7 @@ function MembroPage() {
   const { data: cards } = useCreditCards(family?.id);
 
   const [tab, setTab] = useState<Tab>("Dados pessoais");
+  const [cadastro, setCadastro] = useState<"receita" | "conta" | "cartao" | null>(null);
   const [nome, setNome] = useState("");
   const [relacionamento, setRelacionamento] = useState("");
 
