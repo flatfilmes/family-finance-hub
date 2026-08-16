@@ -29,10 +29,10 @@ export type BudgetProgress = {
 };
 
 /** Compara budgets.valor_planejado com o total de expenses.valor do mês de referência. */
-export function useBudgetProgress(familyId?: string, monthArg?: string) {
+export function useBudgetProgress(familyId?: string, monthArg?: string, memberId = "") {
   const month = monthArg ?? currentMonth();
   const budgets = useBudgets(familyId, month);
-  const expenses = useExpenses(familyId, { month });
+  const expenses = useExpenses(familyId, { month, ...(memberId ? { memberId } : {}) });
   const categories = useExpenseCategories();
 
   const gastoPorCategoria = new Map<string, number>();
