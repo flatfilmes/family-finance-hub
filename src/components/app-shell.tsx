@@ -110,8 +110,18 @@ export function AppShell({ children }: { children: ReactNode }) {
       )}
 
       <main className="lg:pl-64">
-        <div className="mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12">{children}</div>
+        {/* Telas técnicas (diagnóstico de parser) usam toda a largura disponível. */}
+        <div
+          className={
+            larguraTotal
+              ? "w-full max-w-none px-0 py-0"
+              : "mx-auto w-full max-w-5xl px-5 py-8 sm:px-8 sm:py-12"
+          }
+        >
+          {children}
+        </div>
       </main>
+
     </div>
   );
 }
