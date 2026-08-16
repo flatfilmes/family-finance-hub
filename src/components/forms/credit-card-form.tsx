@@ -3,13 +3,26 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
+import { FormActions } from "@/components/form-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { createCreditCard } from "@/lib/finance";
 
 const clampDay = (v: string) => Math.min(31, Math.max(1, Number(v) || 1));
 
 /** Cadastro de cartão de crédito dentro do perfil financeiro de um membro. */
-export function CreditCardForm({ familyId, memberId }: { familyId: string; memberId: string }) {
+export function CreditCardForm({
+  familyId,
+  memberId,
+  onSaved,
+  onCancel,
+}: {
+  familyId: string;
+  memberId: string;
+  /** Chamado após salvar — usado para fechar o diálogo de cadastro. */
+  onSaved?: () => void;
+  /** Quando informado, o formulário usa o rodapé padrão Salvar / Cancelar. */
+  onCancel?: () => void;
+}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [banco, setBanco] = useState("");
@@ -35,6 +48,7 @@ export function CreditCardForm({ familyId, memberId }: { familyId: string; membe
       setNomeCartao("");
       setLimite("");
       toast.success("Cartão cadastrado.");
+      onSaved?.();
       queryClient.invalidateQueries({ queryKey: ["credit-cards", familyId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -95,14 +109,20 @@ export function CreditCardForm({ familyId, memberId }: { familyId: string; membe
           />
         </Field>
       </div>
-      <div className="flex items-end">
-        <PrimaryButton type="submit" disabled={create.isPending}>
-          <span className="inline-flex items-center gap-1.5">
-            <Plus className="size-4" />
-            {create.isPending ? "Salvando..." : "Adicionar cartão"}
-          </span>
-        </PrimaryButton>
-      </div>
+      {onCancel ? (
+        <div className="sm:col-span-2">
+          <FormActions onCancel={onCancel} saving={create.isPending} saveLabel="Salvar cartão" />
+        </div>
+      ) : (
+        <div className="flex items-end">
+          <PrimaryButton type="submit" disabled={create.isPending}>
+            <span className="inline-flex items-center gap-1.5">
+              <Plus className="size-4" />
+              {create.isPending ? "Salvando..." : "Adicionar cartão"}
+            </span>
+          </PrimaryButton>
+        </div>
+      )}
     </form>
   );
 }

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
+import { FormActions } from "@/components/form-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import {
   INCOME_FREQUENCY_LABELS,
@@ -13,7 +14,19 @@ import {
 } from "@/lib/finance";
 
 /** Cadastro de receita dentro do perfil financeiro de um membro. */
-export function IncomeForm({ familyId, memberId }: { familyId: string; memberId: string }) {
+export function IncomeForm({
+  familyId,
+  memberId,
+  onSaved,
+  onCancel,
+}: {
+  familyId: string;
+  memberId: string;
+  /** Chamado após salvar — usado para fechar o diálogo de cadastro. */
+  onSaved?: () => void;
+  /** Quando informado, o formulário usa o rodapé padrão Salvar / Cancelar. */
+  onCancel?: () => void;
+}) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [descricao, setDescricao] = useState("");
@@ -39,6 +52,7 @@ export function IncomeForm({ familyId, memberId }: { familyId: string; memberId:
       setValor("");
       setDataRecebimento("");
       toast.success("Receita cadastrada.");
+      onSaved?.();
       queryClient.invalidateQueries({ queryKey: ["incomes", familyId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -107,14 +121,20 @@ export function IncomeForm({ familyId, memberId }: { familyId: string; memberId:
           onChange={(e) => setDataRecebimento(e.target.value)}
         />
       </Field>
-      <div className="flex items-end">
-        <PrimaryButton type="submit" disabled={create.isPending}>
-          <span className="inline-flex items-center gap-1.5">
-            <Plus className="size-4" />
-            {create.isPending ? "Salvando..." : "Adicionar receita"}
-          </span>
-        </PrimaryButton>
-      </div>
+      {onCancel ? (
+        <div className="sm:col-span-2">
+          <FormActions onCancel={onCancel} saving={create.isPending} saveLabel="Salvar receita" />
+        </div>
+      ) : (
+        <div className="flex items-end">
+          <PrimaryButton type="submit" disabled={create.isPending}>
+            <span className="inline-flex items-center gap-1.5">
+              <Plus className="size-4" />
+              {create.isPending ? "Salvando..." : "Adicionar receita"}
+            </span>
+          </PrimaryButton>
+        </div>
+      )}
     </form>
   );
 }
