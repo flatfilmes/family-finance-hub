@@ -657,6 +657,8 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
       ambiguo: e.ambiguo,
       card_last4: e.card_last4,
     })));
+    console.debug("[ITAU_PDF] blocos", blocos);
+    console.debug("[ITAU_PDF] rejeitadas", rejeitadas);
   }
 
   return {
@@ -672,9 +674,12 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     entries,
     futuras,
     subtotais,
+    blocos,
+    rejeitadas,
     metadata,
     linhas: textos,
   };
+
 }
 
 export function parseItauLayout(pages: PdfPageLayout[]): ParsedStatement {
