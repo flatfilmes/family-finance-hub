@@ -1007,7 +1007,7 @@ export function auditToCsv(audit: BankAudit) {
     linhas.push([
       "Mês",
       m.key,
-      `Inicial ${m.openingBalance ?? ""} · Entradas ${m.inflows} · Saídas ${m.outflows} · PDF ${m.movimentosPdf} · Ledger ${m.movimentosLedger} · Checkpoints ${m.checkpoints}`,
+      `Inicial ${m.openingBalance ?? ""} · Entradas ${m.inflows} · Saídas ${m.outflows} · PDF ${m.movimentosPdf} · Ledger ${m.movimentosLedger} · Checkpoints PDF ${m.checkpointsPdf} · Persistidos ${m.checkpoints} · Conferem ${m.checkpointsConferem}`,
       String(m.difference ?? ""),
       MONTH_STATUS_LABELS[m.status],
     ]);
