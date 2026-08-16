@@ -451,12 +451,14 @@ function RevisarFaturaPage() {
           <ul className="mt-2 divide-y divide-border">
             {filtradas.map((item) => {
               const compraVinculada = comprasDoCartao.find((p) => p.id === item.purchase_id_matched);
+              const acao = resolveReviewAction(item);
+              const escolha = userChoice(item);
               return (
                 <li key={item.id} className="py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        {item.match_status === "UNMATCHED" && !jaConfirmada && (
+                        {!jaConfirmada && (
                           <input
                             type="checkbox"
                             checked={selecionados.includes(item.id)}
@@ -465,12 +467,7 @@ function RevisarFaturaPage() {
                           />
                         )}
                         <p className="truncate text-sm font-bold">{item.descricao_original}</p>
-                        <StatusBadge tone={REVIEW_CLASS_TONES[classifyReviewItem(item)]}>
-                          {REVIEW_CLASS_LABELS[classifyReviewItem(item)]}
-                        </StatusBadge>
-                        <StatusBadge tone={MATCH_TONES[item.match_status]}>
-                          {MATCH_LABELS[item.match_status]}
-                        </StatusBadge>
+                        <StatusBadge tone={ACTION_TONES[acao]}>{ACTION_BADGES[acao]}</StatusBadge>
                         {item.tipo_sugerido !== "COMPRA" && (
                           <StatusBadge tone="muted">{KIND_LABELS[item.tipo_sugerido]}</StatusBadge>
                         )}
@@ -527,16 +524,17 @@ function RevisarFaturaPage() {
                           Diferença: {formatCurrency(Math.abs(Number(item.diferenca) || 0))}
                         </p>
                       )}
-                      {item.match_status === "UNMATCHED" && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Este lançamento ainda não existe no sistema.
-                        </p>
-                      )}
-                      {item.match_status === "POSSIBLE_MATCH" && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Encontramos uma possível correspondência.
-                        </p>
-                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">{ACTION_HELP[acao]}</p>
+                      {acao === "CREATE_PURCHASE" &&
+                        item.parcela_atual &&
+                        item.total_parcelas &&
+                        item.total_parcelas > 1 && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Parcelamento reconhecido a partir de {item.parcela_atual}/
+                            {item.total_parcelas}: as parcelas anteriores são históricas e não serão
+                            criadas.
+                          </p>
+                        )}
 
                       {item.user_action === "ERRO" && (
                         <p className="mt-1 text-xs font-semibold text-destructive">
