@@ -640,7 +640,9 @@ function Compras() {
           </p>
         ) : (
           <ul className="mt-4 divide-y divide-border">
-            {lista.map((p) => (
+            {lista.map((p) => {
+              const parcela = parcelaDaCompra(p.id);
+              return (
               <li key={p.id} className="py-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <button
@@ -650,7 +652,14 @@ function Compras() {
                   >
                     <ChevronRight className="size-4 text-muted-foreground" />
                     <span>
-                      <span className="block text-sm font-semibold">{p.estabelecimento}</span>
+                      <span className="flex items-center gap-2 text-sm font-semibold">
+                        {p.estabelecimento}
+                        {parcela && (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
+                            {parcela.numero_parcela}/{parcela.total_parcelas}
+                          </span>
+                        )}
+                      </span>
                       <span className="block text-xs text-muted-foreground">
                         {formatDate(p.data_compra)} · {memberName(p.member_id)} ·{" "}
                         {PAYMENT_METHOD_LABELS[p.forma_pagamento]} ·{" "}
@@ -663,7 +672,17 @@ function Compras() {
                   >
                     {PAYMENT_STATUS_LABELS[p.status_pagamento]}
                   </span>
-                  <span className="text-sm font-bold">{formatCurrency(Number(p.valor_total))}</span>
+                  <span className="text-right">
+                    <span className="block text-sm font-bold">
+                      {formatCurrency(parcela ? parcela.valor_parcela : Number(p.valor_total))}
+                    </span>
+                    {parcela && (
+                      <span className="block text-xs text-muted-foreground">
+                        Total da compra: {formatCurrency(Number(p.valor_total))}
+                      </span>
+                    )}
+                  </span>
+
                   {view.podeLancar && (
                     <button
                       aria-label={`Excluir compra em ${p.estabelecimento}`}
