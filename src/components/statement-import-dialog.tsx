@@ -49,6 +49,7 @@ export function StatementImportDialog({
   const [parsed, setParsed] = useState<ParsedStatement | null>(null);
   const [duplicata, setDuplicata] = useState<{ id: string; created_at: string } | null>(null);
   const [erro, setErro] = useState("");
+  const [detalheTecnico, setDetalheTecnico] = useState("");
 
   const cartao = cards.find((c) => c.id === cardId) ?? null;
   const ocupado = ler.isPending || criar.isPending || checarDuplicata.isPending;
