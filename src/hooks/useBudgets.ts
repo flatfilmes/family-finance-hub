@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { budgetStatus, fetchBudgets, monthToRef, type BudgetStatus } from "@/lib/budgets";
 import { currentMonth } from "@/lib/expenses";
-import { useExpenseCategories, useExpenses } from "@/hooks/useExpenses";
+import { useExpenseCategories } from "@/hooks/useExpenses";
+import { useCategorySpending } from "@/hooks/useSpendingSummary";
+import { SEM_CATEGORIA } from "@/lib/spending-categories";
 
 export function useBudgets(familyId?: string, month?: string) {
   const ref = month ? monthToRef(month) : undefined;
@@ -23,18 +25,19 @@ export type BudgetProgress = {
   status: BudgetStatus;
 };
 
-/** Compara budgets.valor_planejado com o total de expenses.valor do mês de referência. */
+/**
+ * Compara budgets.valor_planejado com o consumo real da competência.
+ * Fonte única: purchases + purchase_items (a tabela legada `expenses` não é mais usada).
+ */
 export function useBudgetProgress(familyId?: string, monthArg?: string, memberId = "") {
   const month = monthArg ?? currentMonth();
   const budgets = useBudgets(familyId, month);
-  const expenses = useExpenses(familyId, { month, ...(memberId ? { memberId } : {}) });
+  const consumo = useCategorySpending(familyId, month, memberId);
   const categories = useExpenseCategories();
 
-  const gastoPorCategoria = new Map<string, number>();
-  for (const e of expenses.data ?? []) {
-    const key = e.categoria_id ?? "sem-categoria";
-    gastoPorCategoria.set(key, (gastoPorCategoria.get(key) ?? 0) + (Number(e.valor) || 0));
-  }
+  const gastoPorCategoria = new Map<string, number>(
+    (consumo.data ?? []).map((c) => [c.categoriaId, c.total]),
+  );
 
   const items: BudgetProgress[] = (budgets.data ?? []).map((b) => {
     const planejado = Number(b.valor_planejado) || 0;
