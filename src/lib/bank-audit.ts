@@ -951,7 +951,10 @@ export function buildBankAudit(input: {
       extratos: extratos.length,
       mesesComContinuidade: continuidade.filter((c) => c.confere).length,
       totalTransicoes: continuidade.length,
-      mesesValidados: meses.filter((m) => m.status === "VALIDADO").length,
+      mesesValidados: meses.filter(
+        (m) => m.status === "VALIDADO_COMPLETO" || m.status === "VALIDADO_MENSAL",
+      ).length,
+      mesesValidadosCompletos: meses.filter((m) => m.status === "VALIDADO_COMPLETO").length,
       totalMeses: meses.length,
       mesesComDivergencia: meses.filter(
         (m) => m.status === "DIVERGENCIA_DIARIA" || m.status === "DIVERGENCIA_FINAL",
