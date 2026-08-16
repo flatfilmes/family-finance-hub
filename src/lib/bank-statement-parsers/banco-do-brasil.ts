@@ -332,7 +332,9 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
   let secao: Secao = "MOVIMENTOS";
   let ultimaData: string | null = null;
   let saldoInicial: number | null = null;
+  let saldoInicialData: string | null = null;
   let saldoFinal: number | null = null;
+  let saldoFinalData: string | null = null;
 
 
   for (let i = 0; i < linhas.length; i++) {
@@ -382,7 +384,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     const ehSaldo = ehSaldoMetadata(descricao);
     // Linha de saldo NUNCA pega data por geometria: "Saldo do dia" pertence ao
     // último dia lançado antes dele (o PDF não repete a data nessa linha).
-    const data = ehSaldo
+    const data: string | null = ehSaldo
       ? dataNaLinha ?? ultimaData
       : dataNaLinha ?? datasRecuperadas.get(i) ?? null;
     if (data && !ehSaldo) ultimaData = data;
