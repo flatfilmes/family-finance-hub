@@ -554,39 +554,31 @@ function RevisarFaturaPage() {
 
                   {!jaConfirmada && item.user_action !== "CONCLUIDO" && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {(item.match_status === "POSSIBLE_MATCH" ||
-                        item.match_status === "MATCHED") && (
+                      {acao === "IGNORE" ? (
+                        <AcaoBotao onClick={() => definirAcao(item, null)}>Desfazer</AcaoBotao>
+                      ) : (
+                        <AcaoBotao onClick={() => definirAcao(item, "IGNORE")}>Ignorar</AcaoBotao>
+                      )}
+                      {(item.purchase_id_matched ||
+                        item.installment_id_matched ||
+                        item.recurring_expense_id_matched) &&
+                        acao !== "ASSOCIATE_EXISTING" && (
+                          <AcaoBotao
+                            onClick={() => definirAcao(item, "ASSOCIATE_EXISTING")}
+                            ativo={escolha === "ASSOCIATE_EXISTING"}
+                          >
+                            Associar à compra encontrada
+                          </AcaoBotao>
+                        )}
+                      {acao !== "CREATE_PURCHASE" && item.tipo_sugerido === "COMPRA" && (
                         <AcaoBotao
-                          onClick={() => setStatus(item, { match_status: "MATCHED" })}
-                          ativo={item.match_status === "MATCHED"}
+                          onClick={() => definirAcao(item, "CREATE_PURCHASE")}
+                          ativo={escolha === "CREATE_PURCHASE"}
                         >
-                          Confirmar correspondência
+                          Criar separadamente
                         </AcaoBotao>
                       )}
-                      {item.match_status !== "IGNORED" && (
-                        <AcaoBotao onClick={() => setStatus(item, { match_status: "IGNORED" })}>
-                          Ignorar
-                        </AcaoBotao>
-                      )}
-                      {item.match_status === "IGNORED" && (
-                        <AcaoBotao onClick={() => setStatus(item, { match_status: "UNMATCHED" })}>
-                          Reativar
-                        </AcaoBotao>
-                      )}
-                      {item.match_status !== "MATCHED" && item.tipo_sugerido === "COMPRA" && (
-                        <AcaoBotao
-                          onClick={() =>
-                            setStatus(item, {
-                              match_status: "CONFIRMED_NEW",
-                              decisao: item.match_status === "DIVERGENT" ? "CRIAR_NOVO" : null,
-                            })
-                          }
-                          ativo={item.match_status === "CONFIRMED_NEW"}
-                        >
-                          Criar compra
-                        </AcaoBotao>
-                      )}
-                      {item.match_status === "DIVERGENT" && (
+                      {item.match_status === "DIVERGENT" && acao === "POSSIBLE_MATCH" && (
                         <>
                           <AcaoBotao
                             onClick={() => setStatus(item, { decisao: "USAR_VALOR_FATURA" })}
@@ -602,28 +594,28 @@ function RevisarFaturaPage() {
                           </AcaoBotao>
                         </>
                       )}
-                      {item.match_status !== "MATCHED" && (
-                        <select
-                          className="rounded-full border border-input bg-background px-3 py-1.5 text-xs"
-                          value={item.purchase_id_matched ?? ""}
-                          onChange={(e) =>
-                            setStatus(item, {
-                              purchase_id_matched: e.target.value || null,
-                              match_status: e.target.value ? "MATCHED" : "UNMATCHED",
-                            })
-                          }
-                        >
-                          <option value="">Associar manualmente…</option>
-                          {comprasDoCartao.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {formatDate(p.data_compra)} · {p.estabelecimento} ·{" "}
-                              {formatCurrency(Number(p.valor_total))}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                      <select
+                        className="rounded-full border border-input bg-background px-3 py-1.5 text-xs"
+                        value={item.purchase_id_matched ?? ""}
+                        onChange={(e) =>
+                          setStatus(item, {
+                            purchase_id_matched: e.target.value || null,
+                            match_status: e.target.value ? "MATCHED" : "UNMATCHED",
+                            decisao: e.target.value ? "ASSOCIATE_EXISTING" : null,
+                          })
+                        }
+                      >
+                        <option value="">Associar a outra compra…</option>
+                        {comprasDoCartao.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {formatDate(p.data_compra)} · {p.estabelecimento} ·{" "}
+                            {formatCurrency(Number(p.valor_total))}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
+
                 </li>
               );
             })}
