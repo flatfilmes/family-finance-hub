@@ -522,6 +522,8 @@ export function buildBankAudit(input: {
     let saldo = abertura ?? 0;
     let inflows = 0;
     let outflows = 0;
+    // Cronologia estrita: cada dia soma APENAS os seus próprios lançamentos e
+    // encadeia o saldo do dia anterior — nada de movimento posterior entra aqui.
     const days: AuditDay[] = [...porDia.keys()].sort().map((date) => {
       const lista = porDia.get(date)!;
       const entradas = arredonda(lista.reduce((acc, t) => acc + Math.max(movementEffect(t), 0), 0));
@@ -536,12 +538,15 @@ export function buildBankAudit(input: {
       return {
         date,
         openingBalance,
-        inflows,
-        outflows,
+        inflows: entradas,
+        outflows: saidas,
+        inflowsAcumuladas: inflows,
+        outflowsAcumuladas: outflows,
         calculated,
         reported: informado,
         difference,
         confere: difference === null ? null : Math.abs(difference) <= CONFERE,
+        origem: informado === null ? ("CALCULATED_ONLY" as const) : ("CHECKPOINT" as const),
         transactions: lista,
       };
     });
@@ -574,11 +579,20 @@ export function buildBankAudit(input: {
     }
 
     const checkpointsDoMes = input.checkpoints.filter((c) => c.data.slice(0, 7) === key).length;
+    const checkpointsConferem = days.filter((d) => d.confere === true).length;
+    // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
+    const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
     const movimentosPdf = (itensPorMes.get(key) ?? []).length;
     const faltantes = faltantesPorMes.get(key) ?? [];
     const mismatches = mismatchPorMes.get(key) ?? [];
 
     const invalidas = mismatches.filter((m) => m.invalido);
+
+    // Fechar o mês NÃO valida o mês: só há validação completa quando todos os
+    // "Saldo do dia" do documento foram processados e todos conferem.
+    const checkpointsCompletos =
+      checkpointsDoMes > 0 && (checkpointsPdf === 0 || checkpointsDoMes >= checkpointsPdf);
+    const todosConferem = checkpointsDoMes > 0 && checkpointsConferem >= checkpointsDoMes;
 
     // Ordem de diagnóstico: primeiro o que quebra o saldo, depois o que só
     // atrapalha a leitura. Categoria e associação nunca invalidam o mês.
@@ -596,7 +610,11 @@ export function buildBankAudit(input: {
                 ? "CHECKPOINTS_AUSENTES"
                 : mismatches.length
                   ? "DATAS_INCONSISTENTES"
-                  : "VALIDADO";
+                  : !checkpointsCompletos
+                    ? "CHECKPOINTS_INCOMPLETOS"
+                    : todosConferem
+                      ? "VALIDADO_COMPLETO"
+                      : "VALIDADO_MENSAL";
 
     return {
       key,
@@ -620,6 +638,8 @@ export function buildBankAudit(input: {
       datasInconsistentes: mismatches,
       associacoesInvalidas: invalidas,
       checkpoints: checkpointsDoMes,
+      checkpointsPdf,
+      checkpointsConferem,
       primeiraDivergencia,
     };
   });
