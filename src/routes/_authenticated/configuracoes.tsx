@@ -88,125 +88,196 @@ function Configuracoes() {
 
   return (
     <div>
-      <PageHeader title="Configurações" subtitle="Seus dados pessoais e acesso à conta." />
+      <PageHeader
+        title="Configurações"
+        subtitle="Central de cadastro e administração: família, estrutura financeira e sistema."
+      />
 
-      <Card className="max-w-xl">
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save.mutate();
-          }}
-        >
-          <Field label="Nome completo">
-            <input
-              required
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="Telefone (opcional)">
-            <input
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-              className={inputClass}
-            />
-          </Field>
-          <Field label="E-mail">
-            <input value={profile?.email ?? user?.email ?? ""} disabled className={inputClass} />
-          </Field>
-          <PrimaryButton type="submit" disabled={save.isPending}>
-            {save.isPending ? "Salvando..." : "Salvar alterações"}
-          </PrimaryButton>
-        </form>
-      </Card>
-
-      {family && (
-        <Card className="mt-4 max-w-xl">
-          <h2 className="text-base font-bold">Parâmetros financeiros</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Usados pelo cálculo de quanto a família pode gastar.
-          </p>
-          <form
-            className="mt-4 space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveSettings.mutate();
-            }}
+      <div className="mb-5 flex flex-wrap gap-2">
+        {SECOES.map((s) => (
+          <button
+            key={s}
+            onClick={() => setSecao(s)}
+            className={
+              s === secao
+                ? "rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground"
+                : "rounded-full border border-border px-4 py-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+            }
           >
-            <Field label="Percentual de reserva (%)">
-              <input
-                required
-                type="number"
-                min={0}
-                max={100}
-                step="1"
-                value={reserva}
-                onChange={(e) => setReserva(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <Field label="Limite de alerta do cartão (% do limite)">
-              <input
-                required
-                type="number"
-                min={0}
-                max={100}
-                step="1"
-                value={alertaCartao}
-                onChange={(e) => setAlertaCartao(e.target.value)}
-                className={inputClass}
-              />
-            </Field>
-            <PrimaryButton type="submit" disabled={saveSettings.isPending}>
-              {saveSettings.isPending ? "Salvando..." : "Salvar parâmetros"}
-            </PrimaryButton>
-          </form>
-        </Card>
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {secao === "Família e membros" && (
+        <>
+          <FamilyAdmin />
+          <Card className="mt-4">
+            <h2 className="text-base font-bold">Perfis e permissões</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              O perfil financeiro (Administrador familiar, Membro, Dependente, Visualizador) e a
+              permissão de acesso de cada pessoa são definidos dentro de “Gerenciar perfil” →
+              Dados pessoais.
+            </p>
+          </Card>
+        </>
       )}
 
-      <Card className="mt-4 max-w-xl">
-        <h2 className="text-base font-bold">Cadastros da família</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Perfil financeiro da família e contas fixas compartilhadas.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            to="/perfil-financeiro"
-            className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            Perfil financeiro
-          </Link>
-          <Link
-            to="/contas-fixas"
-            className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            Contas fixas
-          </Link>
-        </div>
-      </Card>
+      {secao === "Estrutura financeira" && (
+        <>
+          <Card>
+            <h2 className="text-base font-bold">Receitas, contas e cartões</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Cada receita, conta bancária e cartão pertence a uma pessoa. O cadastro é feito no
+              perfil do membro; o uso (movimentação, fatura e análise) fica nas páginas Bancos,
+              Cartões e Dashboard.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {(members ?? []).map((m) => (
+                <Link
+                  key={m.id}
+                  to="/membro/$memberId"
+                  params={{ memberId: m.id }}
+                  className="rounded-2xl border border-border px-4 py-3 transition-colors hover:bg-muted"
+                >
+                  <p className="text-sm font-bold">{m.nome}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Receitas · Contas bancárias · Cartões
+                  </p>
+                </Link>
+              ))}
+              {(members ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Cadastre membros em “Família e membros”.
+                </p>
+              )}
+            </div>
+          </Card>
 
-      <DemoModeCard />
+          <Card className="mt-4 max-w-xl">
+            <h2 className="text-base font-bold">Cadastros da família</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Perfil financeiro da família e contas fixas compartilhadas.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link
+                to="/perfil-financeiro"
+                className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+              >
+                Perfil financeiro
+              </Link>
+              <Link
+                to="/contas-fixas"
+                className="rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+              >
+                Contas fixas
+              </Link>
+            </div>
+          </Card>
 
-      <DocumentLibraryCard />
+          {family && (
+            <Card className="mt-4 max-w-xl">
+              <h2 className="text-base font-bold">Parâmetros financeiros</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Usados pelo cálculo de quanto a família pode gastar.
+              </p>
+              <form
+                className="mt-4 space-y-4"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveSettings.mutate();
+                }}
+              >
+                <Field label="Percentual de reserva (%)">
+                  <input
+                    required
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="1"
+                    value={reserva}
+                    onChange={(e) => setReserva(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <Field label="Limite de alerta do cartão (% do limite)">
+                  <input
+                    required
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="1"
+                    value={alertaCartao}
+                    onChange={(e) => setAlertaCartao(e.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+                <PrimaryButton type="submit" disabled={saveSettings.isPending}>
+                  {saveSettings.isPending ? "Salvando..." : "Salvar parâmetros"}
+                </PrimaryButton>
+              </form>
+            </Card>
+          )}
+        </>
+      )}
 
-      <Card className="mt-4 max-w-xl">
+      {secao === "Sistema" && (
+        <>
+          <Card className="max-w-xl">
+            <h2 className="text-base font-bold">Preferências pessoais</h2>
+            <form
+              className="mt-4 space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                save.mutate();
+              }}
+            >
+              <Field label="Nome completo">
+                <input
+                  required
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="Telefone (opcional)">
+                <input
+                  value={telefone}
+                  onChange={(e) => setTelefone(e.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+              <Field label="E-mail">
+                <input value={profile?.email ?? user?.email ?? ""} disabled className={inputClass} />
+              </Field>
+              <PrimaryButton type="submit" disabled={save.isPending}>
+                {save.isPending ? "Salvando..." : "Salvar alterações"}
+              </PrimaryButton>
+            </form>
+          </Card>
 
-        <h2 className="text-base font-bold">Conta</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Encerre sua sessão neste dispositivo.
-        </p>
-        <button
-          onClick={handleSignOut}
-          className="mt-4 rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-        >
-          Sair da conta
-        </button>
-      </Card>
+          <DemoModeCard />
+
+          <DocumentLibraryCard />
+
+          <Card className="mt-4 max-w-xl">
+            <h2 className="text-base font-bold">Segurança e conta</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Encerre sua sessão neste dispositivo.
+            </p>
+            <button
+              onClick={handleSignOut}
+              className="mt-4 rounded-full border border-border px-6 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
+            >
+              Sair da conta
+            </button>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
+
 
 function DemoModeCard() {
   const { ativo, activeFamily, demoFamilies, isLoading } = useDemoMode();
