@@ -243,6 +243,8 @@ export function StatementImportDialog({
           )}
         </div>
       </div>
+      {diagnostico && <PdfDiagnosticDialog onClose={() => setDiagnostico(false)} />}
     </div>
+
   );
 }
