@@ -1412,7 +1412,7 @@ export async function confirmStatementImport(input: {
        */
       const criarCompra = async (opcoes: {
         valorItem: number;
-        natureza: "COMPRA" | "TAXA" | "CREDITO";
+        natureza: "COMPRA" | "TAXA" | "CREDITO" | "RECORRENTE";
       }) => {
         const parcelado =
           opcoes.natureza === "COMPRA" &&
@@ -1431,9 +1431,11 @@ export async function confirmStatementImport(input: {
             ? " Encargo/taxa lançado pela fatura — não é consumo."
             : opcoes.natureza === "CREDITO"
               ? " Crédito/estorno lançado pela fatura."
-              : parcelado
-                ? ` Parcelamento reconhecido a partir da parcela ${item.parcela_atual}/${item.total_parcelas} (parcelas anteriores são históricas).`
-                : "";
+              : opcoes.natureza === "RECORRENTE"
+                ? " Assinatura reconhecida na revisão: a cobrança se repete nas próximas faturas."
+                : parcelado
+                  ? ` Parcelamento reconhecido a partir da parcela ${item.parcela_atual}/${item.total_parcelas} (parcelas anteriores são históricas).`
+                  : "";
 
         const itens: NewPurchaseItem[] = [
           {
@@ -1461,7 +1463,12 @@ export async function confirmStatementImport(input: {
               new Date().toISOString().slice(0, 10),
             forma_pagamento: "CREDITO",
             credit_card_id: card.id,
-            tipo_compra: parcelado ? "COMPRA_PARCELADA" : "COMPRA_NORMAL",
+            tipo_compra:
+              opcoes.natureza === "RECORRENTE"
+                ? "COMPRA_RECORRENTE"
+                : parcelado
+                  ? "COMPRA_PARCELADA"
+                  : "COMPRA_NORMAL",
             observacao: `Criada a partir da fatura importada (${importacao.nome_arquivo}).${nota}`,
           },
           items: itens,
@@ -1475,6 +1482,7 @@ export async function confirmStatementImport(input: {
             : {}),
         });
       };
+
 
       const associar = async () => {
         const alvo = item.installment_id_matched
