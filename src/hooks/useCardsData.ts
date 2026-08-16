@@ -1,0 +1,96 @@
+import { useMemo } from "react";
+import { useCreditCards } from "@/hooks/useFinanceData";
+import { useCardInvoices, useCardOverview, useInstallments } from "@/hooks/useCardInvoices";
+import { usePurchases } from "@/hooks/usePurchases";
+import { useExpenses } from "@/hooks/useExpenses";
+import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
+import {
+  linhasDaFatura,
+  parcelamentosAtivos,
+  proximasObrigacoes,
+  utilizadoDoCartao,
+} from "@/lib/card-details";
+import type { CardInvoice } from "@/lib/card-invoices";
+import type { Expense } from "@/lib/expenses";
+import type { Purchase } from "@/lib/purchases";
+
+/**
+ * Dados de crédito compartilhados entre a lista de cartões e a página de detalhe.
+ * Os cálculos são exatamente os mesmos em qualquer tela — só a apresentação muda.
+ */
+export function useCardsData(familyId?: string) {
+  const cards = useCreditCards(familyId);
+  const overview = useCardOverview(familyId, cards.data ?? []);
+  const purchases = usePurchases(familyId);
+  const despesas = useExpenses(familyId);
+  const faturas = useCardInvoices(familyId);
+  const parcelas = useInstallments(familyId);
+  const recorrentes = useRecurringExpenses(familyId);
+
+  const despesaPorId = useMemo(() => {
+    const m = new Map<string, Expense>();
+    for (const e of despesas.data ?? []) m.set(e.id, e);
+    return m;
+  }, [despesas.data]);
+
+  const compraPorId = useMemo(() => {
+    const m = new Map<string, Purchase>();
+    for (const p of purchases.data ?? []) m.set(p.id, p);
+    return m;
+  }, [purchases.data]);
+
+  /** Compras que já viraram parcelas na fatura — não podem ser somadas de novo. */
+  const comprasComParcelas = useMemo(
+    () => new Set((despesas.data ?? []).map((e) => e.purchase_id).filter(Boolean) as string[]),
+    [despesas.data],
+  );
+
+  const info = (cardId: string) => overview.porCartao.find((o) => o.card.id === cardId);
+  const comprasDoCartao = (cardId: string) =>
+    (purchases.data ?? []).filter((p) => p.credit_card_id === cardId);
+  const faturasDoCartao = (cardId: string) =>
+    (faturas.data ?? []).filter((i) => i.credit_card_id === cardId);
+  const recorrenciasDoCartao = (cardId: string) =>
+    (recorrentes.data ?? []).filter((r) => r.credit_card_id === cardId);
+  const parcelasDoCartao = (cardId: string) => {
+    const ids = new Set(faturasDoCartao(cardId).map((i) => i.id));
+    return (parcelas.data ?? []).filter((p) => p.card_invoice_id && ids.has(p.card_invoice_id));
+  };
+
+  return {
+    isLoading: cards.isLoading,
+    cards: cards.data ?? [],
+    info,
+    faturasDoCartao,
+    recorrenciasDoCartao,
+    parcelasDoCartao,
+    utilizadoDe: (cardId: string) =>
+      utilizadoDoCartao({
+        utilizadoParcelas: info(cardId)?.utilizado ?? 0,
+        comprasDoCartao: comprasDoCartao(cardId),
+        comprasComParcelas,
+      }),
+    linhasDe: (cardId: string, invoice: CardInvoice | null) =>
+      linhasDaFatura({
+        invoice,
+        parcelas: parcelas.data ?? [],
+        comprasDoCartao: comprasDoCartao(cardId),
+        comprasComParcelas,
+        despesaPorId,
+        compraPorId,
+      }),
+    proximasDe: (cardId: string) =>
+      proximasObrigacoes({
+        parcelas: parcelas.data ?? [],
+        faturas: faturasDoCartao(cardId),
+        recorrencias: recorrenciasDoCartao(cardId),
+      }),
+    parcelamentosDe: (cardId: string) =>
+      parcelamentosAtivos({
+        parcelas: parcelas.data ?? [],
+        faturas: faturasDoCartao(cardId),
+        despesaPorId,
+        compraPorId,
+      }),
+  };
+}

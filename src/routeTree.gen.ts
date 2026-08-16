@@ -13,8 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as AuthenticatedBancosRouteImport } from './routes/_authenticated/bancos'
-import { Route as AuthenticatedCartoesRouteImport } from './routes/_authenticated/cartoes'
 import { Route as AuthenticatedComprasRouteImport } from './routes/_authenticated/compras'
 import { Route as AuthenticatedConfiguracoesRouteImport } from './routes/_authenticated/configuracoes'
 import { Route as AuthenticatedContasFixasRouteImport } from './routes/_authenticated/contas-fixas'
@@ -25,6 +23,10 @@ import { Route as AuthenticatedPerfilFinanceiroRouteImport } from './routes/_aut
 import { Route as AuthenticatedPlanejamentoRouteImport } from './routes/_authenticated/planejamento'
 import { Route as AuthenticatedReceitasRouteImport } from './routes/_authenticated/receitas'
 import { Route as AuthenticatedRelatoriosRouteImport } from './routes/_authenticated/relatorios'
+import { Route as AuthenticatedBancosIndexRouteImport } from './routes/_authenticated/bancos.index'
+import { Route as AuthenticatedBancosAccountIdRouteImport } from './routes/_authenticated/bancos.$accountId'
+import { Route as AuthenticatedCartoesIndexRouteImport } from './routes/_authenticated/cartoes.index'
+import { Route as AuthenticatedCartoesCardIdRouteImport } from './routes/_authenticated/cartoes.$cardId'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -45,16 +47,6 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
-} as any)
-const AuthenticatedBancosRoute = AuthenticatedBancosRouteImport.update({
-  id: '/bancos',
-  path: '/bancos',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedCartoesRoute = AuthenticatedCartoesRouteImport.update({
-  id: '/cartoes',
-  path: '/cartoes',
-  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedComprasRoute = AuthenticatedComprasRouteImport.update({
   id: '/compras',
@@ -111,6 +103,30 @@ const AuthenticatedRelatoriosRoute = AuthenticatedRelatoriosRouteImport.update({
   path: '/relatorios',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBancosIndexRoute =
+  AuthenticatedBancosIndexRouteImport.update({
+    id: '/bancos/',
+    path: '/bancos/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedBancosAccountIdRoute =
+  AuthenticatedBancosAccountIdRouteImport.update({
+    id: '/bancos/$accountId',
+    path: '/bancos/$accountId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCartoesIndexRoute =
+  AuthenticatedCartoesIndexRouteImport.update({
+    id: '/cartoes/',
+    path: '/cartoes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedCartoesCardIdRoute =
+  AuthenticatedCartoesCardIdRouteImport.update({
+    id: '/cartoes/$cardId',
+    path: '/cartoes/$cardId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedMembroMemberIdRoute =
   AuthenticatedMembroMemberIdRouteImport.update({
     id: '/membro/$memberId',
@@ -122,8 +138,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/bancos': typeof AuthenticatedBancosRoute
-  '/cartoes': typeof AuthenticatedCartoesRoute
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
@@ -134,14 +148,16 @@ export interface FileRoutesByFullPath {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
+  '/bancos/': typeof AuthenticatedBancosIndexRoute
+  '/cartoes/': typeof AuthenticatedCartoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/bancos': typeof AuthenticatedBancosRoute
-  '/cartoes': typeof AuthenticatedCartoesRoute
   '/compras': typeof AuthenticatedComprasRoute
   '/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/contas-fixas': typeof AuthenticatedContasFixasRoute
@@ -152,7 +168,11 @@ export interface FileRoutesByTo {
   '/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/receitas': typeof AuthenticatedReceitasRoute
   '/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
+  '/bancos': typeof AuthenticatedBancosIndexRoute
+  '/cartoes': typeof AuthenticatedCartoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -160,8 +180,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/_authenticated/bancos': typeof AuthenticatedBancosRoute
-  '/_authenticated/cartoes': typeof AuthenticatedCartoesRoute
   '/_authenticated/compras': typeof AuthenticatedComprasRoute
   '/_authenticated/configuracoes': typeof AuthenticatedConfiguracoesRoute
   '/_authenticated/contas-fixas': typeof AuthenticatedContasFixasRoute
@@ -172,7 +190,11 @@ export interface FileRoutesById {
   '/_authenticated/planejamento': typeof AuthenticatedPlanejamentoRoute
   '/_authenticated/receitas': typeof AuthenticatedReceitasRoute
   '/_authenticated/relatorios': typeof AuthenticatedRelatoriosRoute
+  '/_authenticated/bancos/$accountId': typeof AuthenticatedBancosAccountIdRoute
+  '/_authenticated/cartoes/$cardId': typeof AuthenticatedCartoesCardIdRoute
   '/_authenticated/membro/$memberId': typeof AuthenticatedMembroMemberIdRoute
+  '/_authenticated/bancos/': typeof AuthenticatedBancosIndexRoute
+  '/_authenticated/cartoes/': typeof AuthenticatedCartoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,8 +202,6 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/reset-password'
-    | '/bancos'
-    | '/cartoes'
     | '/compras'
     | '/configuracoes'
     | '/contas-fixas'
@@ -192,14 +212,16 @@ export interface FileRouteTypes {
     | '/planejamento'
     | '/receitas'
     | '/relatorios'
+    | '/bancos/$accountId'
+    | '/cartoes/$cardId'
     | '/membro/$memberId'
+    | '/bancos/'
+    | '/cartoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/reset-password'
-    | '/bancos'
-    | '/cartoes'
     | '/compras'
     | '/configuracoes'
     | '/contas-fixas'
@@ -210,15 +232,17 @@ export interface FileRouteTypes {
     | '/planejamento'
     | '/receitas'
     | '/relatorios'
+    | '/bancos/$accountId'
+    | '/cartoes/$cardId'
     | '/membro/$memberId'
+    | '/bancos'
+    | '/cartoes'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/reset-password'
-    | '/_authenticated/bancos'
-    | '/_authenticated/cartoes'
     | '/_authenticated/compras'
     | '/_authenticated/configuracoes'
     | '/_authenticated/contas-fixas'
@@ -229,7 +253,11 @@ export interface FileRouteTypes {
     | '/_authenticated/planejamento'
     | '/_authenticated/receitas'
     | '/_authenticated/relatorios'
+    | '/_authenticated/bancos/$accountId'
+    | '/_authenticated/cartoes/$cardId'
     | '/_authenticated/membro/$memberId'
+    | '/_authenticated/bancos/'
+    | '/_authenticated/cartoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -268,20 +296,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_authenticated/bancos': {
-      id: '/_authenticated/bancos'
-      path: '/bancos'
-      fullPath: '/bancos'
-      preLoaderRoute: typeof AuthenticatedBancosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/cartoes': {
-      id: '/_authenticated/cartoes'
-      path: '/cartoes'
-      fullPath: '/cartoes'
-      preLoaderRoute: typeof AuthenticatedCartoesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/compras': {
       id: '/_authenticated/compras'
@@ -353,6 +367,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRelatoriosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos/': {
+      id: '/_authenticated/bancos/'
+      path: '/bancos'
+      fullPath: '/bancos/'
+      preLoaderRoute: typeof AuthenticatedBancosIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/bancos/$accountId': {
+      id: '/_authenticated/bancos/$accountId'
+      path: '/bancos/$accountId'
+      fullPath: '/bancos/$accountId'
+      preLoaderRoute: typeof AuthenticatedBancosAccountIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cartoes/': {
+      id: '/_authenticated/cartoes/'
+      path: '/cartoes'
+      fullPath: '/cartoes/'
+      preLoaderRoute: typeof AuthenticatedCartoesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/cartoes/$cardId': {
+      id: '/_authenticated/cartoes/$cardId'
+      path: '/cartoes/$cardId'
+      fullPath: '/cartoes/$cardId'
+      preLoaderRoute: typeof AuthenticatedCartoesCardIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/membro/$memberId': {
       id: '/_authenticated/membro/$memberId'
       path: '/membro/$memberId'
@@ -364,8 +406,6 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedBancosRoute: typeof AuthenticatedBancosRoute
-  AuthenticatedCartoesRoute: typeof AuthenticatedCartoesRoute
   AuthenticatedComprasRoute: typeof AuthenticatedComprasRoute
   AuthenticatedConfiguracoesRoute: typeof AuthenticatedConfiguracoesRoute
   AuthenticatedContasFixasRoute: typeof AuthenticatedContasFixasRoute
@@ -376,12 +416,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPlanejamentoRoute: typeof AuthenticatedPlanejamentoRoute
   AuthenticatedReceitasRoute: typeof AuthenticatedReceitasRoute
   AuthenticatedRelatoriosRoute: typeof AuthenticatedRelatoriosRoute
+  AuthenticatedBancosAccountIdRoute: typeof AuthenticatedBancosAccountIdRoute
+  AuthenticatedCartoesCardIdRoute: typeof AuthenticatedCartoesCardIdRoute
   AuthenticatedMembroMemberIdRoute: typeof AuthenticatedMembroMemberIdRoute
+  AuthenticatedBancosIndexRoute: typeof AuthenticatedBancosIndexRoute
+  AuthenticatedCartoesIndexRoute: typeof AuthenticatedCartoesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedBancosRoute: AuthenticatedBancosRoute,
-  AuthenticatedCartoesRoute: AuthenticatedCartoesRoute,
   AuthenticatedComprasRoute: AuthenticatedComprasRoute,
   AuthenticatedConfiguracoesRoute: AuthenticatedConfiguracoesRoute,
   AuthenticatedContasFixasRoute: AuthenticatedContasFixasRoute,
@@ -392,7 +434,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPlanejamentoRoute: AuthenticatedPlanejamentoRoute,
   AuthenticatedReceitasRoute: AuthenticatedReceitasRoute,
   AuthenticatedRelatoriosRoute: AuthenticatedRelatoriosRoute,
+  AuthenticatedBancosAccountIdRoute: AuthenticatedBancosAccountIdRoute,
+  AuthenticatedCartoesCardIdRoute: AuthenticatedCartoesCardIdRoute,
   AuthenticatedMembroMemberIdRoute: AuthenticatedMembroMemberIdRoute,
+  AuthenticatedBancosIndexRoute: AuthenticatedBancosIndexRoute,
+  AuthenticatedCartoesIndexRoute: AuthenticatedCartoesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
