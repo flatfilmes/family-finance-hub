@@ -138,6 +138,7 @@ function Compras() {
   const [filtroPagamento, setFiltroPagamento] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroMes, setFiltroMes] = useState("");
+  const [filtroFatura, setFiltroFatura] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<PaymentFilter>("");
   const [detalhe, setDetalhe] = useState<string | null>(null);
   const [pagando, setPagando] = useState<Purchase | null>(null);
