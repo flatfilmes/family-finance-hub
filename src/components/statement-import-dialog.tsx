@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { Bug, FileUp, Loader2, ShieldCheck, Sparkles } from "lucide-react";
+import { FileUp, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { Field, PrimaryButton, inputClass } from "@/components/page-header";
-import { PdfDiagnosticDialog } from "@/components/pdf-diagnostic-dialog";
+import { PdfDiagnosticButton } from "@/components/pdf-diagnostic/pdf-diagnostic-button";
+import { cardStatementDryRun } from "@/lib/card-statement-parsers/diagnostic";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useExpenseCategories } from "@/hooks/useExpenses";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -47,10 +48,6 @@ export function StatementImportDialog({
   const [parsed, setParsed] = useState<ParsedStatement | null>(null);
   const [duplicata, setDuplicata] = useState<{ id: string; created_at: string } | null>(null);
   const [erro, setErro] = useState("");
-  const [diagnostico, setDiagnostico] = useState(false);
-
-  /** Ferramenta técnica: só em desenvolvimento ou família demo, e sempre para admin. */
-  const podeDiagnosticar = perms.isAdmin && (import.meta.env.DEV || !!family?.is_demo);
 
   const cartao = cards.find((c) => c.id === cardId) ?? null;
   const ocupado = ler.isPending || criar.isPending || checarDuplicata.isPending;
@@ -203,15 +200,12 @@ export function StatementImportDialog({
         {erro && <p className="mt-3 text-sm font-semibold text-destructive">{erro}</p>}
 
         <div className="mt-5 flex flex-wrap items-center justify-end gap-2">
-          {podeDiagnosticar && (
-            <button
-              type="button"
-              onClick={() => setDiagnostico(true)}
-              className="mr-auto inline-flex items-center gap-2 rounded-full border border-border px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-accent"
-            >
-              <Bug className="size-4" /> Modo diagnóstico PDF
-            </button>
-          )}
+          <PdfDiagnosticButton
+            source="CARD_STATEMENT"
+            parserDryRun={cardStatementDryRun}
+            file={file}
+            className="mr-auto"
+          />
           <button
             type="button"
             onClick={onClose}
@@ -243,7 +237,6 @@ export function StatementImportDialog({
           )}
         </div>
       </div>
-      {diagnostico && <PdfDiagnosticDialog onClose={() => setDiagnostico(false)} />}
     </div>
 
   );
