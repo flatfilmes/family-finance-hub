@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   advanceRecurringExpense,
+  cancelRecurringExpense,
+  reactivateRecurringExpense,
   deleteRecurringExpense,
   fetchRecurringExpenses,
   toggleRecurringExpense,
@@ -36,5 +38,15 @@ export function useRecurringExpenseActions(familyId?: string) {
     onSuccess: invalidate,
   });
 
-  return { toggle, remove, advance };
+  const cancel = useMutation({
+    mutationFn: (id: string) => cancelRecurringExpense(id),
+    onSuccess: invalidate,
+  });
+
+  const reactivate = useMutation({
+    mutationFn: (id: string) => reactivateRecurringExpense(id),
+    onSuccess: invalidate,
+  });
+
+  return { toggle, remove, advance, cancel, reactivate };
 }

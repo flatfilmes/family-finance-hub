@@ -289,6 +289,8 @@ export async function createPurchase(input: {
         dataCompra: purchase.data_compra,
         valorTotal,
         parcelas,
+        memberId: purchase.member_id,
+        purchaseId: purchase.id,
       });
     }
   }
@@ -305,6 +307,7 @@ export async function createPurchase(input: {
       nome: purchase.estabelecimento,
       valor: valorTotal,
       periodicidade: input.periodicidade ?? "MENSAL",
+      data_inicio: purchase.data_compra,
       proxima_cobranca: nextChargeDate(purchase.data_compra, input.periodicidade ?? "MENSAL"),
     });
     if (recError) throw recError;
