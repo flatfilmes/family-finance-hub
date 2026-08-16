@@ -1,14 +1,18 @@
 import {
   cycleForDate,
-  upcomingInstallmentMonths,
   type CardInvoice,
   type ExpenseInstallment,
 } from "@/lib/card-invoices";
-import { chargesInMonths, type RecurringExpense } from "@/lib/recurring-expenses";
+import { type RecurringExpense } from "@/lib/recurring-expenses";
+import {
+  recurringOccurrencesForCycle,
+  type RecurringOccurrence,
+} from "@/lib/card-recurrences";
 import type { Purchase } from "@/lib/purchases";
 import type { CreditCard } from "@/lib/finance";
 import type { Expense } from "@/lib/expenses";
 import { isStatementConfirmed } from "@/lib/card-statements";
+
 
 export type Kind = "normais" | "parceladas" | "recorrentes";
 
