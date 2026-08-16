@@ -156,7 +156,7 @@ export function PurchaseDetail({ purchase, onClose }: { purchase: Purchase; onCl
                         {formatCurrency(Number(i.valor_total))}
                       </td>
                       <td className="py-2">
-                        {podeEditarCategoria ? (
+                        {podeEditarCategoria && (categorias ?? []).length > 0 ? (
                           <select
                             aria-label={`Categoria de ${i.descricao_produto}`}
                             value={i.categoria_id ?? ""}
@@ -183,6 +183,7 @@ export function PurchaseDetail({ purchase, onClose }: { purchase: Purchase; onCl
                           </span>
                         )}
                       </td>
+
                     </tr>
                   ))}
                 </tbody>
