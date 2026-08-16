@@ -37,13 +37,6 @@ export type RawPdfDump = {
   items: RawTextItem[];
 };
 
-/** Agrupamento apenas por proximidade de Y — sem qualquer leitura de negócio. */
-export type RawVisualLine = {
-  page: number;
-  y: number;
-  items: { text: string; x: number; width: number }[];
-};
-
 const round = (n: number) => Math.round(n * 1000) / 1000;
 
 /** Lê o PDF e devolve todos os TextItem com posição, sem concatenar nada. */
@@ -110,22 +103,6 @@ export function sortPositional(items: RawTextItem[]): RawTextItem[] {
   );
 }
 
-/** Agrupa somente por proximidade de Y, mantendo a ordem horizontal real. */
-export function rawVisualLines(items: RawTextItem[], tolerancia = 3): RawVisualLine[] {
-  const mapa = new Map<string, RawVisualLine>();
-  for (const it of items) {
-    const chave = `${it.page}:${Math.round(it.y / tolerancia) * tolerancia}`;
-    const linha =
-      mapa.get(chave) ??
-      ({ page: it.page, y: Math.round(it.y / tolerancia) * tolerancia, items: [] } as RawVisualLine);
-    linha.items.push({ text: it.text, x: it.x, width: it.width });
-    mapa.set(chave, linha);
-  }
-  return [...mapa.values()]
-    .map((l) => ({ ...l, items: l.items.sort((a, b) => a.x - b.x) }))
-    .sort((a, b) => a.page - b.page || b.y - a.y);
-}
-
 /** NDJSON: marcador de página seguido dos itens daquela página. */
 export function dumpToNdjson(dump: RawPdfDump, items: RawTextItem[]): string {
   const linhas: string[] = [];
@@ -134,14 +111,4 @@ export function dumpToNdjson(dump: RawPdfDump, items: RawTextItem[]): string {
     for (const it of items.filter((i) => i.page === pagina.page)) linhas.push(JSON.stringify(it));
   }
   return linhas.join("\n");
-}
-
-/** NDJSON das linhas visuais (um objeto por linha). */
-export function linesToNdjson(dump: RawPdfDump, linhas: RawVisualLine[]): string {
-  const saida: string[] = [];
-  for (const pagina of dump.pages) {
-    saida.push(JSON.stringify(pagina));
-    for (const l of linhas.filter((x) => x.page === pagina.page)) saida.push(JSON.stringify(l));
-  }
-  return saida.join("\n");
 }
