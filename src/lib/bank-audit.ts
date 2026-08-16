@@ -21,6 +21,12 @@
  */
 import type { Transaction } from "@/lib/transactions";
 import { movementEffect } from "@/lib/bank-ledger";
+import {
+  groupCheckpointsByImport,
+  resolveStatementPeriod,
+  type ResolvedStatementPeriod,
+  type StatementPeriodOrigin,
+} from "@/lib/bank-statements/period";
 
 export type Severity = "CRITICO" | "ATENCAO" | "PENDENCIA" | "INFORMATIVO";
 
@@ -104,6 +110,13 @@ export type StatementPeriod = {
   nomeArquivo: string;
   inicio: string | null;
   fim: string | null;
+  /** Mês que nomeia o extrato — vem do período, nunca do saldo anterior. */
+  mesReferencia: string | null;
+  /** Data do saldo anterior (OPENING_CHECKPOINT) — metadata fora do período. */
+  aberturaData: string | null;
+  origemPeriodo: StatementPeriodOrigin;
+  /** Saldos do dia DENTRO do período (o de abertura não entra). */
+  checkpointsDiarios: number;
   saldoInicial: number | null;
   saldoFinal: number | null;
   quantidade: number;
@@ -289,6 +302,8 @@ export type BankAudit = {
     movimentosLedger: number;
     faltantes: number;
     datasInconsistentes: number;
+    /** Comparações descartadas por usarem a data do saldo anterior. */
+    datasIgnoradasAbertura: number;
     associacoesInvalidas: number;
     semAssociacao: number;
     semCategoria: number;
@@ -335,15 +350,40 @@ function diffDays(a: string, b: string) {
 /**
  * Data escondida no texto do histórico (ex.: "Pix - Enviado 26/01 12:45").
  * É METADATA: nunca substitui a data contábil, apenas sinaliza inconsistência.
+ *
+ * Sem ano no texto, o ano é inferido pelo PERÍODO do extrato — na virada de
+ * ano, "31/12" pertence ao ano anterior e "04/01" ao ano do fechamento.
  */
-function dataNoHistorico(descricao: string, anoBase: string): string | null {
+function dataNoHistorico(
+  descricao: string,
+  periodoInicio: string,
+  periodoFim: string,
+): string | null {
   const m = descricao.match(/(\d{2})\/(\d{2})(?:\/(\d{2,4}))?/);
   if (!m) return null;
   const dia = m[1]!;
   const mes = m[2]!;
-  const ano = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : anoBase;
-  const iso = `${ano}-${mes}-${dia}`;
-  return /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
+  const valida = (iso: string) =>
+    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(iso) ? iso : null;
+
+  if (m[3]) {
+    const ano = m[3].length === 2 ? `20${m[3]}` : m[3];
+    return valida(`${ano}-${mes}-${dia}`);
+  }
+
+  const anos = [...new Set([periodoInicio.slice(0, 4), periodoFim.slice(0, 4)])];
+  const candidatos = anos
+    .map((ano) => valida(`${ano}-${mes}-${dia}`))
+    .filter((iso): iso is string => !!iso);
+  if (!candidatos.length) return null;
+  // Ano mais próximo do período do extrato.
+  const distancia = (iso: string) =>
+    iso < periodoInicio
+      ? Math.abs(diffDays(iso, periodoInicio))
+      : iso > periodoFim
+        ? Math.abs(diffDays(periodoFim, iso))
+        : 0;
+  return candidatos.sort((a, b) => distancia(a) - distancia(b))[0]!;
 }
 
 export function buildBankAudit(input: {
@@ -361,7 +401,7 @@ export function buildBankAudit(input: {
     /** Evidência do documento relido: saldos do dia encontrados no PDF. */
     dados_brutos_json?: unknown;
   }[];
-  checkpoints: { data: string; saldo: number }[];
+  checkpoints: { data: string; saldo: number; importId?: string | null }[];
   /** Lançamentos lidos dos PDFs — evidência do documento. */
   statementItems?: StatementItemInput[];
   /** Compras vinculadas, para saber o que está sem categoria. */
@@ -373,23 +413,36 @@ export function buildBankAudit(input: {
   /** Saldo de referência informado pelo titular (cadastro da conta). */
   saldoReferencia?: { saldo: number; data: string } | null;
 }): BankAudit {
+  const checkpointsPorImport = groupCheckpointsByImport(input.checkpoints);
+  const periodoPorImport = new Map<string, ResolvedStatementPeriod>();
+
   const extratos: StatementPeriod[] = input.imports
     .filter((i) => i.status !== "CANCELLED" && i.status !== "ERROR")
-    .map((i) => ({
-      id: i.id,
-      nomeArquivo: i.nome_arquivo,
-      inicio: i.periodo_inicio,
-      fim: i.periodo_fim,
-      saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
-      saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
-      quantidade: i.quantidade_lancamentos ?? 0,
-      checkpointsPdf: Array.isArray(
-        (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
-      )
-        ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
-        : 0,
-      status: i.status,
-    }))
+    .map((i) => {
+      // O período NUNCA vem da data do saldo anterior: é o período do
+      // documento (ou, para importações antigas, os saldos do dia).
+      const periodo = resolveStatementPeriod(i, checkpointsPorImport.get(i.id) ?? []);
+      periodoPorImport.set(i.id, periodo);
+      return {
+        id: i.id,
+        nomeArquivo: i.nome_arquivo,
+        inicio: periodo.inicio,
+        fim: periodo.fim,
+        mesReferencia: periodo.mesReferencia,
+        aberturaData: periodo.aberturaData,
+        origemPeriodo: periodo.origem,
+        checkpointsDiarios: periodo.checkpointsDiarios.length,
+        saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
+        saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
+        quantidade: i.quantidade_lancamentos ?? 0,
+        checkpointsPdf: Array.isArray(
+          (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
+        )
+          ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
+          : 0,
+        status: i.status,
+      };
+    })
     .sort((a, b) => String(a.inicio ?? "").localeCompare(String(b.inicio ?? "")));
 
   const daConta = input.transactions
@@ -424,10 +477,10 @@ export function buildBankAudit(input: {
     const sobreposicao = proximo.inicio! <= anterior.fim!;
 
     // Extratos mensais consecutivos cobrem o mês inteiro mesmo quando o PDF
-    // começa no primeiro dia COM movimento. Só há lacuna real quando falta um
-    // mês inteiro entre os dois documentos.
-    const mesAnterior = anterior.fim!.slice(0, 7);
-    const mesProximo = proximo.inicio!.slice(0, 7);
+    // começa no primeiro dia COM movimento. A distância é medida entre os
+    // MESES DE REFERÊNCIA dos documentos — nunca entre datas de saldo anterior.
+    const mesAnterior = anterior.mesReferencia ?? anterior.fim!.slice(0, 7);
+    const mesProximo = proximo.mesReferencia ?? proximo.inicio!.slice(0, 7);
     const mesesDeDistancia =
       (Number(mesProximo.slice(0, 4)) - Number(mesAnterior.slice(0, 4))) * 12 +
       (Number(mesProximo.slice(5, 7)) - Number(mesAnterior.slice(5, 7)));
@@ -453,22 +506,30 @@ export function buildBankAudit(input: {
   }
 
   // ---------- evidência do documento (itens lidos do PDF) ----------
+  const extratoPorId = new Map(extratos.map((e) => [e.id, e]));
   const itens = (input.statementItems ?? []).filter(
     (i) => !SEM_EFEITO.includes(String(i.review_action ?? "")),
   );
+  /** O mês de um item é o do EXTRATO que o originou, nunca o da sua data. */
+  const mesDoItem = (it: StatementItemInput) =>
+    extratoPorId.get(it.import_id)?.mesReferencia ?? it.data_movimento?.slice(0, 7) ?? "";
+
   const itensPorMes = new Map<string, StatementItemInput[]>();
   for (const it of itens) {
-    if (!it.data_movimento) continue;
-    const key = it.data_movimento.slice(0, 7);
+    const key = mesDoItem(it);
+    if (!key) continue;
     itensPorMes.set(key, [...(itensPorMes.get(key) ?? []), it]);
   }
 
   const datasInconsistentes: DateMismatch[] = [];
   const faltantesPorMes = new Map<string, MissingMovement[]>();
   const mismatchPorMes = new Map<string, DateMismatch[]>();
+  /** Comparações descartadas por a data do item ser o saldo anterior. */
+  let datasIgnoradasAbertura = 0;
 
   for (const it of itens) {
-    const mes = it.data_movimento?.slice(0, 7) ?? "";
+    const mes = mesDoItem(it);
+    const extrato = extratoPorId.get(it.import_id) ?? null;
     const valor = Number(it.valor) || 0;
     const compra = it.purchase_id_criada ?? it.purchase_id_matched ?? null;
     const ligada = it.transaction_id_criada ?? it.transaction_id_matched ?? null;
@@ -494,18 +555,35 @@ export function buildBankAudit(input: {
       continue;
     }
 
-    if (it.data_movimento && tx.data_movimento !== it.data_movimento) {
+    // A comparação de datas é posting_date do item × data do ledger.
+    // A data do SALDO ANTERIOR (fora do período) nunca serve de referência.
+    const postingDate = it.data_movimento;
+    const dataDeAbertura = !!postingDate && !!extrato?.aberturaData && postingDate === extrato.aberturaData;
+    const dentroDoPeriodo =
+      !!postingDate &&
+      (!extrato?.inicio || postingDate >= extrato.inicio) &&
+      (!extrato?.fim || postingDate <= extrato.fim);
+
+    if (postingDate && (dataDeAbertura || !dentroDoPeriodo)) {
+      datasIgnoradasAbertura += 1;
+      continue;
+    }
+
+    if (postingDate && tx.data_movimento !== postingDate) {
       const mismatch: DateMismatch = {
         itemId: it.id,
         transactionId: tx.id,
         descricao: it.descricao_original,
         valor,
-        dataExtrato: it.data_movimento,
+        dataExtrato: postingDate,
         dataLedger: tx.data_movimento,
-        dataNoHistorico: dataNoHistorico(it.descricao_original, it.data_movimento.slice(0, 4)),
-        diasDeDiferenca: diffDays(it.data_movimento, tx.data_movimento),
-        invalido:
-          Math.abs(diffDays(it.data_movimento, tx.data_movimento)) > TOLERANCIA_MATCH_DIAS,
+        dataNoHistorico: dataNoHistorico(
+          it.descricao_original,
+          extrato?.inicio ?? postingDate,
+          extrato?.fim ?? postingDate,
+        ),
+        diasDeDiferenca: diffDays(postingDate, tx.data_movimento),
+        invalido: Math.abs(diffDays(postingDate, tx.data_movimento)) > TOLERANCIA_MATCH_DIAS,
       };
       datasInconsistentes.push(mismatch);
       mismatchPorMes.set(mes, [...(mismatchPorMes.get(mes) ?? []), mismatch]);
@@ -513,18 +591,34 @@ export function buildBankAudit(input: {
   }
 
   // ---------- auditoria mensal e diária ----------
-  const checkpointPorDia = new Map(input.checkpoints.map((c) => [c.data, c.saldo]));
+  // Somente saldos diários DENTRO do período entram na conferência: o saldo
+  // anterior é opening checkpoint, não um "Saldo do dia" do mês.
+  const checkpointPorDia = new Map<string, number>();
+  const checkpointsDiariosPorMes = new Map<string, number>();
+  for (const e of extratos) {
+    const resolvido = periodoPorImport.get(e.id);
+    if (!resolvido) continue;
+    for (const c of resolvido.checkpointsDiarios) {
+      checkpointPorDia.set(c.data, c.saldo);
+      const key = e.mesReferencia ?? c.data.slice(0, 7);
+      checkpointsDiariosPorMes.set(key, (checkpointsDiariosPorMes.get(key) ?? 0) + 1);
+    }
+  }
+
+  /** Extrato cujo período cobre a data — define o mês do movimento. */
+  const mesDaData = (data: string) =>
+    comPeriodo.find((e) => data >= e.inicio! && data <= e.fim!)?.mesReferencia ?? null;
+
   const mesesKeys = new Set<string>();
-  for (const e of comPeriodo) mesesKeys.add(e.inicio!.slice(0, 7));
-  for (const t of daConta) mesesKeys.add(t.data_movimento.slice(0, 7));
+  for (const e of comPeriodo) if (e.mesReferencia) mesesKeys.add(e.mesReferencia);
+  for (const t of daConta) mesesKeys.add(mesDaData(t.data_movimento) ?? t.data_movimento.slice(0, 7));
 
   const meses: AuditMonth[] = [...mesesKeys].sort().map((key) => {
-    const doMes = daConta.filter((t) => t.data_movimento.slice(0, 7) === key);
-    // Um extrato cobre o mês quando o período do documento o intersecta —
-    // não apenas quando começa nele.
-    const importsDoMes = comPeriodo.filter(
-      (e) => e.inicio!.slice(0, 7) <= key && (e.fim ?? e.inicio!).slice(0, 7) >= key,
+    // Movimento pertence ao mês do EXTRATO que cobre a sua data.
+    const doMes = daConta.filter(
+      (t) => (mesDaData(t.data_movimento) ?? t.data_movimento.slice(0, 7)) === key,
     );
+    const importsDoMes = comPeriodo.filter((e) => e.mesReferencia === key);
     const abertura = importsDoMes[0]?.saldoInicial ?? null;
     const reported = importsDoMes[importsDoMes.length - 1]?.saldoFinal ?? null;
 
@@ -597,7 +691,8 @@ export function buildBankAudit(input: {
       }
     }
 
-    const checkpointsDoMes = input.checkpoints.filter((c) => c.data.slice(0, 7) === key).length;
+    // Só saldos diários do período contam (o saldo anterior fica de fora).
+    const checkpointsDoMes = checkpointsDiariosPorMes.get(key) ?? 0;
     const checkpointsConferem = days.filter((d) => d.confere === true).length;
     // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
     const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
@@ -724,7 +819,14 @@ export function buildBankAudit(input: {
     const pareceCartao = t.tipo === "PAGAMENTO_CARTAO" || /CARTAO|CARTÃO/i.test(t.descricao ?? "");
     if (pareceCartao && (!t.card_invoice_id || !invoiceIds.has(t.card_invoice_id))) {
       // A data que vale é a contábil (coluna "Dia"); a do histórico é só pista.
-      const doHistorico = dataNoHistorico(t.descricao ?? "", t.data_movimento.slice(0, 4));
+      const periodoDoMovimento = comPeriodo.find(
+        (e) => t.data_movimento >= e.inicio! && t.data_movimento <= e.fim!,
+      );
+      const doHistorico = dataNoHistorico(
+        t.descricao ?? "",
+        periodoDoMovimento?.inicio ?? t.data_movimento,
+        periodoDoMovimento?.fim ?? t.data_movimento,
+      );
       pagamentosCartaoSemFatura.push({
         transaction: t,
         dataNoHistorico: doHistorico,
@@ -993,11 +1095,12 @@ export function buildBankAudit(input: {
         (acc, m) => acc + m.days.filter((d) => d.confere === false).length,
         0,
       ),
-      checkpoints: input.checkpoints.length,
+      checkpoints: meses.reduce((acc, m) => acc + m.checkpoints, 0),
       movimentosPdf: meses.reduce((acc, m) => acc + m.movimentosPdf, 0),
       movimentosLedger: meses.reduce((acc, m) => acc + m.movimentosLedger, 0),
       faltantes: meses.reduce((acc, m) => acc + m.faltantes.length, 0),
       datasInconsistentes: datasInconsistentes.length,
+      datasIgnoradasAbertura,
       associacoesInvalidas: datasInconsistentes.filter((d) => d.invalido).length,
       semAssociacao: semAssociacao.length,
       semCategoria: semCategoria.length,
