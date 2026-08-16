@@ -723,7 +723,13 @@ export function buildBankAudit(input: {
     }
     const pareceCartao = t.tipo === "PAGAMENTO_CARTAO" || /CARTAO|CARTÃO/i.test(t.descricao ?? "");
     if (pareceCartao && (!t.card_invoice_id || !invoiceIds.has(t.card_invoice_id))) {
-      pagamentosCartaoSemFatura.push(t);
+      // A data que vale é a contábil (coluna "Dia"); a do histórico é só pista.
+      const doHistorico = dataNoHistorico(t.descricao ?? "", t.data_movimento.slice(0, 4));
+      pagamentosCartaoSemFatura.push({
+        transaction: t,
+        dataNoHistorico: doHistorico,
+        dataDivergente: !!doHistorico && doHistorico !== t.data_movimento,
+      });
     }
   }
 
