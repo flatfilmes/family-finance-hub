@@ -33,6 +33,33 @@ import {
   type FinancialDocument,
   type PurchaseImport,
 } from "@/lib/documents";
+import type { Confianca } from "@/lib/pdf-extract";
+
+const CONFIANCA_LABELS: Record<Confianca, string> = {
+  ALTA: "Confiança alta",
+  MEDIA: "Confiança média",
+  BAIXA: "Confiança baixa",
+};
+
+const CONFIANCA_CLASSES: Record<Confianca, string> = {
+  ALTA: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  MEDIA: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  BAIXA: "bg-muted text-muted-foreground",
+};
+
+function ConfiancaTag({ nivel }: { nivel?: Confianca | undefined }) {
+  if (!nivel) return null;
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${CONFIANCA_CLASSES[nivel]}`}
+    >
+      {CONFIANCA_LABELS[nivel]}
+    </span>
+  );
+}
+
+const NAO_IDENTIFICADO = "Não foi possível identificar este campo.";
+
 
 type Origem = "manual" | "nota" | "qrcode";
 
