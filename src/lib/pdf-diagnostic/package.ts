@@ -11,7 +11,19 @@ export type DiagnosticPackage = {
   rawItems: RawTextItem[];
   visualRows: RawVisualLine[];
   parser: string | null;
+  /** Detecção + parser selecionado, sempre presente quando houve dry run. */
+  detection: {
+    bank: string | null;
+    parser: string | null;
+    version: string | null;
+    status: string | null;
+    error: string | null;
+    stage: string | null;
+    signals: string[];
+    counts: { rawItems: number; rows: number; transactions: number; checkpoints: number } | null;
+  } | null;
   parserOutput: unknown;
+  checkpointTrace: unknown[];
   accepted: unknown[];
   rejected: unknown[];
   metadata: unknown[];
@@ -35,7 +47,20 @@ export function buildDiagnosticPackage(input: {
     rawItems: filtro ? input.dump.items.filter((i) => i.page === filtro) : input.dump.items,
     visualRows: filtro ? input.visualRows.filter((r) => r.page === filtro) : input.visualRows,
     parser: input.parser?.parser ?? null,
+    detection: input.parser
+      ? {
+          bank: input.parser.bank ?? null,
+          parser: input.parser.parser,
+          version: input.parser.version ?? null,
+          status: input.parser.status ?? null,
+          error: input.parser.error ?? null,
+          stage: input.parser.stage ?? null,
+          signals: input.parser.signals ?? [],
+          counts: input.parser.counts ?? null,
+        }
+      : null,
     parserOutput: input.parser?.output ?? null,
+    checkpointTrace: input.parser?.checkpointTrace ?? [],
     accepted: input.parser?.debug?.accepted ?? [],
     rejected: input.parser?.debug?.rejected ?? [],
     metadata: input.parser?.debug?.metadata ?? [],

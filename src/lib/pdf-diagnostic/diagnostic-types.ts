@@ -46,9 +46,34 @@ export type ParserDebug = {
 };
 
 /** Resultado de um parser em modo diagnóstico (dry run, sem persistência). */
+/** Status explícito do pipeline de parsing (nunca silenciosamente nulo). */
+export type ParserDryRunStatus = "OK" | "PARSER_NOT_SELECTED" | "PARSER_EXECUTION_FAILED";
+
+/** Rastreio linha → checkpoint (usado nos extratos bancários). */
+export type ParserCheckpointTrace = {
+  row: string;
+  page?: number | null;
+  status: string;
+  date: string | null;
+  balance: number | null;
+  reason: string;
+};
+
 export type ParserDryRunResult = {
   /** Identificação do parser usado (ex.: ITAU_PDF, NOTA_FISCAL). */
   parser: string;
+  /** Banco/emissor detectado, quando aplicável. */
+  bank?: string | null;
+  /** Versão do parser selecionado. */
+  version?: string | null;
+  status?: ParserDryRunStatus;
+  error?: string | null;
+  /** Etapa em que o pipeline parou, quando parou. */
+  stage?: string | null;
+  /** Sinais de detecção encontrados no documento. */
+  signals?: string[];
+  counts?: { rawItems: number; rows: number; transactions: number; checkpoints: number };
+  checkpointTrace?: ParserCheckpointTrace[];
   /** Saída do parser exatamente como ele devolve hoje. */
   output: unknown;
   debug?: ParserDebug;
