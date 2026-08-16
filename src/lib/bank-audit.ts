@@ -772,7 +772,18 @@ export function buildBankAudit(input: {
   // ---------- problemas encontrados ----------
   const problemas: AuditIssue[] = [];
   for (const m of meses) {
-    if (m.status === "VALIDADO" || m.status === "SEM_EXTRATO") continue;
+    if (m.status === "VALIDADO_COMPLETO" || m.status === "SEM_EXTRATO") continue;
+    if (m.status === "VALIDADO_MENSAL" || m.status === "CHECKPOINTS_INCOMPLETOS") {
+      problemas.push({
+        id: `parcial-${m.key}`,
+        severity: "PENDENCIA",
+        categoria: "QUALIDADE",
+        titulo: `${m.key} — fecha no mês, mas não foi conferido dia a dia`,
+        detalhe: `O saldo final confere, porém ${m.checkpointsConferem} de ${m.checkpoints} saldo(s) diário(s) foram conferidos${m.checkpointsPdf ? ` e o PDF traz ${m.checkpointsPdf}` : ""}. Reenvie o PDF em "Reprocessar checkpoints" para conferir a cronologia completa.`,
+        referencia: m.key,
+      });
+      continue;
+    }
     if (m.status === "INVALID_MATCHES") {
       const ex = m.associacoesInvalidas[0]!;
       problemas.push({
