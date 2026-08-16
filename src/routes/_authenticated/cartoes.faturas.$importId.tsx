@@ -113,7 +113,7 @@ function RevisarFaturaPage() {
     );
   }
 
-  const conta = (status: MatchStatus) => lista.filter((i) => i.match_status === status).length;
+  const resumo = reviewSummary(lista);
   const atuais = lista.filter((i) => i.tipo_sugerido !== "PAGAMENTO");
   const totalExtraido = atuais.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
   const soma = (filtrar: (i: StatementItem) => boolean) =>
@@ -147,7 +147,11 @@ function RevisarFaturaPage() {
 
   const filtradas = lista.filter(
     (i) =>
-      (filtro ? i.match_status === filtro : true) &&
+      (filtro === ""
+        ? true
+        : filtro === "ATENCAO"
+          ? needsAttention(i)
+          : resolveReviewAction(i) === filtro) &&
       (filtroCartao ? i.card_last4 === filtroCartao : true),
   );
 
@@ -168,12 +172,27 @@ function RevisarFaturaPage() {
       atual.includes(id) ? atual.filter((i) => i !== id) : [...atual, id],
     );
 
-  const criarSelecionados = () => {
+  /** Define a ação do lançamento. Ignorar e restaurar são sempre explícitos. */
+  const definirAcao = (item: StatementItem, acao: ReviewAction | null) => {
+    if (acao === null) {
+      setStatus(item, {
+        decisao: null,
+        ...(item.match_status === "IGNORED" ? { match_status: "UNMATCHED" as const } : {}),
+      });
+      return;
+    }
+    setStatus(item, { decisao: acao });
+  };
+
+  const selecionarTodos = () =>
+    setSelecionados(
+      selecionados.length === filtradas.length ? [] : filtradas.map((i) => i.id),
+    );
+
+  const aplicarEmLote = (acao: ReviewAction | null) => {
     for (const id of selecionados) {
       const item = lista.find((i) => i.id === id);
-      if (item && item.match_status === "UNMATCHED") {
-        setStatus(item, { match_status: "CONFIRMED_NEW" });
-      }
+      if (item) definirAcao(item, acao);
     }
     setSelecionados([]);
   };
@@ -193,7 +212,7 @@ function RevisarFaturaPage() {
         memberId: importacao.member_id ?? perms.myMemberId ?? null,
       });
       setResultado(
-        `${r.conciliados} conciliado(s), ${r.criados} compra(s) criada(s), ${r.atualizados} atualizada(s), ${r.ignorados} ignorado(s).`,
+        `${r.criados} compra(s) criada(s), ${r.conciliados} associada(s), ${r.taxas} taxa(s), ${r.creditos} crédito(s)/estorno(s), ${r.atualizados} atualizada(s), ${r.ignorados} ignorado(s).`,
       );
       if (r.erros.length > 0) {
         setErro(
