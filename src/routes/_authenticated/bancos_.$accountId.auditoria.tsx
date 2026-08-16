@@ -470,12 +470,22 @@ function AuditoriaContaPage() {
                 Pagamento de cartão sem fatura associada
               </p>
               <ul className="space-y-1.5">
-                {audit.pagamentosCartaoSemFatura.map((t) => (
-                  <li key={t.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate">
-                      {formatDate(t.data_movimento)} · {t.descricao}
-                    </span>
-                    <span className="font-semibold">{formatCurrency(Number(t.valor))}</span>
+                {audit.pagamentosCartaoSemFatura.map((p) => (
+                  <li key={p.transaction.id} className="text-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="truncate">
+                        {formatDate(p.transaction.data_movimento)} · {p.transaction.descricao}
+                      </span>
+                      <span className="font-semibold">
+                        {formatCurrency(Number(p.transaction.valor))}
+                      </span>
+                    </div>
+                    {p.dataDivergente && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400">
+                        Data contábil {formatDate(p.transaction.data_movimento)} · histórico cita{" "}
+                        {formatDate(p.dataNoHistorico!)}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
