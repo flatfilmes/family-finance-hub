@@ -10,6 +10,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { createPurchase, type NewPurchaseItem } from "@/lib/purchases";
+import { generateInstallments } from "@/lib/card-invoices";
 import { suggestCategoryId } from "@/lib/category-suggest";
 import type { CreditCard } from "@/lib/finance";
 import { normalizeDescricao, type ParsedStatement, type StatementEntry } from "@/lib/card-statement-parsers";
@@ -113,6 +114,42 @@ export function similaridade(a: string, b: string) {
   return (2 * comuns) / (ta.length + tb.length);
 }
 
+/** Texto compacto (só letras e números) para comparar nomes de fornecedor. */
+function compacto(texto: string) {
+  return normalizeDescricao(texto).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Maior trecho em comum entre dois textos compactos. */
+function maiorTrechoComum(a: string, b: string) {
+  let melhor = 0;
+  for (let i = 0; i < a.length; i++) {
+    for (let j = i + melhor + 1; j <= a.length; j++) {
+      if (b.includes(a.slice(i, j))) melhor = j - i;
+      else break;
+    }
+  }
+  return melhor;
+}
+
+/**
+ * Semelhança entre o nome oficial da nota ("NS2.COM INTERNET S.A.") e o nome
+ * impresso na fatura ("MLP*Netshoes-NS2CO"). Além dos tokens, considera o maior
+ * trecho em comum: adquirentes truncam e prefixam nomes de estabelecimento.
+ */
+export function similaridadeFornecedor(a: string, b: string) {
+  const porTokens = similaridade(a, b);
+  const ca = compacto(a);
+  const cb = compacto(b);
+  if (!ca || !cb) return porTokens;
+  const trecho = maiorTrechoComum(ca, cb);
+  // Um trecho longo em comum ("ns2co") é assinatura da marca, mesmo quando o
+  // resto do nome é ruído do adquirente ("MLP*", "S.A.", "INTERNET").
+  const proporcao = trecho / Math.min(ca.length, cb.length);
+  const porTrecho =
+    trecho >= 5 ? Math.max(0.5, proporcao) : trecho === 4 ? Math.max(0.35, proporcao) : 0;
+  return Math.max(porTokens, Math.min(1, porTrecho));
+}
+
 export function diasEntre(a: string | null, b: string | null) {
   if (!a || !b) return 999;
   const da = new Date(`${a}T00:00:00Z`).getTime();
@@ -166,11 +203,12 @@ export async function fetchMatchCandidates(input: {
   const fim = input.fim ?? "2999-12-31";
 
   const [{ data: purchases }, { data: installments }, { data: recurring }] = await Promise.all([
+    // Sem filtro de cartão: a compra pode ter nascido de uma nota fiscal e ainda
+    // não saber por qual cartão foi cobrada (forma de pagamento a definir).
     supabase
       .from("purchases")
       .select("*")
       .eq("family_id", input.familyId)
-      .eq("credit_card_id", input.cardId)
       .gte("data_compra", inicio)
       .lte("data_compra", fim),
     supabase
@@ -213,6 +251,40 @@ export async function fetchMatchCandidates(input: {
   };
 }
 
+
+/**
+ * Procura a compra da nota fiscal correspondente a um lançamento parcelado
+ * da fatura. Só considera compras que ainda não têm parcelamento próprio, e
+ * aceita pequena diferença de arredondamento entre parcela × total e o total.
+ */
+function compraDaNotaFiscal(
+  entry: StatementEntry,
+  candidatos: Candidatos,
+  usados: Set<string>,
+  valorParcela: number,
+) {
+  const total = entry.total_parcelas ?? 0;
+  if (total < 2) return null;
+  const estimado = valorParcela * total;
+  // Distribuição de centavos entre parcelas: 1% do total ou R$ 2,00.
+  const tolerancia = Math.max(200, Math.round(estimado * 0.01));
+  const comParcelamento = new Set(
+    candidatos.installments.map((p) => p.purchase_id).filter(Boolean) as string[],
+  );
+
+  return (
+    candidatos.purchases
+      .filter((p) => !usados.has(`pur:${p.id}`) && !comParcelamento.has(p.id))
+      .map((p) => ({
+        p,
+        sim: similaridadeFornecedor(entry.descricao_original, p.estabelecimento),
+        delta: Math.abs(centavos(Number(p.valor_total)) - estimado),
+        dias: diasEntre(entry.data_lancamento, p.data_compra),
+      }))
+      .filter((c) => c.delta <= tolerancia && c.sim >= 0.35 && c.dias <= 45)
+      .sort((a, b) => b.sim - a.sim || a.delta - b.delta || a.dias - b.dias)[0] ?? null
+  );
+}
 
 /**
  * Classifica um lançamento da fatura contra o que já existe no sistema.
@@ -313,6 +385,20 @@ export function matchEntry(
         confidence_score: 0.8,
         installment_id_matched: continuidade.p.id,
         purchase_id_matched: continuidade.p.purchase_id,
+      };
+    }
+
+    // Compra já registrada pela NOTA FISCAL, cobrada parcelada na fatura:
+    // a fatura é a cobrança do mesmo evento econômico, nunca uma compra nova.
+    // Sinal forte: valor da parcela × total de parcelas ≈ valor total da compra.
+    const nf = compraDaNotaFiscal(entry, candidatos, usados, valor);
+    if (nf) {
+      usados.add(`pur:${nf.p.id}`);
+      return {
+        ...vazio,
+        match_status: nf.sim >= 0.6 ? "MATCHED" : "POSSIBLE_MATCH",
+        confidence_score: nf.sim >= 0.6 ? 0.88 : 0.62,
+        purchase_id_matched: nf.p.id,
       };
     }
   }
@@ -897,6 +983,89 @@ async function registrarAuditoria(input: {
   });
 }
 
+/**
+ * A fatura ENRIQUECE a compra da nota fiscal: registra cartão, parcelamento e
+ * a cobrança do ciclo, sem alterar o valor total nem os produtos reais da nota.
+ * Não cria nenhuma compra nova.
+ */
+async function enriquecerCompraComCobranca(input: {
+  purchaseId: string;
+  item: StatementItem;
+  card: CreditCard;
+  userId: string | null;
+}) {
+  const { item, card } = input;
+  const parcelas = item.total_parcelas ?? 1;
+  const parcelaAtual = item.parcela_atual ?? 1;
+  const valorParcela = Math.abs(Number(item.valor) || 0);
+
+  const { data: compra, error } = await supabase
+    .from("purchases")
+    .select("*")
+    .eq("id", input.purchaseId)
+    .single();
+  if (error) throw error;
+
+  // Já existe parcelamento para esta compra: nada a fazer (idempotente).
+  const { data: existentes, error: exError } = await supabase
+    .from("expense_installments")
+    .select("id")
+    .eq("purchase_id", input.purchaseId)
+    .limit(1);
+  if (exError) throw exError;
+  if ((existentes ?? []).length > 0) return;
+
+  const parcelado = parcelas > 1;
+  await supabase
+    .from("purchases")
+    .update({
+      credit_card_id: card.id,
+      forma_pagamento: "CREDITO",
+      bank_account_id: null,
+      ...(parcelado ? { tipo_compra: "COMPRA_PARCELADA" as const } : {}),
+      ...(compra.status_pagamento === "PENDENTE_PAGAMENTO" ||
+      compra.status_pagamento === "PENDENTE"
+        ? { status_pagamento: "COMPROMETIDO" as const }
+        : {}),
+      observacao: `${compra.observacao ?? ""} Cobrança identificada na fatura como "${item.descricao_original}".`.trim(),
+    })
+    .eq("id", input.purchaseId);
+
+  const valorTotal = Number(compra.valor_total) || valorParcela * parcelas;
+  const { data: expense, error: expenseError } = await supabase
+    .from("expenses")
+    .insert({
+      family_id: compra.family_id,
+      member_id: compra.member_id,
+      created_by: input.userId,
+      purchase_id: compra.id,
+      descricao: compra.estabelecimento,
+      valor: valorTotal,
+      data_compra: compra.data_compra,
+      forma_pagamento: "CREDITO",
+      tipo_compra: parcelado ? "PARCELADO" : "CARTAO_CREDITO",
+      cartao_id: card.id,
+      parcelas_total: parcelas,
+      parcela_atual: parcelaAtual,
+    })
+    .select()
+    .single();
+  if (expenseError) throw expenseError;
+
+  await generateInstallments({
+    familyId: compra.family_id,
+    expenseId: expense.id,
+    card,
+    dataCompra: item.data_lancamento ?? compra.data_compra,
+    valorTotal,
+    parcelas,
+    parcelaInicial: parcelaAtual,
+    valorParcela,
+    memberId: compra.member_id,
+    purchaseId: compra.id,
+  });
+}
+
 export type ConfirmResult = {
   conciliados: number;
   criados: number;
@@ -1035,6 +1204,16 @@ export async function confirmStatementImport(input: {
               ? { tipo: "purchase" as const, id: item.purchase_id_matched }
               : null;
         if (!alvo) throw new Error("Sem correspondência escolhida para conciliar.");
+        // Compra da nota fiscal cobrada no cartão: a fatura só acrescenta
+        // cartão, parcelamento e cobrança à compra que já existe.
+        if (alvo.tipo === "purchase" && item.tipo_sugerido === "COMPRA") {
+          await enriquecerCompraComCobranca({
+            purchaseId: alvo.id,
+            item,
+            card,
+            userId: input.userId,
+          });
+        }
         if (!(await jaConciliado(item.id))) {
           await registrarConciliacao({
             familyId: importacao.family_id,

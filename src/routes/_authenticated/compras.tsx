@@ -66,6 +66,7 @@ import { NovaCompraOptions } from "@/components/purchase-capture";
 import { PurchaseDetail } from "@/components/purchase-detail";
 import { VisaoConsumo } from "@/components/purchase-consumption";
 import { DeletePurchaseDialog } from "@/components/purchase-delete";
+import { PossiveisDuplicidades } from "@/components/purchase-duplicates";
 
 export const Route = createFileRoute("/_authenticated/compras")({
   head: () => ({
@@ -817,6 +818,8 @@ function Compras() {
           </ul>
         )}
       </Card>
+
+      <PossiveisDuplicidades purchases={lista} onMerged={invalidateFinanceiro} />
 
       <VisaoConsumo purchaseIds={lista.map((p) => p.id)} />
 

@@ -2580,8 +2580,16 @@ export type Database = {
         Args: { _card_id: string; _venc: string }
         Returns: string
       }
+      find_purchase_duplicate: {
+        Args: { p_purchase_id: string }
+        Returns: Json
+      }
       inspect_purchase_deletion: {
         Args: { p_purchase_id: string }
+        Returns: Json
+      }
+      inspect_purchase_merge: {
+        Args: { p_duplicada: string; p_principal: string }
         Returns: Json
       }
       is_family_admin: {
@@ -2595,6 +2603,10 @@ export type Database = {
       is_own_family_member: {
         Args: { _member_id: string; _user_id: string }
         Returns: boolean
+      }
+      merge_duplicate_purchase: {
+        Args: { p_duplicada: string; p_principal: string }
+        Returns: Json
       }
       pay_card_invoice: {
         Args: { _bank_account_id: string; _data?: string; _invoice_id: string }

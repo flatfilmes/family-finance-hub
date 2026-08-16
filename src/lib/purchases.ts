@@ -453,6 +453,72 @@ export function friendlyDeleteError(message: string) {
   return message;
 }
 
+// ------------------------------------------------------- mesclagem de duplicidade
+
+/**
+ * Nota fiscal e fatura do cartão descrevem o MESMO evento econômico:
+ * a nota traz a compra e os produtos; a fatura traz cartão, parcela e cobrança.
+ * A mesclagem preserva a compra da nota e transfere para ela tudo que a
+ * duplicada da fatura carregava (parcelamento, conciliação, cartão).
+ */
+export type PurchaseMergeReport = {
+  principal: {
+    id: string;
+    estabelecimento: string;
+    valor_total: number;
+    data_compra: string;
+    itens: number;
+    parcelas: number;
+  };
+  duplicada: {
+    id: string;
+    estabelecimento: string;
+    valor_total: number;
+    data_compra: string;
+    itens: number;
+    parcelas: number;
+    parcelas_pagas: number;
+    expenses: number;
+    itens_fatura: number;
+    conciliacoes: number;
+    transactions: number;
+  };
+  pode_mesclar: boolean;
+  bloqueios: string[];
+};
+
+export async function inspectPurchaseMerge(principalId: string, duplicadaId: string) {
+  const { data, error } = await supabase.rpc("inspect_purchase_merge", {
+    p_principal: principalId,
+    p_duplicada: duplicadaId,
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as PurchaseMergeReport;
+}
+
+export async function mergeDuplicatePurchase(principalId: string, duplicadaId: string) {
+  const { data, error } = await supabase.rpc("merge_duplicate_purchase", {
+    p_principal: principalId,
+    p_duplicada: duplicadaId,
+  });
+  if (error) throw new Error(error.message);
+  return data as unknown as { purchase_id: string; parcelas_transferidas: number };
+}
+
+/**
+ * Qual das duas compras deve ser a principal.
+ * A da nota fiscal (mais itens reais e valor total maior) sempre vence:
+ * a da fatura representa apenas a parcela cobrada no ciclo.
+ */
+export function escolherPrincipal<T extends { id: string; valor_total: number | string; itens?: number }>(
+  a: T,
+  b: T,
+) {
+  const pesoA = (a.itens ?? 0) * 1000 + Number(a.valor_total);
+  const pesoB = (b.itens ?? 0) * 1000 + Number(b.valor_total);
+  return pesoA >= pesoB ? { principal: a, duplicada: b } : { principal: b, duplicada: a };
+}
+
 
 /**
  * Altera apenas a categoria de um item de compra já confirmada.
