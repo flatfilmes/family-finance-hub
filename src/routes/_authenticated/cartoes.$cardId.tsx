@@ -58,6 +58,7 @@ function CartaoDetalhePage() {
   const view = useViewMode();
 
   const [faturaId, setFaturaId] = useState("");
+  const [aba, setAba] = useState<"fechada" | "proxima" | "historico">("fechada");
   const [filtroTipo, setFiltroTipo] = useState("");
   const [filtroCategoria, setFiltroCategoria] = useState("");
   const [busca, setBusca] = useState("");
