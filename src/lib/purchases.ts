@@ -32,6 +32,8 @@ export const PAYMENT_STATUS_LABELS: Record<PurchasePaymentStatus, string> = {
   PAGO: "Pago",
   COMPROMETIDO: "Comprometido no cartão",
   PENDENTE: "Pendente (boleto)",
+  PENDENTE_PAGAMENTO: "Pendente",
+  PARCIALMENTE_PAGA: "Parcialmente paga",
   CANCELADO: "Cancelado",
 };
 
@@ -39,9 +41,56 @@ export const PAYMENT_STATUS_CLASSES: Record<PurchasePaymentStatus, string> = {
   PAGO: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   COMPROMETIDO: "bg-sky-500/15 text-sky-700 dark:text-sky-400",
   PENDENTE: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  PENDENTE_PAGAMENTO: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+  PARCIALMENTE_PAGA: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
   CANCELADO: "bg-muted text-muted-foreground",
 };
 
+/** Forma "pagar depois": a compra existe, o pagamento ainda não. */
+export const PAGAR_DEPOIS = "A_DEFINIR" as const;
+
+/** Formas de pagamento realmente selecionáveis ao registrar um pagamento. */
+export const PAYMENT_METHODS_REAIS = [
+  "PIX",
+  "DINHEIRO",
+  "DEBITO",
+  "CREDITO",
+  "BOLETO",
+  "TRANSFERENCIA",
+  "OUTRO",
+] as const;
+
+/** Compra registrada sem pagamento realizado. */
+export function isPendentePagamento(p: Pick<Purchase, "status_pagamento">) {
+  return p.status_pagamento === "PENDENTE_PAGAMENTO" || p.status_pagamento === "PARCIALMENTE_PAGA";
+}
+
+/** Pendente cuja data prevista de pagamento já passou. */
+export function isAtrasada(
+  p: Pick<Purchase, "status_pagamento" | "data_prevista_pagamento">,
+  hoje = new Date().toISOString().slice(0, 10),
+) {
+  return isPendentePagamento(p) && !!p.data_prevista_pagamento && p.data_prevista_pagamento < hoje;
+}
+
+/** Filtro de status usado na página Compras. */
+export type PaymentFilter = "" | "PAGAS" | "PENDENTES" | "ATRASADAS" | "PARCIAIS";
+
+export const PAYMENT_FILTER_LABELS: Record<PaymentFilter, string> = {
+  "": "Todas",
+  PAGAS: "Pagas",
+  PENDENTES: "Pendentes",
+  ATRASADAS: "Atrasadas",
+  PARCIAIS: "Parcialmente pagas",
+};
+
+export function matchesPaymentFilter(p: Purchase, filtro: PaymentFilter, hoje?: string) {
+  if (!filtro) return true;
+  if (filtro === "PAGAS") return p.status_pagamento === "PAGO";
+  if (filtro === "PENDENTES") return isPendentePagamento(p);
+  if (filtro === "ATRASADAS") return isAtrasada(p, hoje);
+  return p.status_pagamento === "PARCIALMENTE_PAGA";
+}
 
 /** Formas de pagamento que saem direto de uma conta bancária. */
 export const BANK_PAYMENT_METHODS = ["PIX", "DEBITO", "TRANSFERENCIA"] as const;
