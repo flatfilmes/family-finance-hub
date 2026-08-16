@@ -115,6 +115,8 @@ function ContaDetalhePage() {
   const { data: movimentos } = useTransactions(family?.id);
   const { data: purchases } = usePurchases(family?.id);
   const memberName = useMemberName(family?.id);
+  const { data: checkpoints } = useBankBalanceCheckpoints(accountId);
+
 
   const perms = usePermissions();
   const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM" | "DEPOSITO" | "RETIRADA" | "TRANSFERENCIA">(null);
