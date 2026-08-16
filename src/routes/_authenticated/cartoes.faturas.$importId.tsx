@@ -233,7 +233,7 @@ function RevisarFaturaPage() {
           value={valorFatura > 0 ? formatCurrency(valorFatura) : "Não identificado"}
         />
         <Metric
-          label="Total dos lançamentos"
+          label="Lançamentos atuais extraídos"
           value={formatCurrency(totalExtraido)}
           hint={
             bateu
@@ -246,13 +246,62 @@ function RevisarFaturaPage() {
         />
       </div>
 
-      {!bateu && valorFatura > 0 && (
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Metric label="Créditos e ajustes" value={formatCurrency(creditos)} />
+        <Metric
+          label="Futuro já comprometido"
+          value={futuroComprometido > 0 ? formatCurrency(futuroComprometido) : "Não identificado"}
+          hint="Parcelas de próximas faturas — fora desta fatura"
+        />
+        <Metric label="Diferença" value={formatCurrency(Math.abs(diferenca))} />
+      </div>
+
+      {foraDeControle && (
+        <Card className="mt-4 border-destructive/40">
+          <p className="text-sm font-bold text-destructive">
+            Não conseguimos fechar esta fatura automaticamente.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            A soma dos lançamentos lidos ({formatCurrency(totalExtraido)}) está distante do total da
+            fatura ({formatCurrency(valorFatura)}). A criação em lote fica bloqueada até você revisar
+            item a item.
+          </p>
+        </Card>
+      )}
+
+      {!bateu && valorFatura > 0 && !foraDeControle && (
         <Card className="mt-4">
           <p className="text-sm font-bold">Diferença de {formatCurrency(Math.abs(diferenca))}</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Possíveis causas: encargos, juros, pagamento anterior, estorno, crédito ou algum item
             que a leitura não reconheceu. Nada é ajustado automaticamente para forçar a igualdade.
           </p>
+        </Card>
+      )}
+
+      {finais.length > 0 && (
+        <Card className="mt-4">
+          <SectionTitle title="Subtotais por cartão" />
+          <ul className="mt-2 divide-y divide-border">
+            {finais.map((final) => {
+              const soma = somaDoCartao(final);
+              const impresso = subtotaisPdf.find((s) => s.card_last4 === final)?.valor ?? null;
+              const confere = impresso === null || Math.abs(impresso - soma) < 0.01;
+              return (
+                <li key={final} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="font-semibold">Cartão final {final}</span>
+                  <span className="flex items-center gap-2">
+                    {formatCurrency(soma)}
+                    {impresso !== null && (
+                      <StatusBadge tone={confere ? "ok" : "warn"}>
+                        {confere ? "Confere" : `PDF: ${formatCurrency(impresso)} — revisão necessária`}
+                      </StatusBadge>
+                    )}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </Card>
       )}
 
@@ -270,25 +319,44 @@ function RevisarFaturaPage() {
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
-          <Field label="Filtrar lançamentos">
-            <select
-              className={inputClass}
-              value={filtro}
-              onChange={(e) => setFiltro(e.target.value as "" | MatchStatus)}
-            >
-              {FILTROS.map((f) => (
-                <option key={f.valor} value={f.valor}>
-                  {f.label}
-                </option>
-              ))}
-            </select>
-          </Field>
-          {selecionados.length > 0 && !jaConfirmada && (
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Filtrar lançamentos">
+              <select
+                className={inputClass}
+                value={filtro}
+                onChange={(e) => setFiltro(e.target.value as "" | MatchStatus)}
+              >
+                {FILTROS.map((f) => (
+                  <option key={f.valor} value={f.valor}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {finais.length > 0 && (
+              <Field label="Cartão">
+                <select
+                  className={inputClass}
+                  value={filtroCartao}
+                  onChange={(e) => setFiltroCartao(e.target.value)}
+                >
+                  <option value="">Todos</option>
+                  {finais.map((final) => (
+                    <option key={final} value={final}>
+                      Final {final}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+          </div>
+          {selecionados.length > 0 && !jaConfirmada && !foraDeControle && (
             <PrimaryButton type="button" onClick={criarSelecionados}>
               Criar lançamentos selecionados ({selecionados.length})
             </PrimaryButton>
           )}
         </div>
+
 
         <SectionTitle title="Lançamentos da fatura" />
 
