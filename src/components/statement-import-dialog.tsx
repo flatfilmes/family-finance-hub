@@ -74,6 +74,7 @@ export function StatementImportDialog({
   async function confirmarLeitura() {
     if (!parsed || !cartao) return;
     setErro("");
+    setDetalheTecnico("");
     try {
       const importacao = await criar.mutateAsync({
         card: cartao,
@@ -85,9 +86,21 @@ export function StatementImportDialog({
       onClose();
       navigate({ to: "/cartoes/faturas/$importId", params: { importId: importacao.id } });
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível preparar a revisão.");
+      setErro("Não conseguimos preparar esta fatura para revisão.");
+      if (import.meta.env.DEV) {
+        if (e instanceof PrepareStatementError) {
+          const ctx = Object.entries(e.contexto ?? {})
+            .filter(([, v]) => v != null && v !== "")
+            .map(([k, v]) => `${k}: ${String(v)}`)
+            .join(" · ");
+          setDetalheTecnico(`Etapa: ${e.step}\n${ctx ? `${ctx}\n` : ""}Erro: ${e.detalhe}`);
+        } else {
+          setDetalheTecnico(e instanceof Error ? e.message : String(e));
+        }
+      }
     }
   }
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6">
