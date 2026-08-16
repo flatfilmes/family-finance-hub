@@ -2,7 +2,8 @@
  * Biblioteca de parsers de fatura de cartão.
  * O formato é escolhido por detecção; sem instituição reconhecida, usa o genérico.
  */
-import { extractPdfPageLayouts, layoutPageLines } from "@/lib/pdf-extract";
+import { debugPdfPageLayout, extractPdfPageLayouts, layoutPageLines } from "@/lib/pdf-extract";
+import { parseItauSpatial } from "./itau-spatial";
 import { genericParser } from "./generic";
 import { nubankParser } from "./nubank";
 import { itauParser } from "./itau";
@@ -35,8 +36,9 @@ export async function readCardStatementPdf(file: Blob): Promise<ParsedStatement>
   const linhas = pages.flatMap((page) => layoutPageLines(page.items, page.width, page.page));
   const { parser } = pickStatementParser(linhas.map((l) => l.text));
   if (parser.id === "ITAU_PDF") {
-    if (!parser.parseLayout) throw new Error("REVIEW_REQUIRED: parser posicional do Itaú indisponível.");
-    return parser.parseLayout(pages);
+    // ITAU_PDF é SEMPRE espacial: sem fallback linear, sem join global de página.
+    const espacial = parseItauSpatial(pages);
+    return { ...espacial, extraction_status: "READY", positional_debug: pages.map(debugPdfPageLayout) };
   }
   return parser.parse(linhas);
 }
