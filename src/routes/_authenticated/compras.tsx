@@ -707,7 +707,7 @@ function Compras() {
               ))}
             </select>
           </Field>
-          <Field label="Período (mês)">
+          <Field label="Período (mês da compra)">
             <input
               type="month"
               value={filtroMes}
@@ -715,6 +715,22 @@ function Compras() {
               className={inputClass}
             />
           </Field>
+          <Field label="Fatura do cartão">
+            <select
+              value={filtroFatura}
+              onChange={(e) => setFiltroFatura(e.target.value)}
+              className={inputClass}
+              aria-label="Fatura do cartão"
+            >
+              <option value="">Todas as faturas</option>
+              {faturasDisponiveis.map((f) => (
+                <option key={f} value={f}>
+                  {monthKeyLabel(f)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
         </div>
       </Card>
 
