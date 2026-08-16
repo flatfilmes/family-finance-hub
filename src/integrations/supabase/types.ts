@@ -1765,6 +1765,8 @@ export type Database = {
           purchase_id: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           tipo: Database["public"]["Enums"]["transaction_type"]
+          transfer_group_id: string | null
+          transfer_role: string | null
           updated_at: string
           valor: number
         }
@@ -1782,6 +1784,8 @@ export type Database = {
           purchase_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tipo: Database["public"]["Enums"]["transaction_type"]
+          transfer_group_id?: string | null
+          transfer_role?: string | null
           updated_at?: string
           valor?: number
         }
@@ -1799,6 +1803,8 @@ export type Database = {
           purchase_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tipo?: Database["public"]["Enums"]["transaction_type"]
+          transfer_group_id?: string | null
+          transfer_role?: string | null
           updated_at?: string
           valor?: number
         }
@@ -1884,6 +1890,16 @@ export type Database = {
       sync_installment_invoices: {
         Args: { _family_id?: string }
         Returns: number
+      }
+      transfer_between_accounts: {
+        Args: {
+          _data?: string
+          _descricao?: string
+          _destino_id: string
+          _origem_id: string
+          _valor: number
+        }
+        Returns: string
       }
     }
     Enums: {
