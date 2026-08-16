@@ -717,6 +717,7 @@ export function reviewSummary(
     ASSOCIATE_EXISTING: 0,
     POSSIBLE_MATCH: 0,
     CREATE_PURCHASE: 0,
+    CREATE_RECURRING: 0,
     REGISTER_FEE: 0,
     REGISTER_CREDIT: 0,
     IGNORE: 0,
