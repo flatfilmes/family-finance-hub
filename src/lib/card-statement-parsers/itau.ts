@@ -327,8 +327,8 @@ function montar(
 ): StatementEntry | null {
   let descricao = descricaoBruta.replace(/\s+/g, " ").trim();
   if (!descricao || ehRuido(descricao) || ehProibido(descricao)) return null;
+  if (ehMetadataItau(descricao)) return null;
   if (!/[A-Za-zÀ-ÿ]{3}/.test(descricao)) return null;
-
 
   let parcelaAtual: number | null = null;
   let totalParcelas: number | null = null;
@@ -336,12 +336,15 @@ function montar(
   if (p) {
     const a = Number(p[1]);
     const b = Number(p[2]);
-    if (a >= 1 && b >= 2 && a <= b) {
+    // exige estabelecimento antes do código e um total de parcelas plausível
+    const antes = descricao.slice(0, descricao.length - p[0].length);
+    if (a >= 1 && b >= 2 && b <= 48 && a <= b && /[A-Za-zÀ-ÿ]{3}/.test(antes)) {
       parcelaAtual = a;
       totalParcelas = b;
-      descricao = descricao.slice(0, descricao.length - p[0].length).trim();
+      descricao = antes.trim();
     }
   }
+
 
   let data: string | null = null;
   if (dataTexto) {
