@@ -121,4 +121,6 @@ export type ParsedBankStatement = {
   };
   aceitos: { raw: string; valor: number | null; page?: number | null }[];
   rejeitados: { raw: string; valor: number | null; page?: number | null; reason: string }[];
+  /** Diagnóstico do pipeline do parser (detecção → rows → transações). */
+  pipeline?: unknown;
 };
