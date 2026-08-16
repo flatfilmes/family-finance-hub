@@ -59,7 +59,9 @@ export const IMPORT_STATUS_LABELS: Record<ImportStatus, string> = {
   READY_FOR_REVIEW: "Aguardando revisão",
   CONFIRMED: "Revisão confirmada",
   CANCELLED: "Cancelada",
+  UNDONE: "Desfeita",
   ERROR: "Erro na leitura",
+
 };
 
 export const ACTION_LABELS: Record<ItemAction, string> = {
