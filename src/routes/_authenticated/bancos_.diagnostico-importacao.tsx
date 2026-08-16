@@ -59,6 +59,9 @@ type Resultado = {
   lines: PdfLine[];
   statement: CanonicalStatement;
   validation: StatementValidation;
+  /** Etapas do parser: detecção → rows → transações (só quando o parser expõe). */
+  pipeline?: ItauPipelineDiagnostics;
+  rawItems: number;
   erro?: string;
 };
 
@@ -83,25 +86,40 @@ function DiagnosticoImportacao() {
     const lidos: Resultado[] = [];
     for (const file of Array.from(files)) {
       try {
-        const lines = await extractPdfLines(file);
+        // Itens crus do pdf.js: é assim que o parser Itaú enxerga a tabela.
+        const pages = await extractPdfPageLayouts(file);
+        const rawItems = pages.reduce((a, p) => a + p.items.filter((i) => i.text.trim()).length, 0);
+        const lines = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
         const textos = lines.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
-        const parsed = isItauBankStatement(textos)
-          ? parseItauBankStatementLines(lines)
+        const itensTexto = pages.flatMap((p) => p.items.map((i) => i.text));
+        const ehItau =
+          detectItauBankStatement([...textos, ...itensTexto]).detectedBank === "ITAU";
+        const parsed = ehItau
+          ? parseItauBankStatementLayouts(pages)
           : isBancoDoBrasil(textos)
             ? parseBancoDoBrasilLines(lines)
             : parseBankStatementLines(lines);
         const statement = toCanonicalStatement(parsed, { statementId: file.name });
-        lidos.push({ arquivo: file.name, lines, statement, validation: validateStatement(statement) });
+        lidos.push({
+          arquivo: file.name,
+          lines,
+          statement,
+          validation: validateStatement(statement),
+          pipeline: (parsed as { pipeline?: ItauPipelineDiagnostics }).pipeline,
+          rawItems,
+        });
       } catch (e) {
         lidos.push({
           arquivo: file.name,
           lines: [],
+          rawItems: 0,
           statement: {} as CanonicalStatement,
           validation: {} as StatementValidation,
           erro: e instanceof Error ? e.message : "Falha ao ler o PDF",
         });
       }
     }
+
     setResultados((atual) =>
       [...atual, ...lidos].sort((a, b) =>
         (a.statement?.periodEnd ?? a.arquivo).localeCompare(b.statement?.periodEnd ?? b.arquivo),
