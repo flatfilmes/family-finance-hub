@@ -4,7 +4,7 @@
  * Cada instituição pode ter o seu parser (generic / nubank / itau / santander).
  * Nenhum parser inventa dado: campo não identificado volta como `null`.
  */
-import type { PdfLine } from "@/lib/pdf-extract";
+import type { PdfLine, PdfPageLayout, PdfPageLayoutDebug } from "@/lib/pdf-extract";
 
 export type StatementItemKind =
   | "COMPRA"
@@ -74,6 +74,8 @@ export type ParsedStatement = StatementHeader & {
   subtotais?: StatementCardSubtotal[];
   /** Parcelas de próximas faturas — informativas, fora do ciclo atual. */
   futuras?: StatementEntry[];
+  extraction_status?: "READY" | "REVIEW_REQUIRED";
+  positional_debug?: PdfPageLayoutDebug[];
 };
 
 export type StatementParser = {
@@ -83,4 +85,5 @@ export type StatementParser = {
   /** Confiança de 0 a 1 de que este parser entende o arquivo. */
   detect: (linhas: string[]) => number;
   parse: (linhas: PdfLine[]) => ParsedStatement;
+  parseLayout?: (pages: PdfPageLayout[]) => ParsedStatement;
 };

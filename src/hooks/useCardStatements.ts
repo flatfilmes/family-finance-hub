@@ -84,8 +84,10 @@ export function useCreateStatementImport(familyId?: string) {
         parsed: input.parsed,
         categorias: input.categorias,
       }),
-    onSuccess: () => {
+    onSuccess: (importacao) => {
       queryClient.invalidateQueries({ queryKey: ["card-statement-imports", familyId] });
+      queryClient.invalidateQueries({ queryKey: ["card-statement-import", importacao.id] });
+      queryClient.invalidateQueries({ queryKey: ["card-statement-items", importacao.id] });
     },
   });
 }
@@ -131,8 +133,10 @@ export function useCancelStatementImport(familyId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => cancelStatementImport(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["card-statement-imports", familyId] });
+      queryClient.invalidateQueries({ queryKey: ["card-statement-import", id] });
+      queryClient.invalidateQueries({ queryKey: ["card-statement-items", id] });
     },
   });
 }

@@ -12,7 +12,14 @@
  * metadado — nunca como lançamento. Nada é inventado: campo sem evidência
  * volta como `null`.
  */
-import { parseValorBr, type PdfLine } from "@/lib/pdf-extract";
+import {
+  debugPdfPageLayout,
+  detectPdfColumnBounds,
+  layoutPageLines,
+  parseValorBr,
+  type PdfLine,
+  type PdfPageLayout,
+} from "@/lib/pdf-extract";
 import { normalizeDescricao, semAcento, tituloEstabelecimento } from "./generic";
 import type {
   ParsedStatement,
@@ -545,6 +552,41 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
   };
 }
 
+export function parseItauLayout(pages: PdfPageLayout[]): ParsedStatement {
+  const diagnostics = pages.map(debugPdfPageLayout);
+  const transactionPages = pages.filter((page) =>
+    page.items.some((item) => {
+      const text = plano(item.text);
+      return text.includes("lancamentos") || text.includes("data") || /^\d{2}\/\d{2}\b/.test(text);
+    }),
+  );
+  const missingBounds = transactionPages.filter((page) => {
+    const hasRepeatedHeader = page.items.filter((item) => /^DATA\b/.test(plano(item.text).toUpperCase())).length >= 2;
+    return hasRepeatedHeader && !detectPdfColumnBounds(page.items, page.width);
+  });
+  if (missingBounds.length > 0) {
+    return {
+      parser: "ITAU_PDF",
+      emissor: "ITAU",
+      titular: null,
+      final_cartao: null,
+      data_fechamento: null,
+      data_vencimento: null,
+      periodo_inicio: null,
+      periodo_fim: null,
+      valor_total_fatura: null,
+      entries: [],
+      futuras: [],
+      linhas: [],
+      extraction_status: "REVIEW_REQUIRED",
+      positional_debug: diagnostics,
+    };
+  }
+  const linhas = pages.flatMap((page) => layoutPageLines(page.items, page.width, page.page));
+  const parsed = parseItau(linhas);
+  return { ...parsed, extraction_status: "READY", positional_debug: diagnostics };
+}
+
 export const itauParser: StatementParser = {
   id: "ITAU_PDF",
   nome: "Itaú",
@@ -562,4 +604,5 @@ export const itauParser: StatementParser = {
     return Math.min(0.95, 0.8 + pistas.length * 0.03);
   },
   parse: parseItau,
+  parseLayout: parseItauLayout,
 };
