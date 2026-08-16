@@ -12,7 +12,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowRight, Check, ChevronDown, TriangleAlert } from "lucide-react";
+import { Check, ChevronDown, TriangleAlert } from "lucide-react";
 import { Card, PrimaryButton } from "@/components/page-header";
 import { Badge, DetailHeader } from "@/components/detail-page";
 import { NoFamily } from "@/components/no-family";
@@ -229,8 +229,6 @@ function RevisarExtrato() {
     ignoradas: por("IGNORE"),
     futuras: futuros.length,
   };
-
-
 
   const setAcao = (i: number, acao: ReviewAction) =>
     setLinhas(
