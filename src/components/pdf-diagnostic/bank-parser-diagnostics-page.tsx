@@ -33,6 +33,9 @@ type SaidaExtrato = {
     sourceId: string;
     postingDate: string | null;
     description: string;
+    bankOperation?: string | null;
+    counterparty?: string | null;
+    lot?: string | null;
     documentNumber?: string | null;
     direction: "IN" | "OUT";
     signedAmount: number;
@@ -458,8 +461,22 @@ export function BankParserDiagnosticsPage({
                     {transacoes.map((t) => (
                       <tr key={t.sourceId} className="border-t border-border/60 align-top">
                         <td className="px-3 py-2 font-mono whitespace-nowrap">{t.postingDate ?? "—"}</td>
-                        <td className={`px-3 py-2 ${quebra}`}>{t.description}</td>
-                        <td className={`px-3 py-2 font-mono ${quebra}`}>{t.documentNumber ?? "—"}</td>
+                        <td className={`px-3 py-2 ${quebra}`}>
+                          <span>{t.description || "—"}</span>
+                          {(t.bankOperation || t.counterparty) && (
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                              {[t.bankOperation, t.counterparty].filter(Boolean).join(" → ")}
+                            </span>
+                          )}
+                        </td>
+                        <td className={`px-3 py-2 font-mono text-xs ${quebra}`}>
+                          {t.documentNumber ?? "—"}
+                          {t.lot && (
+                            <span className="block text-[11px] text-muted-foreground">
+                              lote {t.lot}
+                            </span>
+                          )}
+                        </td>
                         <td className="px-3 py-2">{t.kind}</td>
                         <td className="px-3 py-2">{t.direction === "IN" ? "ENTRADA" : "SAÍDA"}</td>
                         <td className="px-3 py-2 font-mono whitespace-nowrap">{moeda(t.signedAmount)}</td>
