@@ -689,7 +689,8 @@ export function buildBankAudit(input: {
       }
     }
 
-    const checkpointsDoMes = input.checkpoints.filter((c) => c.data.slice(0, 7) === key).length;
+    // Só saldos diários do período contam (o saldo anterior fica de fora).
+    const checkpointsDoMes = checkpointsDiariosPorMes.get(key) ?? 0;
     const checkpointsConferem = days.filter((d) => d.confere === true).length;
     // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
     const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
