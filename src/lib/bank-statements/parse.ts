@@ -87,6 +87,8 @@ export type BankParserExecutionInput = {
   hasOpeningBalanceRow: boolean;
   hasDailyBalanceRows: boolean;
   hasClosingBalanceRow: boolean;
+  /** Prova de que o parser real foi chamado nesta execução. */
+  executed: boolean;
 };
 
 export type ParserExecutionError = {
