@@ -27,6 +27,15 @@ export type ExtractedNota = {
   pagamento_descricao: string | null;
   items: ExtractedItem[];
   linhas: string[];
+  /** Diagnóstico da tabela de produtos (origem, status e conferência do total). */
+  tabela_produtos?: {
+    origem: "ESPACIAL" | "DANFE_TEXTO" | "SIMPLES" | "NENHUM";
+    status: string;
+    soma_produtos: number;
+    total_nota: number;
+    diferenca: number;
+    rejeitados: number;
+  };
   confianca: {
     estabelecimento: Confianca;
     data_compra: Confianca;
