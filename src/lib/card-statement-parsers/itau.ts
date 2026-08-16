@@ -67,10 +67,10 @@ export function auditarBlocos(
 
 // ------------------------------------------------------------------ utilidades
 
-const plano = (s: string) => semAcento(s).toLowerCase().replace(/\s+/g, " ").trim();
+export const plano = (s: string) => semAcento(s).toLowerCase().replace(/\s+/g, " ").trim();
 
 const VALOR_FIM = /(-?)\s*R?\$?\s*(-?)\s*(\d{1,3}(?:\.\d{3})*,\d{2})\s*$/;
-const DATA_CURTA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/;
+export const DATA_CURTA = /^(\d{2})\/(\d{2})(?:\/(\d{2,4}))?\b/;
 /** Código de parcela no fim da descrição — com ou sem espaço antes (ex.: "LOJA09/12"). */
 const PARCELA_FIM = /(\d{1,2})\s*\/\s*(\d{1,2})\s*$/;
 
@@ -79,7 +79,7 @@ function iso(ano: number, mes: number, dia: number) {
   return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
 }
 
-function lerValorFinal(texto: string): { valor: number; resto: string } | null {
+export function lerValorFinal(texto: string): { valor: number; resto: string } | null {
   const m = texto.match(VALOR_FIM);
   if (!m) return null;
   const negativo = m[1] === "-" || m[2] === "-";
@@ -87,7 +87,7 @@ function lerValorFinal(texto: string): { valor: number; resto: string } | null {
   return { valor, resto: texto.slice(0, texto.length - m[0].length).trim() };
 }
 
-function acharDataRotulada(linhas: string[], rotulos: string[]) {
+export function acharDataRotulada(linhas: string[], rotulos: string[]) {
   for (const l of linhas) {
     const p = plano(l);
     if (!rotulos.some((r) => p.includes(r))) continue;
@@ -101,7 +101,7 @@ function acharDataRotulada(linhas: string[], rotulos: string[]) {
   return null;
 }
 
-function acharValorRotulado(linhas: string[], rotulos: string[], proibidos: string[] = []) {
+export function acharValorRotulado(linhas: string[], rotulos: string[], proibidos: string[] = []) {
   for (const l of linhas) {
     const p = plano(l);
     if (!rotulos.some((r) => p.includes(r))) continue;
@@ -116,7 +116,7 @@ function acharValorRotulado(linhas: string[], rotulos: string[], proibidos: stri
 
 // ------------------------------------------------------------------ seções
 
-type Secao = "COMPRAS" | "INTERNACIONAL" | "SERVICOS" | "FUTURAS" | "IGNORADA";
+export type Secao = "COMPRAS" | "INTERNACIONAL" | "SERVICOS" | "FUTURAS" | "IGNORADA";
 
 const CABECALHOS: Array<{ secao: Secao; termos: string[] }> = [
   {
@@ -165,7 +165,7 @@ const CABECALHOS: Array<{ secao: Secao; termos: string[] }> = [
   },
 ];
 
-function secaoDaLinha(texto: string): Secao | null {
+export function secaoDaLinha(texto: string): Secao | null {
   const p = plano(texto);
   if (p.length > 90) return null;
   for (const c of CABECALHOS) if (c.termos.some((t) => p.startsWith(t) || p === t)) return c.secao;
@@ -200,7 +200,7 @@ const RUIDO_LINHA = [
   "demais faturas",
 ];
 
-function ehRuido(texto: string) {
+export function ehRuido(texto: string) {
   const p = plano(texto);
   if (p.length < 3) return true;
   return RUIDO_LINHA.some((r) => p.startsWith(r));
@@ -229,7 +229,7 @@ const TERMOS_PROIBIDOS = [
   "proposta",
 ];
 
-function ehProibido(texto: string) {
+export function ehProibido(texto: string) {
   const p = plano(texto);
   return TERMOS_PROIBIDOS.some((t) => p.includes(t));
 }
@@ -351,7 +351,7 @@ function classificar(descricao: string, valor: number, secao: Secao): StatementI
 
 // ------------------------------------------------------------------ montagem
 
-function montar(
+export function montar(
   dataTexto: string | null,
   descricaoBruta: string,
   valor: number,
