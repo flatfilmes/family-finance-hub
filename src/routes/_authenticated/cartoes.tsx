@@ -136,7 +136,8 @@ function CartoesPage() {
     const compras = comprasDoCartao(cardId)
       .filter((p) => p.status_pagamento === "COMPROMETIDO" && !comprasComParcelas.has(p.id))
       .reduce((acc, p) => acc + (Number(p.valor_total) || 0), 0);
-    return (dados?.valorFaturaAtual ?? 0) + (dados?.parcelasFuturas ?? 0) + compras;
+    // "utilizado" já contempla fatura atual + parcelas futuras em aberto, sem dupla contagem.
+    return (dados?.utilizado ?? 0) + compras;
   };
 
   const faturasDoCartao = (cardId: string) =>

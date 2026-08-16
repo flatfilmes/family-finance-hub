@@ -300,13 +300,14 @@ function DetalheConta({
   periodo: string;
   compraPorId: Map<string, Purchase>;
 }) {
+  // O saldo atual da conta já é atualizado pelas movimentações; somar de novo duplicaria valores.
   const validas = movimentos.filter((t) => t.status !== "CANCELADA");
   const soma = (tipo: Transaction["tipo"]) =>
     validas.filter((t) => t.tipo === tipo).reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
   const entradas = soma("ENTRADA");
   const saidas = soma("SAIDA");
   const pagamentos = soma("PAGAMENTO_CARTAO");
-  const projetado = saldo + entradas - saidas - pagamentos;
+  const resultado = entradas - saidas - pagamentos;
 
   return (
     <div>
@@ -319,18 +320,18 @@ function DetalheConta({
         <Resumo label="Entradas no período" value={formatCurrency(entradas)} />
         <Resumo label="Saídas no período" value={formatCurrency(saidas + pagamentos)} />
         <Resumo
-          label="Saldo projetado"
-          value={formatCurrency(projetado)}
-          tone={projetado < 0 ? "danger" : "ok"}
+          label="Resultado do período"
+          value={formatCurrency(resultado)}
+          tone={resultado < 0 ? "danger" : "ok"}
         />
       </div>
 
       <h3 className="mt-5 text-sm font-bold">Histórico de movimentações</h3>
-      {movimentos.length === 0 ? (
+      {validas.length === 0 ? (
         <p className="mt-2 text-xs text-muted-foreground">Nenhuma movimentação no período.</p>
       ) : (
         <ul className="mt-2 divide-y divide-border">
-          {movimentos.map((t) => {
+          {validas.map((t) => {
             const compra = t.purchase_id ? compraPorId.get(t.purchase_id) : undefined;
             return (
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
