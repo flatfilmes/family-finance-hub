@@ -18,15 +18,17 @@ import {
   useStatementItemActions,
 } from "@/hooks/useCardStatements";
 import {
+  ACTION_BADGES,
+  ACTION_HELP,
+  ACTION_TONES,
   KIND_LABELS,
-  MATCH_LABELS,
-  MATCH_TONES,
   IMPORT_STATUS_LABELS,
-  REVIEW_CLASS_LABELS,
-  REVIEW_CLASS_TONES,
-  classifyReviewItem,
   formatOptional,
-  type MatchStatus,
+  needsAttention,
+  resolveReviewAction,
+  reviewSummary,
+  userChoice,
+  type ReviewAction,
   type StatementItem,
 } from "@/lib/card-statements";
 import { formatCurrency } from "@/lib/finance";
@@ -54,14 +56,17 @@ export const Route = createFileRoute("/_authenticated/cartoes/faturas/$importId"
   component: RevisarFaturaPage,
 });
 
-const FILTROS: { valor: "" | MatchStatus; label: string }[] = [
+type Filtro = "" | "ATENCAO" | ReviewAction;
+
+const FILTROS: { valor: Filtro; label: string }[] = [
   { valor: "", label: "Todos" },
-  { valor: "MATCHED", label: "Conciliados" },
-  { valor: "CONFIRMED_NEW", label: "Novos confirmados" },
-  { valor: "UNMATCHED", label: "Novos" },
-  { valor: "POSSIBLE_MATCH", label: "Possíveis" },
-  { valor: "DIVERGENT", label: "Divergentes" },
-  { valor: "IGNORED", label: "Ignorados" },
+  { valor: "ATENCAO", label: "Precisa de atenção" },
+  { valor: "CREATE_PURCHASE", label: "Novas compras" },
+  { valor: "ASSOCIATE_EXISTING", label: "Associados" },
+  { valor: "POSSIBLE_MATCH", label: "Possíveis correspondências" },
+  { valor: "REGISTER_FEE", label: "Taxas" },
+  { valor: "REGISTER_CREDIT", label: "Créditos e estornos" },
+  { valor: "IGNORE", label: "Ignorados" },
 ];
 
 function RevisarFaturaPage() {
@@ -77,7 +82,7 @@ function RevisarFaturaPage() {
   const acoes = useStatementItemActions(importId);
   const confirmar = useConfirmStatementImport(family?.id);
 
-  const [filtro, setFiltro] = useState<"" | MatchStatus>("");
+  const [filtro, setFiltro] = useState<Filtro>("");
   const [filtroCartao, setFiltroCartao] = useState<string>("");
 
   const [selecionados, setSelecionados] = useState<string[]>([]);
@@ -108,7 +113,7 @@ function RevisarFaturaPage() {
     );
   }
 
-  const conta = (status: MatchStatus) => lista.filter((i) => i.match_status === status).length;
+  const resumo = reviewSummary(lista);
   const atuais = lista.filter((i) => i.tipo_sugerido !== "PAGAMENTO");
   const totalExtraido = atuais.reduce((acc, i) => acc + (Number(i.valor) || 0), 0);
   const soma = (filtrar: (i: StatementItem) => boolean) =>
@@ -142,7 +147,11 @@ function RevisarFaturaPage() {
 
   const filtradas = lista.filter(
     (i) =>
-      (filtro ? i.match_status === filtro : true) &&
+      (filtro === ""
+        ? true
+        : filtro === "ATENCAO"
+          ? needsAttention(i)
+          : resolveReviewAction(i) === filtro) &&
       (filtroCartao ? i.card_last4 === filtroCartao : true),
   );
 
@@ -163,12 +172,27 @@ function RevisarFaturaPage() {
       atual.includes(id) ? atual.filter((i) => i !== id) : [...atual, id],
     );
 
-  const criarSelecionados = () => {
+  /** Define a ação do lançamento. Ignorar e restaurar são sempre explícitos. */
+  const definirAcao = (item: StatementItem, acao: ReviewAction | null) => {
+    if (acao === null) {
+      setStatus(item, {
+        decisao: null,
+        ...(item.match_status === "IGNORED" ? { match_status: "UNMATCHED" as const } : {}),
+      });
+      return;
+    }
+    setStatus(item, { decisao: acao });
+  };
+
+  const selecionarTodos = () =>
+    setSelecionados(
+      selecionados.length === filtradas.length ? [] : filtradas.map((i) => i.id),
+    );
+
+  const aplicarEmLote = (acao: ReviewAction | null) => {
     for (const id of selecionados) {
       const item = lista.find((i) => i.id === id);
-      if (item && item.match_status === "UNMATCHED") {
-        setStatus(item, { match_status: "CONFIRMED_NEW" });
-      }
+      if (item) definirAcao(item, acao);
     }
     setSelecionados([]);
   };
@@ -188,7 +212,7 @@ function RevisarFaturaPage() {
         memberId: importacao.member_id ?? perms.myMemberId ?? null,
       });
       setResultado(
-        `${r.conciliados} conciliado(s), ${r.criados} compra(s) criada(s), ${r.atualizados} atualizada(s), ${r.ignorados} ignorado(s).`,
+        `${r.criados} compra(s) criada(s), ${r.conciliados} associada(s), ${r.taxas} taxa(s), ${r.creditos} crédito(s)/estorno(s), ${r.atualizados} atualizada(s), ${r.ignorados} ignorado(s).`,
       );
       if (r.erros.length > 0) {
         setErro(
@@ -330,17 +354,28 @@ function RevisarFaturaPage() {
       )}
 
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        <Metric label="Conciliados" value={String(conta("MATCHED"))} />
-        <Metric label="Possíveis" value={String(conta("POSSIBLE_MATCH"))} />
-        <Metric
-          label="Novos"
-          value={String(conta("UNMATCHED") + conta("CONFIRMED_NEW"))}
-          hint={`${conta("CONFIRMED_NEW")} confirmado(s)`}
-        />
-        <Metric label="Divergentes" value={String(conta("DIVERGENT"))} />
-        <Metric label="Ignorados" value={String(conta("IGNORED"))} />
-      </div>
+      <Card className="mt-4">
+        <SectionTitle title="O que vai acontecer ao confirmar" />
+        <p className="mt-1 text-sm text-muted-foreground">
+          {resumo.total} lançamento(s) encontrados. Tudo entra por padrão — só fica de fora o que
+          você marcar como ignorado.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
+          <Metric label="Novas compras" value={String(resumo.CREATE_PURCHASE)} />
+          <Metric label="Associadas" value={String(resumo.ASSOCIATE_EXISTING)} />
+          <Metric label="Possíveis correspondências" value={String(resumo.POSSIBLE_MATCH)} />
+          <Metric label="Taxas" value={String(resumo.REGISTER_FEE)} />
+          <Metric label="Créditos/estornos" value={String(resumo.REGISTER_CREDIT)} />
+          <Metric label="Ignorados" value={String(resumo.IGNORE)} />
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {resumo.atencao > 0
+            ? `${resumo.atencao} lançamento(s) precisam de atenção antes de confirmar.`
+            : "Nenhum lançamento pendente de decisão."}
+          {resumo.POSSIBLE_MATCH > 0 &&
+            " Possíveis correspondências sem escolha serão criadas como compras novas."}
+        </p>
+      </Card>
 
       <Card className="mt-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -349,7 +384,7 @@ function RevisarFaturaPage() {
               <select
                 className={inputClass}
                 value={filtro}
-                onChange={(e) => setFiltro(e.target.value as "" | MatchStatus)}
+                onChange={(e) => setFiltro(e.target.value as Filtro)}
               >
                 {FILTROS.map((f) => (
                   <option key={f.valor} value={f.valor}>
@@ -373,13 +408,26 @@ function RevisarFaturaPage() {
                   ))}
                 </select>
               </Field>
-
             )}
           </div>
-          {selecionados.length > 0 && !jaConfirmada && !foraDeControle && (
-            <PrimaryButton type="button" onClick={criarSelecionados}>
-              Criar lançamentos selecionados ({selecionados.length})
-            </PrimaryButton>
+          {!jaConfirmada && (
+            <div className="flex flex-wrap items-center gap-2">
+              <AcaoBotao onClick={selecionarTodos}>
+                {selecionados.length === filtradas.length && filtradas.length > 0
+                  ? "Limpar seleção"
+                  : "Selecionar todos"}
+              </AcaoBotao>
+              {selecionados.length > 0 && (
+                <>
+                  <AcaoBotao onClick={() => aplicarEmLote("IGNORE")}>
+                    Ignorar selecionados ({selecionados.length})
+                  </AcaoBotao>
+                  <AcaoBotao onClick={() => aplicarEmLote(null)}>
+                    Restaurar selecionados
+                  </AcaoBotao>
+                </>
+              )}
+            </div>
           )}
         </div>
 
@@ -403,12 +451,14 @@ function RevisarFaturaPage() {
           <ul className="mt-2 divide-y divide-border">
             {filtradas.map((item) => {
               const compraVinculada = comprasDoCartao.find((p) => p.id === item.purchase_id_matched);
+              const acao = resolveReviewAction(item);
+              const escolha = userChoice(item);
               return (
                 <li key={item.id} className="py-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        {item.match_status === "UNMATCHED" && !jaConfirmada && (
+                        {!jaConfirmada && (
                           <input
                             type="checkbox"
                             checked={selecionados.includes(item.id)}
@@ -417,12 +467,7 @@ function RevisarFaturaPage() {
                           />
                         )}
                         <p className="truncate text-sm font-bold">{item.descricao_original}</p>
-                        <StatusBadge tone={REVIEW_CLASS_TONES[classifyReviewItem(item)]}>
-                          {REVIEW_CLASS_LABELS[classifyReviewItem(item)]}
-                        </StatusBadge>
-                        <StatusBadge tone={MATCH_TONES[item.match_status]}>
-                          {MATCH_LABELS[item.match_status]}
-                        </StatusBadge>
+                        <StatusBadge tone={ACTION_TONES[acao]}>{ACTION_BADGES[acao]}</StatusBadge>
                         {item.tipo_sugerido !== "COMPRA" && (
                           <StatusBadge tone="muted">{KIND_LABELS[item.tipo_sugerido]}</StatusBadge>
                         )}
@@ -479,16 +524,17 @@ function RevisarFaturaPage() {
                           Diferença: {formatCurrency(Math.abs(Number(item.diferenca) || 0))}
                         </p>
                       )}
-                      {item.match_status === "UNMATCHED" && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Este lançamento ainda não existe no sistema.
-                        </p>
-                      )}
-                      {item.match_status === "POSSIBLE_MATCH" && (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Encontramos uma possível correspondência.
-                        </p>
-                      )}
+                      <p className="mt-1 text-xs text-muted-foreground">{ACTION_HELP[acao]}</p>
+                      {acao === "CREATE_PURCHASE" &&
+                        item.parcela_atual &&
+                        item.total_parcelas &&
+                        item.total_parcelas > 1 && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Parcelamento reconhecido a partir de {item.parcela_atual}/
+                            {item.total_parcelas}: as parcelas anteriores são históricas e não serão
+                            criadas.
+                          </p>
+                        )}
 
                       {item.user_action === "ERRO" && (
                         <p className="mt-1 text-xs font-semibold text-destructive">
@@ -508,39 +554,31 @@ function RevisarFaturaPage() {
 
                   {!jaConfirmada && item.user_action !== "CONCLUIDO" && (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {(item.match_status === "POSSIBLE_MATCH" ||
-                        item.match_status === "MATCHED") && (
+                      {acao === "IGNORE" ? (
+                        <AcaoBotao onClick={() => definirAcao(item, null)}>Desfazer</AcaoBotao>
+                      ) : (
+                        <AcaoBotao onClick={() => definirAcao(item, "IGNORE")}>Ignorar</AcaoBotao>
+                      )}
+                      {(item.purchase_id_matched ||
+                        item.installment_id_matched ||
+                        item.recurring_expense_id_matched) &&
+                        acao !== "ASSOCIATE_EXISTING" && (
+                          <AcaoBotao
+                            onClick={() => definirAcao(item, "ASSOCIATE_EXISTING")}
+                            ativo={escolha === "ASSOCIATE_EXISTING"}
+                          >
+                            Associar à compra encontrada
+                          </AcaoBotao>
+                        )}
+                      {acao !== "CREATE_PURCHASE" && item.tipo_sugerido === "COMPRA" && (
                         <AcaoBotao
-                          onClick={() => setStatus(item, { match_status: "MATCHED" })}
-                          ativo={item.match_status === "MATCHED"}
+                          onClick={() => definirAcao(item, "CREATE_PURCHASE")}
+                          ativo={escolha === "CREATE_PURCHASE"}
                         >
-                          Confirmar correspondência
+                          Criar separadamente
                         </AcaoBotao>
                       )}
-                      {item.match_status !== "IGNORED" && (
-                        <AcaoBotao onClick={() => setStatus(item, { match_status: "IGNORED" })}>
-                          Ignorar
-                        </AcaoBotao>
-                      )}
-                      {item.match_status === "IGNORED" && (
-                        <AcaoBotao onClick={() => setStatus(item, { match_status: "UNMATCHED" })}>
-                          Reativar
-                        </AcaoBotao>
-                      )}
-                      {item.match_status !== "MATCHED" && item.tipo_sugerido === "COMPRA" && (
-                        <AcaoBotao
-                          onClick={() =>
-                            setStatus(item, {
-                              match_status: "CONFIRMED_NEW",
-                              decisao: item.match_status === "DIVERGENT" ? "CRIAR_NOVO" : null,
-                            })
-                          }
-                          ativo={item.match_status === "CONFIRMED_NEW"}
-                        >
-                          Criar compra
-                        </AcaoBotao>
-                      )}
-                      {item.match_status === "DIVERGENT" && (
+                      {item.match_status === "DIVERGENT" && acao === "POSSIBLE_MATCH" && (
                         <>
                           <AcaoBotao
                             onClick={() => setStatus(item, { decisao: "USAR_VALOR_FATURA" })}
@@ -556,28 +594,28 @@ function RevisarFaturaPage() {
                           </AcaoBotao>
                         </>
                       )}
-                      {item.match_status !== "MATCHED" && (
-                        <select
-                          className="rounded-full border border-input bg-background px-3 py-1.5 text-xs"
-                          value={item.purchase_id_matched ?? ""}
-                          onChange={(e) =>
-                            setStatus(item, {
-                              purchase_id_matched: e.target.value || null,
-                              match_status: e.target.value ? "MATCHED" : "UNMATCHED",
-                            })
-                          }
-                        >
-                          <option value="">Associar manualmente…</option>
-                          {comprasDoCartao.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {formatDate(p.data_compra)} · {p.estabelecimento} ·{" "}
-                              {formatCurrency(Number(p.valor_total))}
-                            </option>
-                          ))}
-                        </select>
-                      )}
+                      <select
+                        className="rounded-full border border-input bg-background px-3 py-1.5 text-xs"
+                        value={item.purchase_id_matched ?? ""}
+                        onChange={(e) =>
+                          setStatus(item, {
+                            purchase_id_matched: e.target.value || null,
+                            match_status: e.target.value ? "MATCHED" : "UNMATCHED",
+                            decisao: e.target.value ? "ASSOCIATE_EXISTING" : null,
+                          })
+                        }
+                      >
+                        <option value="">Associar a outra compra…</option>
+                        {comprasDoCartao.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {formatDate(p.data_compra)} · {p.estabelecimento} ·{" "}
+                            {formatCurrency(Number(p.valor_total))}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
+
                 </li>
               );
             })}
@@ -596,6 +634,23 @@ function RevisarFaturaPage() {
         </p>
       )}
 
+      {!jaConfirmada && (
+        <Card className="mt-4">
+          <p className="text-sm font-bold">Ao confirmar</p>
+          <ul className="mt-2 grid gap-1 text-sm text-muted-foreground">
+            <li>{resumo.CREATE_PURCHASE} nova(s) compra(s) serão criadas</li>
+            <li>{resumo.ASSOCIATE_EXISTING} compra(s) existente(s) serão associadas</li>
+            <li>
+              {resumo.POSSIBLE_MATCH} possível(is) correspondência(s) — sem escolha, viram compras
+              novas
+            </li>
+            <li>{resumo.REGISTER_FEE} taxa(s) serão registradas</li>
+            <li>{resumo.REGISTER_CREDIT} crédito(s)/estorno(s) serão registrados</li>
+            <li>{resumo.IGNORE} lançamento(s) serão ignorados</li>
+          </ul>
+        </Card>
+      )}
+
       <div className="mt-4 flex justify-end">
         <PrimaryButton
           type="button"
@@ -606,9 +661,10 @@ function RevisarFaturaPage() {
             ? "Revisão já confirmada"
             : confirmar.isPending
               ? "Aplicando decisões…"
-              : "Confirmar revisão"}
+              : `Confirmar ${resumo.incluidos} lançamento(s)`}
         </PrimaryButton>
       </div>
+
     </div>
   );
 }

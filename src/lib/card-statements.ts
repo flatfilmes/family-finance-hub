@@ -232,10 +232,12 @@ export function matchEntry(
     diferenca: null,
   };
 
-  // Lançamentos que não são consumo não viram compra: ficam ignorados por padrão.
+  // Lançamentos que não são consumo (taxas, estornos, pagamentos) não procuram
+  // compra correspondente: a ação padrão deles é definida em `resolveReviewAction`.
   if (entry.tipo_sugerido !== "COMPRA") {
-    return { ...vazio, match_status: "IGNORED" };
+    return vazio;
   }
+
 
   const valor = centavos(entry.valor);
 
@@ -450,6 +452,154 @@ export function classifyReviewItem(item: {
   }
   return "NOVO";
 }
+
+// --------------------------------------------------- ação padrão da revisão
+
+/**
+ * Ação que será executada na confirmação da revisão.
+ *
+ * Princípio: todo lançamento financeiro válido ENTRA por padrão.
+ * "Sem correspondência" significa "criar nova compra", nunca "não importar".
+ * Ignorar é sempre uma decisão explícita do usuário.
+ */
+export type ReviewAction =
+  | "ASSOCIATE_EXISTING"
+  | "POSSIBLE_MATCH"
+  | "CREATE_PURCHASE"
+  | "REGISTER_FEE"
+  | "REGISTER_CREDIT"
+  | "IGNORE";
+
+const REVIEW_ACTIONS: ReviewAction[] = [
+  "ASSOCIATE_EXISTING",
+  "POSSIBLE_MATCH",
+  "CREATE_PURCHASE",
+  "REGISTER_FEE",
+  "REGISTER_CREDIT",
+  "IGNORE",
+];
+
+export const ACTION_BADGES: Record<ReviewAction, string> = {
+  ASSOCIATE_EXISTING: "Compra encontrada",
+  POSSIBLE_MATCH: "Possível correspondência",
+  CREATE_PURCHASE: "Nova compra",
+  REGISTER_FEE: "Taxa",
+  REGISTER_CREDIT: "Crédito/estorno",
+  IGNORE: "Ignorado",
+};
+
+export const ACTION_TONES: Record<ReviewAction, Tone> = {
+  ASSOCIATE_EXISTING: "ok",
+  POSSIBLE_MATCH: "warn",
+  CREATE_PURCHASE: "info",
+  REGISTER_FEE: "muted",
+  REGISTER_CREDIT: "muted",
+  IGNORE: "muted",
+};
+
+export const ACTION_HELP: Record<ReviewAction, string> = {
+  ASSOCIATE_EXISTING: "Compra existente — será associada ao confirmar.",
+  POSSIBLE_MATCH: "Encontramos uma possível correspondência. Revise antes de confirmar.",
+  CREATE_PURCHASE: "Nova compra — será criada ao confirmar.",
+  REGISTER_FEE: "Taxa da fatura — será registrada como encargo ao confirmar.",
+  REGISTER_CREDIT: "Crédito/estorno — será registrado com valor negativo ao confirmar.",
+  IGNORE: "Ignorado — não será importado.",
+};
+
+type ReviewItemLike = Pick<
+  StatementItem,
+  | "match_status"
+  | "tipo_sugerido"
+  | "valor"
+  | "decisao"
+  | "installment_id_matched"
+  | "recurring_expense_id_matched"
+  | "purchase_id_matched"
+>;
+
+/** Escolha explícita do usuário, quando houver. */
+export function userChoice(item: Pick<StatementItem, "decisao">): ReviewAction | null {
+  const escolha = item.decisao as string | null;
+  return escolha && (REVIEW_ACTIONS as string[]).includes(escolha)
+    ? (escolha as ReviewAction)
+    : null;
+}
+
+/** Ação vigente do lançamento: escolha do usuário ou o padrão inteligente. */
+export function resolveReviewAction(item: ReviewItemLike): ReviewAction {
+  const escolha = userChoice(item);
+  if (escolha) return escolha;
+  if (item.match_status === "IGNORED") return "IGNORE";
+
+  const valor = Number(item.valor) || 0;
+  if (item.tipo_sugerido === "PAGAMENTO") return "IGNORE";
+  if (item.tipo_sugerido === "ESTORNO" || valor < 0) return "REGISTER_CREDIT";
+  if (
+    item.tipo_sugerido === "TAXA" ||
+    item.tipo_sugerido === "JUROS" ||
+    item.tipo_sugerido === "AJUSTE"
+  ) {
+    return "REGISTER_FEE";
+  }
+
+  if (item.match_status === "MATCHED") return "ASSOCIATE_EXISTING";
+  if (item.match_status === "POSSIBLE_MATCH" || item.match_status === "DIVERGENT") {
+    return "POSSIBLE_MATCH";
+  }
+  return "CREATE_PURCHASE";
+}
+
+/**
+ * Precisa de atenção = ambiguidade real.
+ * Uma compra nova comum NUNCA é problema.
+ */
+export function needsAttention(
+  item: ReviewItemLike & { user_action: ItemAction },
+): boolean {
+  if (item.user_action === "ERRO") return true;
+  const acao = resolveReviewAction(item);
+  if (acao === "POSSIBLE_MATCH") return true;
+  if (acao === "ASSOCIATE_EXISTING") {
+    return (
+      !item.purchase_id_matched &&
+      !item.installment_id_matched &&
+      !item.recurring_expense_id_matched
+    );
+  }
+  return false;
+}
+
+export type ReviewSummary = Record<ReviewAction, number> & {
+  total: number;
+  atencao: number;
+  incluidos: number;
+};
+
+/** Resumo do que acontecerá ao confirmar a revisão. */
+export function reviewSummary(
+  items: (ReviewItemLike & { user_action: ItemAction })[],
+): ReviewSummary {
+  const resumo: ReviewSummary = {
+    ASSOCIATE_EXISTING: 0,
+    POSSIBLE_MATCH: 0,
+    CREATE_PURCHASE: 0,
+    REGISTER_FEE: 0,
+    REGISTER_CREDIT: 0,
+    IGNORE: 0,
+    total: items.length,
+    atencao: 0,
+    incluidos: 0,
+  };
+  for (const item of items) {
+    const acao = resolveReviewAction(item);
+    resumo[acao] += 1;
+    if (acao !== "IGNORE") resumo.incluidos += 1;
+    if (needsAttention(item)) resumo.atencao += 1;
+  }
+  return resumo;
+}
+
+
 
 
 // ------------------------------------------------------------------ persistência
@@ -750,15 +900,29 @@ async function registrarAuditoria(input: {
 export type ConfirmResult = {
   conciliados: number;
   criados: number;
+  taxas: number;
+  creditos: number;
   ignorados: number;
   atualizados: number;
   erros: { item: string; mensagem: string }[];
 };
 
+/** Já existe conciliação registrada para este lançamento? (idempotência) */
+async function jaConciliado(itemId: string) {
+  const { data, error } = await supabase
+    .from("reconciliations")
+    .select("id")
+    .eq("source_type", "card_statement_item")
+    .eq("source_id", itemId)
+    .limit(1);
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
 /**
- * Executa apenas as decisões aprovadas pelo usuário, item por item,
- * com status explícito em cada lançamento. Nunca mascara falha parcial
- * e nunca reprocessa um item já concluído.
+ * Aplica as decisões da revisão, item por item, com status explícito em cada
+ * lançamento. O processamento é idempotente: item já concluído, já conciliado
+ * ou que já criou compra nunca é processado de novo.
  */
 export async function confirmStatementImport(input: {
   importacao: StatementImport;
@@ -775,53 +939,94 @@ export async function confirmStatementImport(input: {
   const resultado: ConfirmResult = {
     conciliados: 0,
     criados: 0,
+    taxas: 0,
+    creditos: 0,
     ignorados: 0,
     atualizados: 0,
     erros: [],
   };
 
   for (const item of input.items) {
-    if (item.user_action === "CONCLUIDO") continue;
+    // Idempotência: nada é refeito.
+    if (item.user_action === "CONCLUIDO" || item.purchase_id_criada) continue;
     await updateStatementItem(item.id, { user_action: "PROCESSANDO", erro_mensagem: null });
 
     try {
-      const valor = Math.abs(Number(item.valor) || 0);
-      const criarCompra = async (valorFinal: number) => {
+      const bruto = Number(item.valor) || 0;
+      const valor = Math.abs(bruto);
+      const acao = resolveReviewAction(item);
+
+      /**
+       * Cria a compra pelo caminho oficial (`createPurchase`), respeitando
+       * parcelamentos: 3/6 entra como série de 6 conhecida a partir da 3ª.
+       */
+      const criarCompra = async (opcoes: {
+        valorItem: number;
+        natureza: "COMPRA" | "TAXA" | "CREDITO";
+      }) => {
+        const parcelado =
+          opcoes.natureza === "COMPRA" &&
+          !!item.parcela_atual &&
+          !!item.total_parcelas &&
+          item.total_parcelas > 1;
+        const restantes = parcelado
+          ? item.total_parcelas! - item.parcela_atual! + 1
+          : 1;
+        const valorCompra = parcelado
+          ? Math.round(opcoes.valorItem * restantes * 100) / 100
+          : opcoes.valorItem;
+
+        const nota =
+          opcoes.natureza === "TAXA"
+            ? " Encargo/taxa lançado pela fatura — não é consumo."
+            : opcoes.natureza === "CREDITO"
+              ? " Crédito/estorno lançado pela fatura."
+              : parcelado
+                ? ` Parcelamento reconhecido a partir da parcela ${item.parcela_atual}/${item.total_parcelas} (parcelas anteriores são históricas).`
+                : "";
+
         const itens: NewPurchaseItem[] = [
           {
             product_id: "",
             descricao_produto: item.estabelecimento_sugerido || item.descricao_original,
             quantidade: "1",
             unidade: "UN",
-            valor_unitario: String(valorFinal),
+            valor_unitario: String(valorCompra),
             categoria_id: item.categoria_sugerida_id ?? "",
-            ...(item.categoria_sugerida_id ? { categoria_sugerida: item.categoria_sugerida_id } : {}),
+            ...(item.categoria_sugerida_id
+              ? { categoria_sugerida: item.categoria_sugerida_id }
+              : {}),
           },
         ];
-        const parcelaTexto =
-          item.parcela_atual && item.total_parcelas
-            ? ` Parcela ${item.parcela_atual}/${item.total_parcelas} lançada na fatura.`
-            : "";
+
         return createPurchase({
           purchase: {
             family_id: importacao.family_id,
             member_id: input.memberId,
             created_by: input.userId,
             estabelecimento: item.estabelecimento_sugerido || item.descricao_original,
-            data_compra: item.data_lancamento ?? importacao.data_vencimento ?? new Date().toISOString().slice(0, 10),
+            data_compra:
+              item.data_lancamento ??
+              importacao.data_vencimento ??
+              new Date().toISOString().slice(0, 10),
             forma_pagamento: "CREDITO",
             credit_card_id: card.id,
-            tipo_compra: "COMPRA_NORMAL",
-            observacao: `Criada a partir da fatura importada (${importacao.nome_arquivo}).${parcelaTexto}`,
+            tipo_compra: parcelado ? "COMPRA_PARCELADA" : "COMPRA_NORMAL",
+            observacao: `Criada a partir da fatura importada (${importacao.nome_arquivo}).${nota}`,
           },
           items: itens,
           cards: [card],
+          ...(parcelado
+            ? {
+                parcelas: item.total_parcelas!,
+                parcelaInicial: item.parcela_atual!,
+                valorParcela: opcoes.valorItem,
+              }
+            : {}),
         });
       };
 
-      if (item.match_status === "IGNORED") {
-        resultado.ignorados += 1;
-      } else if (item.match_status === "MATCHED" || item.match_status === "POSSIBLE_MATCH") {
+      const associar = async () => {
         const alvo = item.installment_id_matched
           ? { tipo: "expense_installment" as const, id: item.installment_id_matched }
           : item.recurring_expense_id_matched
@@ -830,22 +1035,26 @@ export async function confirmStatementImport(input: {
               ? { tipo: "purchase" as const, id: item.purchase_id_matched }
               : null;
         if (!alvo) throw new Error("Sem correspondência escolhida para conciliar.");
-        await registrarConciliacao({
-          familyId: importacao.family_id,
-          itemId: item.id,
-          targetType: alvo.tipo,
-          targetId: alvo.id,
-          confidence: item.confidence_score ? Number(item.confidence_score) : null,
-          userId: input.userId,
-        });
+        if (!(await jaConciliado(item.id))) {
+          await registrarConciliacao({
+            familyId: importacao.family_id,
+            itemId: item.id,
+            targetType: alvo.tipo,
+            targetId: alvo.id,
+            confidence: item.confidence_score ? Number(item.confidence_score) : null,
+            userId: input.userId,
+          });
+        }
         resultado.conciliados += 1;
-      } else if (item.match_status === "CONFIRMED_NEW" || item.match_status === "UNMATCHED") {
-        if (item.match_status === "UNMATCHED") {
-          // Sem decisão explícita, nada é criado.
-          resultado.ignorados += 1;
-        } else {
-          const compra = await criarCompra(valor);
-          await updateStatementItem(item.id, { purchase_id_criada: compra.id });
+      };
+
+      const criarEConciliar = async (
+        natureza: "COMPRA" | "TAXA" | "CREDITO",
+        valorItem: number,
+      ) => {
+        const compra = await criarCompra({ valorItem, natureza });
+        await updateStatementItem(item.id, { purchase_id_criada: compra.id });
+        if (!(await jaConciliado(item.id))) {
           await registrarConciliacao({
             familyId: importacao.family_id,
             itemId: item.id,
@@ -854,9 +1063,24 @@ export async function confirmStatementImport(input: {
             confidence: 1,
             userId: input.userId,
           });
-          resultado.criados += 1;
         }
-      } else if (item.match_status === "DIVERGENT") {
+      };
+
+      if (acao === "IGNORE") {
+        // O lançamento continua existindo na importação, apenas marcado como ignorado.
+        await updateStatementItem(item.id, { match_status: "IGNORED" });
+        resultado.ignorados += 1;
+      } else if (acao === "REGISTER_FEE") {
+        await criarEConciliar("TAXA", valor);
+        resultado.taxas += 1;
+      } else if (acao === "REGISTER_CREDIT") {
+        // Crédito/estorno preserva o sinal negativo: reduz a fatura.
+        await criarEConciliar("CREDITO", -valor);
+        resultado.creditos += 1;
+      } else if (acao === "ASSOCIATE_EXISTING") {
+        await associar();
+      } else if (acao === "POSSIBLE_MATCH") {
+        // Divergência de valor com decisão explícita mantém o fluxo já validado.
         const decisao = item.decisao as DecisaoDivergencia | null;
         if (decisao === "USAR_VALOR_FATURA" && item.purchase_id_matched) {
           const { data: compra, error } = await supabase
@@ -878,42 +1102,19 @@ export async function confirmStatementImport(input: {
             valorNovo: valor,
             userId: input.userId,
           });
-          await registrarConciliacao({
-            familyId: importacao.family_id,
-            itemId: item.id,
-            targetType: "purchase",
-            targetId: item.purchase_id_matched,
-            confidence: item.confidence_score ? Number(item.confidence_score) : null,
-            userId: input.userId,
-          });
+          await associar();
+          resultado.conciliados -= 1;
           resultado.atualizados += 1;
-        } else if (decisao === "CRIAR_NOVO") {
-          const compra = await criarCompra(valor);
-          await updateStatementItem(item.id, { purchase_id_criada: compra.id });
-          await registrarConciliacao({
-            familyId: importacao.family_id,
-            itemId: item.id,
-            targetType: "purchase",
-            targetId: compra.id,
-            confidence: 1,
-            userId: input.userId,
-          });
-          resultado.criados += 1;
         } else if (decisao === "MANTER_VALOR" && item.purchase_id_matched) {
-          await registrarConciliacao({
-            familyId: importacao.family_id,
-            itemId: item.id,
-            targetType: "purchase",
-            targetId: item.purchase_id_matched,
-            confidence: item.confidence_score ? Number(item.confidence_score) : null,
-            userId: input.userId,
-          });
-          resultado.conciliados += 1;
+          await associar();
         } else {
-          // Divergência sem decisão: fica pendente para uma próxima revisão.
-          await updateStatementItem(item.id, { user_action: "PENDENTE" });
-          continue;
+          // Sem escolha do usuário, o fallback declarado é criar a compra nova.
+          await criarEConciliar("COMPRA", valor);
+          resultado.criados += 1;
         }
+      } else {
+        await criarEConciliar("COMPRA", valor);
+        resultado.criados += 1;
       }
 
       await updateStatementItem(item.id, { user_action: "CONCLUIDO" });
@@ -933,3 +1134,4 @@ export async function confirmStatementImport(input: {
 
   return resultado;
 }
+
