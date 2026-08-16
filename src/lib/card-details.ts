@@ -150,11 +150,16 @@ export function proximasObrigacoes(input: {
 
 export type ParcelamentoAtivo = {
   id: string;
+  purchaseId: string | null;
   descricao: string;
   numeroAtual: number;
   total: number;
+  pagas: number;
+  restantesQtd: number;
   valorParcela: number;
+  /** Soma somente das parcelas ainda não quitadas. */
   restante: number;
+  proximaCobranca: string | null;
 };
 
 /** Parcelamentos em andamento no cartão, com saldo futuro comprometido. */
@@ -186,14 +191,19 @@ export function parcelamentosAtivos(input: {
     const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
     resultado.push({
       id: expenseId,
+      purchaseId,
       descricao: compra?.estabelecimento ?? despesa?.descricao ?? "Parcelamento",
       numeroAtual: atual.numero_parcela,
       total: atual.total_parcelas,
+      pagas: ordenadas.filter((p) => p.status === "PAGO").length,
+      restantesQtd: pendentes.length,
       valorParcela: Number(atual.valor_parcela) || 0,
       restante: pendentes.reduce((acc, p) => acc + (Number(p.valor_parcela) || 0), 0),
+      proximaCobranca: atual.data_vencimento ?? null,
     });
   }
   return resultado.sort((a, b) => b.restante - a.restante);
+
 }
 
 // ---------- Fonte de verdade da fatura do ciclo ----------
