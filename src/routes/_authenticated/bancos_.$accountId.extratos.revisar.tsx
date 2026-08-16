@@ -371,123 +371,95 @@ function RevisarExtrato() {
         ))}
       </div>
 
-      {/* Tabela (desktop) */}
-      <Card className="mt-4 hidden overflow-hidden p-0 md:block">
-        <div className="w-full overflow-x-auto">
-          <table className="w-full min-w-[1040px] table-fixed text-left text-sm">
-            <colgroup>
-              <col className="w-[104px]" />
-              <col />
-              <col className="w-[150px]" />
-              <col className="w-[170px]" />
-              <col className="w-[190px]" />
-              <col className="w-[130px]" />
-              <col className="w-[210px]" />
-            </colgroup>
-            <thead className="bg-muted/60">
-              <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="px-4 py-3">Data</th>
-                <th className="px-4 py-3">Descrição</th>
-                <th className="px-4 py-3">Tipo</th>
-                <th className="px-4 py-3">Situação</th>
-                <th className="px-4 py-3">Associação</th>
-                <th className="px-4 py-3 text-right">Valor</th>
-                <th className="px-4 py-3 text-right">Ação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visiveis.map(({ l, i }) => {
-                const { principal, detalhes } = descreverLinha(l);
-                const atencao = l.sugestao.matchStatus === "POSSIBLE_MATCH";
-                return (
-                  <tr
-                    key={`${l.descricaoOriginal}-${i}`}
-                    className={`border-t border-border align-top ${atencao ? "bg-amber-500/5" : ""}`}
-                  >
-                    <td className="whitespace-nowrap px-4 py-3 text-xs text-muted-foreground">
-                      {l.data ? formatDate(l.data) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold">{principal}</p>
-                      {detalhes.length > 0 && (
-                        <p className="mt-0.5 text-[11px] text-muted-foreground">
-                          {detalhes.join(" · ")}
-                        </p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{tipoLegivel(l)}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {MATCH_LABELS[l.sugestao.matchStatus]}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                      {l.sugestao.debug.candidateTransaction ??
-                        l.sugestao.debug.candidatePurchase ??
-                        l.sugestao.debug.candidateIncome ??
-                        l.sugestao.debug.candidateInvoice ??
-                        (atencao ? "Possível correspondência" : "—")}
-                    </td>
-                    <td
-                      className={`whitespace-nowrap px-4 py-3 text-right font-bold ${
-                        l.valor >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-                      }`}
-                    >
-                      {l.valor >= 0 ? "+" : "-"}
-                      {formatCurrency(Math.abs(l.valor))}
-                    </td>
-                    <td className="px-4 py-3">
-                      <MenuAcao linha={l} onChange={(a) => setAcao(i, a)} />
-                    </td>
-                  </tr>
-                );
-              })}
-              {visiveis.length === 0 && (
-                <tr className="border-t border-border">
-                  <td colSpan={7} className="px-4 py-10 text-center text-sm text-muted-foreground">
-                    {filtro === "FUTUROS"
-                      ? "Veja os lançamentos previstos na seção abaixo."
-                      : "Nenhum lançamento neste filtro."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {/* Extrato por dia */}
+      <div className="mt-4 space-y-4">
+        {dias.map((dia) => (
+          <Card key={dia.data ?? "sem-data"} className="p-0">
+            <div className="flex items-baseline justify-between gap-3 border-b border-border px-4 py-3 sm:px-5">
+              <h3 className="text-sm font-extrabold uppercase tracking-wide">
+                {dia.data ? formatDiaCurto(dia.data) : "Sem data"}
+              </h3>
+              <span className="text-[11px] text-muted-foreground">
+                {dia.itens.length} lançamento{dia.itens.length === 1 ? "" : "s"}
+              </span>
+            </div>
 
-      {/* Cards (mobile) */}
-      <div className="mt-4 space-y-3 md:hidden">
-        {visiveis.map(({ l, i }) => {
-          const { principal, detalhes } = descreverLinha(l);
-          return (
-            <Card key={`m-${l.descricaoOriginal}-${i}`} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold">{principal}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {(l.data ? formatDate(l.data) : "—") +
-                      (detalhes.length ? ` · ${detalhes.join(" · ")}` : "")}
-                  </p>
-                </div>
-                <p
-                  className={`shrink-0 font-bold ${
-                    l.valor >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"
-                  }`}
-                >
-                  {l.valor >= 0 ? "+" : "-"}
-                  {formatCurrency(Math.abs(l.valor))}
-                </p>
+            <ul className="divide-y divide-border">
+              {dia.itens
+                .filter(({ i }) => visiveis.some((v) => v.i === i))
+                .map(({ l, i }) => {
+                  const { principal, detalhes } = descreverLinha(l);
+                  const atencao = l.sugestao.matchStatus === "POSSIBLE_MATCH";
+                  return (
+                    <li
+                      key={`${l.descricaoOriginal}-${i}`}
+                      className={`px-4 py-3 sm:px-5 ${atencao ? "bg-amber-500/5" : ""}`}
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                        <div className="min-w-0 sm:flex-1">
+                          <p className="font-semibold">{principal}</p>
+                          {detalhes.length > 0 && (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">
+                              {detalhes.join(" · ")}
+                            </p>
+                          )}
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <Badge>{tipoLegivel(l)}</Badge>
+                            <Badge tone={SITUACAO_TONE[l.sugestao.matchStatus]}>
+                              {SITUACAO_CURTA[l.sugestao.matchStatus]}
+                            </Badge>
+                            {associacaoLegivel(l) && (
+                              <span className="text-[11px] text-muted-foreground">
+                                Associado a: {associacaoLegivel(l)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 sm:justify-end">
+                          <p
+                            className={`whitespace-nowrap text-base font-extrabold tabular-nums ${
+                              l.valor >= 0
+                                ? "text-emerald-600 dark:text-emerald-400"
+                                : "text-destructive"
+                            }`}
+                          >
+                            {l.valor >= 0 ? "+ " : "- "}
+                            {formatCurrency(Math.abs(l.valor))}
+                          </p>
+                          <div className="shrink-0">
+                            <MenuAcao linha={l} onChange={(a) => setAcao(i, a)} />
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+
+            {dia.saldo !== null && (
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 bg-muted/40 px-4 py-2.5 text-xs sm:px-5">
+                <span className="text-muted-foreground">Saldo do dia</span>
+                <span className="flex items-center gap-2">
+                  <strong className="tabular-nums">{formatCurrency(dia.saldo)}</strong>
+                  {dia.banco !== null &&
+                    (dia.confere ? (
+                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                        <Check className="size-3" /> Confere
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-400">
+                        <TriangleAlert className="size-3" /> Banco{" "}
+                        {formatCurrency(dia.banco)}
+                      </span>
+                    ))}
+                </span>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-                <Badge>{tipoLegivel(l)}</Badge>
-                <span>{MATCH_LABELS[l.sugestao.matchStatus]}</span>
-              </div>
-              <div className="mt-3">
-                <MenuAcao linha={l} onChange={(a) => setAcao(i, a)} />
-              </div>
-            </Card>
-          );
-        })}
-        {visiveis.length === 0 && (
+            )}
+          </Card>
+        ))}
+
+        {dias.length === 0 && (
           <p className="py-8 text-center text-sm text-muted-foreground">
             {filtro === "FUTUROS"
               ? "Veja os lançamentos previstos na seção abaixo."
@@ -495,6 +467,7 @@ function RevisarExtrato() {
           </p>
         )}
       </div>
+
 
       {futuros.length > 0 && (
         <Card className="mt-6">
