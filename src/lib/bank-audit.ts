@@ -107,6 +107,8 @@ export type StatementPeriod = {
   saldoInicial: number | null;
   saldoFinal: number | null;
   quantidade: number;
+  /** "Saldo do dia" encontrados no PDF (0 quando o documento não foi relido). */
+  checkpointsPdf: number;
   status: string;
 };
 
