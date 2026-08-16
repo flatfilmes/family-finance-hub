@@ -2497,6 +2497,10 @@ export type Database = {
         Args: { _family_id: string; _member_id: string; _user_id: string }
         Returns: boolean
       }
+      confirm_bank_statement_import: {
+        Args: { _import_id: string }
+        Returns: Json
+      }
       create_family_with_owner: {
         Args: { p_family_name: string; p_first_member_name?: string }
         Returns: Json
