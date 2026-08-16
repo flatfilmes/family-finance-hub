@@ -9,7 +9,7 @@
  * é alterado aqui.
  */
 import { useMemo, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Check, ChevronDown, TriangleAlert } from "lucide-react";
