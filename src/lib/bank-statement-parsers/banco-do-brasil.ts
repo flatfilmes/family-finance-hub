@@ -133,10 +133,85 @@ export function isBancoDoBrasil(textos: string[]) {
   return linhasComSinal >= 3;
 }
 
+/** Coluna "Histórico" do extrato BB começa por volta de x = 265. */
+const HISTORICO_X_MIN = 200;
+/** Distância vertical máxima entre a linha financeira e o texto do histórico. */
+const HISTORICO_Y_MAX = 16;
+
+/**
+ * Recupera o HISTÓRICO de movimentações cujo texto foi impresso em uma ou mais
+ * linhas próprias (acima/abaixo da linha da data+valor).
+ *
+ * No PDF real do BB, "Pagamento Fatura de Água / TUBARAO SANEAMENTO",
+ * "Cobrança de I.O.F. / IOF Saldo Devedor Conta" e "Pagamento de Boleto /
+ * CELESC DISTRIBUICAO S.A" ocupam DUAS linhas de texto, enquanto data e valor
+ * ficam sozinhos em outro Y. Exigir descrição no mesmo Y descartava esses
+ * lançamentos. A regra correta: DATA + VALOR com (+)/(-) já identificam a
+ * movimentação; o histórico é recuperado pelas linhas vizinhas da coluna.
+ */
+function recuperarHistoricos(
+  linhas: PdfLine[],
+  descricaoDaLinha: Array<string | null>,
+): Map<number, string> {
+  const financeirasSemTexto = linhas
+    .map((linha, index) => ({ linha, index }))
+    .filter(({ index }) => descricaoDaLinha[index] === "");
+
+  // Linhas candidatas: texto puro na coluna do histórico, sem data e sem valor.
+  const candidatas = linhas
+    .map((linha, index) => ({ linha, index }))
+    .filter(({ linha, index }) => {
+      if (descricaoDaLinha[index] !== null) return false; // é linha financeira
+      const raw = linha.text.replace(/\s+/g, " ").trim();
+      if (raw.length < 3) return false;
+      if (DATA_INICIAL.test(raw)) return false;
+      if (ehSaldoMetadata(raw)) return false;
+      const t = plano(raw);
+      if ([...CABECALHOS_FUTUROS, ...CABECALHOS_METADATA, ...CABECALHOS_MOVIMENTOS].some((c) => t.startsWith(c)))
+        return false;
+      if (linha.cells.length) {
+        const inicio = Math.min(...linha.cells.map((c) => c.x));
+        if (inicio < HISTORICO_X_MIN) return false;
+      }
+      return true;
+    });
+
+  const usadas = new Set<number>();
+  const resultado = new Map<number, string>();
+
+  for (const { linha, index } of financeirasSemTexto) {
+    const proximas = candidatas
+      .filter(({ linha: c, index: ci }) => {
+        if (usadas.has(ci)) return false;
+        if ((c.page ?? 1) !== (linha.page ?? 1)) return false;
+        return Math.abs(c.y - linha.y) <= HISTORICO_Y_MAX;
+      })
+      // Não roubar histórico de outra movimentação: só o que está mais perto
+      // desta linha financeira do que de qualquer outra.
+      .filter(({ linha: c }) =>
+        financeirasSemTexto.every(
+          ({ linha: outra, index: oi }) =>
+            oi === index || Math.abs(c.y - linha.y) <= Math.abs(c.y - outra.y),
+        ),
+      )
+      .sort((a, b) => b.linha.y - a.linha.y);
+
+    if (!proximas.length) continue;
+    for (const p of proximas) usadas.add(p.index);
+    resultado.set(
+      index,
+      proximas.map((p) => p.linha.text.replace(/\s+/g, " ").trim()).join(" "),
+    );
+  }
+
+  return resultado;
+}
+
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
 export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
   const anoBase = new Date().getFullYear();
+
 
   const movimentos: ParsedBankMovement[] = [];
   const futuros: ParsedBankMovement[] = [];
