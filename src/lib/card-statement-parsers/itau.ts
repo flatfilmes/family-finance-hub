@@ -163,6 +163,35 @@ function ehRuido(texto: string) {
   return RUIDO_LINHA.some((r) => p.startsWith(r));
 }
 
+/**
+ * Linhas que NUNCA podem virar lançamento, apareçam onde aparecerem:
+ * limites, simulações de parcelamento, CET, juros/IOF de simulação, saque.
+ */
+const TERMOS_PROIBIDOS = [
+  "limite",
+  "limites",
+  "saque cash",
+  "limite para saque",
+  "simulacao",
+  "simule",
+  "parcelamento da fatura",
+  "parcele sua fatura",
+  "pagamento minimo",
+  "valor total financiado",
+  "cet",
+  "taxa de juros",
+  "juros ao mes",
+  "credito pessoal",
+  "emprestimo",
+  "proposta",
+];
+
+function ehProibido(texto: string) {
+  const p = plano(texto);
+  return TERMOS_PROIBIDOS.some((t) => p.includes(t));
+}
+
+
 // ------------------------------------------------------------------ categorias do banco
 
 const CATEGORIAS_ITAU: Record<string, string | null> = {
