@@ -665,8 +665,9 @@ function ContaDetalhePage() {
           <SectionTitle title="Saídas do período" hint="Como o dinheiro saiu desta conta." />
           <ul className="divide-y divide-border">
             <Linha label="Compras via PIX / débito" valor={saidasPix} />
-            <Linha label="Boletos" valor={saidasBoleto} />
+            <Linha label="Boletos e contas de consumo" valor={saidasBoleto} />
             <Linha label="Pagamentos de cartão" valor={pagamentos} />
+            <Linha label="Tarifas, IOF e juros" valor={saidasTarifas} />
             <Linha label="Transferências" valor={transferencias} />
             <Linha label="Outras saídas" valor={saidasOutras} />
           </ul>
