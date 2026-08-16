@@ -44,7 +44,7 @@ import {
   type ExpenseRecurrence,
 } from "@/lib/recurring-expenses";
 import { isRecorrente } from "@/lib/purchases";
-import { DocumentosSection, NovaCompraOptions } from "@/components/purchase-capture";
+import { NovaCompraOptions } from "@/components/purchase-capture";
 import { PurchaseDetail } from "@/components/purchase-detail";
 import { VisaoConsumo } from "@/components/purchase-consumption";
 
@@ -251,8 +251,13 @@ function Compras() {
             setShowForm(true);
             setShowOptions(false);
           }}
+          onConfirmed={() => {
+            setShowOptions(false);
+            invalidateFinanceiro();
+          }}
         />
       )}
+
 
       {showForm && view.podeLancar && (
       <Card>
@@ -602,13 +607,8 @@ function Compras() {
         </div>
       </Card>
 
-      <DocumentosSection
-        familyId={family.id}
-        memberId={view.myMemberId}
-        createdBy={user?.id}
-        podeLancar={view.podeLancar}
-        escopo={escopo}
-      />
+
+
 
 
       <Card className="mt-4">
