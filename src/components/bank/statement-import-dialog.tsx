@@ -40,6 +40,11 @@ import {
   type StatementDraftRow,
 } from "@/lib/bank-statements";
 import { saveStatementDraft } from "@/lib/bank-statements/draft";
+import {
+  parseStatementFilesIndependently,
+  sortBatchFiles,
+} from "@/lib/bank-statements/batch";
+import { saveStatementBatchDraft } from "@/lib/bank-statements/batch-draft";
 import type { BankAccount } from "@/lib/bank-accounts";
 
 type Modo = "PDF" | "IMAGEM";
@@ -79,6 +84,8 @@ export function BankStatementDialog({
   const { data: incomes } = useIncomes(familyId);
 
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [lote, setLote] = useState<File[]>([]);
+  const [progresso, setProgresso] = useState<{ feito: number; total: number } | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
   const [duplicado, setDuplicado] = useState(false);
   const [resumo, setResumo] = useState<ParsedBankStatement | null>(null);
@@ -86,6 +93,61 @@ export function BankStatementDialog({
   const [saldoLido, setSaldoLido] = useState<number | null>(null);
   const [textoDetectado, setTextoDetectado] = useState("");
   const [diagnostico, setDiagnostico] = useState(0);
+
+  /**
+   * Vários PDFs: cada arquivo passa sozinho pelo parser (nunca concatenados).
+   * O resultado vai para a tela de revisão do lote, sem gravar nada.
+   */
+  const lerLote = useMutation({
+    mutationFn: async (files: File[]) => {
+      setProgresso({ feito: 0, total: files.length });
+      const memoria = new Map<string, File>();
+      const resultados = await parseStatementFilesIndependently(
+        files,
+        async (file) => {
+          const fp = await statementFingerprint(file);
+          const jaImportado = await findExistingStatementImport(account!.id, fp);
+          const parsed = await readBankStatementPdf(file);
+          return {
+            nomeArquivo: file.name,
+            fingerprint: fp,
+            jaImportado: !!jaImportado,
+            parsed,
+            erro: null,
+          };
+        },
+        (feito, total) => setProgresso({ feito, total }),
+      );
+      resultados.forEach((r, i) => {
+        const f = files[i];
+        if (f) {
+          memoria.set(r.id, f);
+          r.nomeArquivo = r.nomeArquivo === `arquivo ${i + 1}` ? f.name : r.nomeArquivo;
+        }
+      });
+      const ordenados = sortBatchFiles(resultados);
+      saveStatementBatchDraft(
+        { accountId: account!.id, criadoEm: new Date().toISOString(), arquivos: ordenados },
+        memoria,
+      );
+      return ordenados;
+    },
+    onSuccess: (arquivos) => {
+      setProgresso(null);
+      const comErro = arquivos.filter((a) => a.status === "ERRO").length;
+      if (comErro) toast.warning(`${comErro} arquivo(s) com problema. Revise no lote.`);
+      onClose();
+      navigate({
+        to: "/bancos/$accountId/extratos/lote",
+        params: { accountId: account!.id },
+      });
+    },
+    onError: (e: Error) => {
+      setProgresso(null);
+      toast.error(e.message);
+    },
+  });
+
 
   const reconciliar = (parsed: ParsedBankStatement): StatementDraftRow[] =>
     parsed.movimentos.map((m) => {
@@ -202,6 +264,18 @@ export function BankStatementDialog({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Seleção de arquivos: um PDF segue o fluxo individual, vários viram lote. */
+  function selecionar(files: File[]) {
+    setLote(files);
+    const primeiro = files[0] ?? null;
+    setArquivo(primeiro);
+    setResumo(null);
+    setLinhas([]);
+    setDuplicado(false);
+    setFingerprint(null);
+    if (primeiro && modo === "IMAGEM") ler.mutate(primeiro);
+  }
+
   const totais = resumoDoExtrato(linhas);
   const comEfeito = linhas.filter((l) => !ACOES_SEM_EFEITO.includes(l.acao));
 
@@ -256,35 +330,78 @@ export function BankStatementDialog({
       }
     >
       <div className="space-y-4">
-        <label className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border p-6 text-center transition-colors hover:bg-muted/50">
+        <label
+          onDragOver={(e) => {
+            if (modo === "PDF") e.preventDefault();
+          }}
+          onDrop={(e) => {
+            if (modo !== "PDF") return;
+            e.preventDefault();
+            const arquivosSoltos = Array.from(e.dataTransfer.files).filter(
+              (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+            );
+            if (arquivosSoltos.length) selecionar(arquivosSoltos);
+          }}
+          className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-border p-6 text-center transition-colors hover:bg-muted/50"
+        >
           {modo === "PDF" ? (
             <FileUp className="size-6 text-muted-foreground" />
           ) : (
             <ImageIcon className="size-6 text-muted-foreground" />
           )}
           <span className="text-sm font-semibold">
-            {arquivo ? arquivo.name : modo === "PDF" ? "Selecionar PDF do extrato" : "Escolher imagem"}
+            {lote.length > 1
+              ? `${lote.length} PDFs selecionados`
+              : arquivo
+                ? arquivo.name
+                : modo === "PDF"
+                  ? "Selecionar um ou vários PDFs de extrato"
+                  : "Escolher imagem"}
           </span>
           <span className="text-xs text-muted-foreground">
-            {modo === "PDF" ? "PDF hoje · CSV e OFX em breve" : "PNG, JPG ou HEIC"}
+            {modo === "PDF"
+              ? "Arraste vários arquivos aqui · PDF hoje · CSV e OFX em breve"
+              : "PNG, JPG ou HEIC"}
           </span>
           <input
             type="file"
             className="hidden"
+            multiple={modo === "PDF"}
             accept={modo === "PDF" ? "application/pdf" : "image/*"}
-            onChange={(e) => {
-              const f = e.target.files?.[0] ?? null;
-              setArquivo(f);
-              setResumo(null);
-              setLinhas([]);
-              setDuplicado(false);
-              setFingerprint(null);
-              if (f && modo === "IMAGEM") ler.mutate(f);
-            }}
+            onChange={(e) => selecionar(Array.from(e.target.files ?? []))}
           />
         </label>
 
-        {modo === "PDF" && arquivo && (
+        {modo === "PDF" && lote.length > 1 && (
+          <div className="space-y-3 rounded-2xl border border-border p-3">
+            <p className="text-xs text-muted-foreground">
+              Cada arquivo é lido separadamente — os PDFs nunca são juntados. Depois da leitura você
+              revisa o lote inteiro antes de qualquer gravação.
+            </p>
+            <ul className="max-h-40 space-y-1 overflow-auto text-xs">
+              {lote.map((f) => (
+                <li key={f.name} className="truncate text-muted-foreground">
+                  {f.name}
+                </li>
+              ))}
+            </ul>
+            {progresso && (
+              <p className="text-xs font-semibold text-primary">
+                Processando {progresso.feito} de {progresso.total}…
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => lerLote.mutate(lote)}
+              disabled={lerLote.isPending}
+              className="w-full rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            >
+              {lerLote.isPending ? "Analisando…" : `Analisar ${lote.length} extratos`}
+            </button>
+          </div>
+        )}
+
+        {modo === "PDF" && lote.length <= 1 && arquivo && (
           <div className="space-y-2 rounded-2xl border border-border p-3">
             <p className="text-xs text-muted-foreground">
               Arquivo selecionado: <strong className="text-foreground">{arquivo.name}</strong>
@@ -307,6 +424,7 @@ export function BankStatementDialog({
             <DiagnosticoHint onEnable={() => setDiagnostico((n) => n + 1)} key={diagnostico} />
           </div>
         )}
+
 
 
         {ler.isPending && <p className="text-sm text-muted-foreground">Lendo o documento...</p>}
