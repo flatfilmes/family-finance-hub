@@ -72,10 +72,19 @@ function lerValorAssinado(texto: string): { valor: number | null; resto: string 
   const bruto = achados[achados.length - 1] as string;
   const idx = texto.lastIndexOf(bruto);
   const depois = texto.slice(idx + bruto.length).trim();
+  // O sinal impresso "(+)/(-)" (layout BB e similares) é fonte de verdade.
+  const sinalImpresso = depois.match(/^\(\s*([+-])\s*\)/)?.[1] ?? null;
   const negativo =
-    bruto.includes("-") || /^-/.test(depois) || /^(D|DEB|DÉB)\b/i.test(depois);
+    sinalImpresso !== null
+      ? sinalImpresso === "-"
+      : bruto.includes("-") || /^-/.test(depois) || /^(D|DEB|DÉB)\b/i.test(depois);
   const valor = Math.abs(parseValorBr(bruto)) * (negativo ? -1 : 1);
-  const resto = (texto.slice(0, idx) + " " + depois.replace(/^(-|D|C|DEB|CRED)\b/i, "")).trim();
+  const resto = (
+    texto.slice(0, idx) +
+    " " +
+    depois.replace(/^\(\s*[+-]\s*\)/, "").replace(/^(-|D|C|DEB|CRED)\b/i, "")
+  ).trim();
+
   return { valor, resto };
 }
 
