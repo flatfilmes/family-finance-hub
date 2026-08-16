@@ -60,6 +60,8 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
       debug: { accepted: [], rejected: [], metadata: [{ campo: "erro", valor: d.error }] },
       pipelineStages: d.pipelineStages,
       errors: d.errors,
+      parserInternalStages: d.parserInternalStages,
+      parserExecutionInput: d.parserExecutionInput as unknown as Record<string, unknown> | null,
       detection: {
         status: "FAILED",
         bank: null,
@@ -133,6 +135,10 @@ export const bankStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
     signals: d.detection.matchedSignals,
     counts,
     checkpointTrace: trace,
+    pipelineStages: d.pipelineStages,
+    errors: d.errors,
+    parserInternalStages: d.parserInternalStages,
+    parserExecutionInput: d.parserExecutionInput as unknown as Record<string, unknown> | null,
     output: parserOutput,
     debug: {
       accepted: (statement.transactions ?? []).map((t) => ({

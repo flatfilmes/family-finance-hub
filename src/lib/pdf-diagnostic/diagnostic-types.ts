@@ -87,7 +87,11 @@ export type ParserDryRunResult = {
   counts?: { rawItems: number; rows: number; transactions: number; checkpoints: number };
   checkpointTrace?: ParserCheckpointTrace[];
   pipelineStages?: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
-  errors?: Array<{ name: string; message: string; stage: string; stack?: string }>;
+  /** Etapas internas do parser (HEADER_PERIOD, TRANSACTION_ROWS, ...). */
+  parserInternalStages?: Array<{ stage: string; status: "PASS" | "FAIL"; reason: string }>;
+  /** Entrada exata que o parser recebeu — prova de execução. */
+  parserExecutionInput?: Record<string, unknown> | null;
+  errors?: Array<{ name: string; message: string; stage: string; stack?: string; cause?: string }>;
   /** Saída do parser exatamente como ele devolve hoje. */
   output: unknown;
   debug?: ParserDebug;

@@ -47,12 +47,16 @@ export type DiagnosticPackage = {
     reason: string;
   };
   parserOutput: unknown;
+  /** Entrada exata recebida pelo parser (nunca omitida no diagnóstico). */
+  parserExecutionInput: Record<string, unknown> | null;
+  /** Etapas internas do parser com PASS/FAIL e motivo. */
+  parserInternalStages: Array<{ stage: string; status: "PASS" | "FAIL"; reason: string }>;
   checkpointTrace: unknown[];
   accepted: unknown[];
   rejected: unknown[];
   metadata: unknown[];
   pipelineStages: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
-  errors: Array<{ name: string; message: string; stage: string; stack?: string }>;
+  errors: Array<{ name: string; message: string; stage: string; stack?: string; cause?: string }>;
 };
 
 /** Texto usado pela detecção: linhas visuais reconstruídas + itens crus. */
@@ -120,6 +124,28 @@ export function buildDiagnosticPackage(input: {
       ? "A detecção recebeu texto vazio."
       : "O pipeline do parser não foi executado.");
 
+  // Uma execução ausente NUNCA é silenciosa: vira erro explícito no pacote.
+  const parserExecutionInputFallback: DiagnosticPackage["parserExecutionInput"] = input.parser
+    ? null
+    : {
+        parserName: parserInfo.name,
+        bank,
+        rawItemsCount: bankDetectionInput.rawItemsCount,
+        visualRowsCount: bankDetectionInput.visualRowsCount,
+        rawTextLength: bankDetectionInput.rawTextLength,
+        executed: false,
+      };
+  const errosDerivados: DiagnosticPackage["errors"] = input.parser
+    ? []
+    : [
+        {
+          name: "ParserNotExecuted",
+          message:
+            "O dry run do parser não foi executado por esta tela — nenhuma saída foi produzida.",
+          stage: "PARSER_EXECUTION",
+        },
+      ];
+
   const deteccaoOk = statusDeteccao === "DETECTED";
   const stagesFallback: DiagnosticPackage["pipelineStages"] = [
     { stage: "PDFJS", status: input.dump.items.length ? "PASS" : "FAIL", count: input.dump.items.length },
@@ -154,11 +180,13 @@ export function buildDiagnosticPackage(input: {
       reason,
     },
     parserOutput: input.parser?.output ?? null,
+    parserExecutionInput: input.parser?.parserExecutionInput ?? parserExecutionInputFallback,
+    parserInternalStages: input.parser?.parserInternalStages ?? [],
     checkpointTrace: input.parser?.checkpointTrace ?? [],
     accepted: input.parser?.debug?.accepted ?? [],
     rejected: input.parser?.debug?.rejected ?? [],
     metadata: input.parser?.debug?.metadata ?? [],
     pipelineStages: input.parser?.pipelineStages ?? stagesFallback,
-    errors: input.parser?.errors ?? [],
+    errors: input.parser?.errors?.length ? input.parser.errors : errosDerivados,
   };
 }

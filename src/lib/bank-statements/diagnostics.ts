@@ -23,7 +23,14 @@ import {
   type ItauDetection,
   type ItauPipelineDiagnostics,
 } from "@/lib/bank-statement-parsers/itau";
-import { runBankStatementParserPipeline } from "./parse";
+import {
+  describeParserError,
+  inspectParsedStatement,
+  runObservableBankStatementParser,
+  type BankParserExecutionInput,
+  type ParserInternalStage,
+} from "./parse";
+
 import { toCanonicalStatement, type CanonicalStatement } from "./canonical";
 import { validateStatement, type StatementValidation } from "./validate";
 import { goldenFor, type GoldenStatement } from "./golden";
@@ -122,6 +129,11 @@ export type BankParserDiagnostics = {
   error: string | null;
   parser: { status: "FOUND" | "NOT_FOUND"; requestedBank: string | null; name: string | null };
   parserOutput: unknown;
+  /** Entrada exata recebida pelo parser (nunca omitida). */
+  parserExecutionInput: BankParserExecutionInput | null;
+  /** Etapas internas do parser com PASS/FAIL e motivo. */
+  parserInternalStages: ParserInternalStage[];
+
   checkpointTrace: Array<{ rowText: string; date: string | null; balance: number | null; status: string; reason: string }>;
   accepted: unknown[];
   rejected: unknown[];
@@ -338,6 +350,8 @@ export async function buildBankParserDiagnostics(
     error,
     parser: { status: "NOT_FOUND", requestedBank: null, name: null },
     parserOutput: { status: "PARSER_EXECUTION_FAILED", error },
+    parserExecutionInput: null,
+    parserInternalStages: [],
     checkpointTrace: [],
     accepted: [],
     rejected: [],
@@ -376,31 +390,79 @@ export async function buildBankParserDiagnostics(
   );
 
   const lines = pages.flatMap((p) => layoutPageLines(p.items, p.width, p.page));
-  let pipelineResult;
-  try {
-    pipelineResult = await runBankStatementParserPipeline(file);
-  } catch (e) {
-    const result = vazio(e instanceof Error ? e.message : "Falha no parser.");
+  const execution = await runObservableBankStatementParser(file);
+  const parserExecutionInput = execution.input;
+  const parserInternalStages = [...execution.internalStages];
+
+  if (!execution.parsed) {
+    const primeiro = execution.errors[0];
+    const result = vazio(primeiro?.message ?? "O parser não devolveu um extrato.");
     result.rawItems = rawItems;
     result.counts.rawItems = rawItems.length;
-    result.pipelineStages[0] = { stage: "PDFJS", status: "PASS", count: rawItems.length };
-    result.pipelineStages[1] = { stage: "VISUAL_ROWS", status: lines.length ? "PASS" : "FAIL", count: lines.length };
-    result.failure = { stage: "ROW_TO_TRANSACTION", reason: result.error };
-    result.errors = [{
-      name: e instanceof Error ? e.name : "Error",
-      message: e instanceof Error ? e.message : "Falha no parser.",
-      stage: "PARSER_EXECUTION",
-      ...(import.meta.env.DEV && e instanceof Error && e.stack ? { stack: e.stack } : {}),
-    }];
+    result.parser = execution.parser;
+    result.detection = {
+      detectedBank: execution.detection.bank ?? "UNKNOWN",
+      score: execution.detection.status === "PASS" ? 1 : 0,
+      matchedSignals: execution.detection.matchedSignals,
+      parser: execution.parser.name ?? "—",
+      parserVersion: "—",
+    };
+    result.parserExecutionInput = parserExecutionInput;
+    result.parserInternalStages = parserInternalStages;
+    result.parserOutput = null;
+    result.pipelineStages = [
+      { stage: "PDFJS", status: rawItems.length ? "PASS" : "FAIL", count: rawItems.length },
+      { stage: "VISUAL_ROWS", status: lines.length ? "PASS" : "FAIL", count: lines.length },
+      { stage: "BANK_DETECTION", status: execution.detection.status === "PASS" ? "PASS" : "FAIL" },
+      { stage: "PARSER_SELECTION", status: execution.parser.status === "FOUND" ? "PASS" : "FAIL" },
+      { stage: "PARSER_EXECUTION", status: "FAIL" },
+      { stage: "VALIDATION", status: "FAIL" },
+    ];
+    result.failure = {
+      stage: primeiro?.stage === "PDF_TEXT_EXTRACTION" ? "PDF_TEXT_EXTRACTION" : "ROW_TO_TRANSACTION",
+      reason: result.error,
+    };
+    result.errors = execution.errors.map((e) => ({
+      name: e.name,
+      message: e.message,
+      stage: e.stage,
+      ...(e.stack ? { stack: e.stack } : {}),
+    }));
     return result;
   }
-  const parsed = pipelineResult.parsed;
 
-  const statement = toCanonicalStatement(parsed, { statementId: fileName });
-  const validation = validateStatement(statement);
+  const parsed = execution.parsed;
+  const pipelineResult = { detection: execution.detection, parser: execution.parser, parsed };
+
+  let statement: CanonicalStatement;
+  let validation: StatementValidation;
+  try {
+    statement = toCanonicalStatement(parsed, { statementId: fileName });
+    validation = validateStatement(statement);
+    parserInternalStages.push({
+      stage: "CANONICAL_BUILD",
+      status: "PASS",
+      reason: `${statement.transactions.length} transações · ${statement.checkpoints.length} checkpoints`,
+    });
+  } catch (e) {
+    const erro = describeParserError(e, "CANONICAL_BUILD");
+    const result = vazio(erro.message);
+    result.rawItems = rawItems;
+    result.counts.rawItems = rawItems.length;
+    result.parser = execution.parser;
+    result.parserExecutionInput = parserExecutionInput;
+    result.parserInternalStages = [
+      ...parserInternalStages,
+      { stage: "CANONICAL_BUILD", status: "FAIL", reason: erro.message },
+    ];
+    result.parserOutput = null;
+    result.errors = [{ name: erro.name, message: erro.message, stage: erro.stage, ...(erro.stack ? { stack: erro.stack } : {}) }];
+    return result;
+  }
   const pipeline = (parsed as { pipeline?: ItauPipelineDiagnostics }).pipeline;
 
   const rows = anotarRows(linhasDoParser(parsed, lines), parsed, statement, rawItems);
+
 
   const ignored: DiagIgnored[] = parsed.rejeitados.map((r) => {
     const { code, treatment } = classificarIgnorado(r.reason);
@@ -500,6 +562,8 @@ export async function buildBankParserDiagnostics(
     error: null,
     parser: pipelineResult.parser,
     parserOutput,
+    parserExecutionInput: parserExecutionInput,
+    parserInternalStages,
     checkpointTrace,
     accepted: parsed.aceitos,
     rejected: parsed.rejeitados,
@@ -664,8 +728,11 @@ export function diagnosticsFromParsedStatement(
       : null,
     error: null,
     parser: { status: "FOUND", requestedBank: detectedBank, name: statement.parser },
+    parserExecutionInput: null,
+    parserInternalStages: inspectParsedStatement(parsed),
     parserOutput: {
       periodStart: statement.periodStart,
+
       periodEnd: statement.periodEnd,
       openingBalance: statement.openingBalance,
       closingBalance: statement.closingBalance,
