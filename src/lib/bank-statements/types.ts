@@ -111,6 +111,24 @@ export type ParsedBankStatement = {
   /** Saldos diários impressos no documento ("Saldo do dia", "S A L D O"). */
   checkpoints?: ParsedBalanceCheckpoint[];
   /**
+   * DIAGNÓSTICO: rastro cronológico do passe único do parser (contexto de data
+   * contábil, criação de transação e de checkpoint). Só leitura — nunca é
+   * persistido nem influencia conciliação, ledger ou auditoria.
+   */
+  temporalTrace?: Array<{
+    page: number | null;
+    row: string;
+    event:
+      | "POSTING_DATE_CONTEXT"
+      | "TRANSACTION_CREATED"
+      | "CHECKPOINT_CREATED"
+      | "OPENING_BALANCE"
+      | "CLOSING_BALANCE";
+    date: string | null;
+    amount?: number | null;
+  }>;
+
+  /**
    * Saldo informado fora do período (ex.: "saldo do dia" atual impresso no topo
    * de um extrato histórico). Referência do documento, nunca checkpoint.
    */

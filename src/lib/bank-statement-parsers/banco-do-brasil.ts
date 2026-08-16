@@ -14,7 +14,7 @@
  * Nada aqui persiste: é leitura pura, usada tanto no fluxo real quanto no
  * Modo diagnóstico PDF.
  */
-import { extractPdfLines, parseValorBr, type PdfLine } from "@/lib/pdf-extract";
+import { extractPdfLines, parseValorBr, type PdfCell, type PdfLine } from "@/lib/pdf-extract";
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "@/lib/bank-statements/types";
 import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
@@ -65,7 +65,15 @@ const CABECALHOS_METADATA = [
   "tarifa de simulacao",
   "extrato de conta corrente",
 ];
-const CABECALHOS_MOVIMENTOS = ["lancamentos", "historico", "movimentacao", "data movimento"];
+const CABECALHOS_MOVIMENTOS = [
+  "lancamentos",
+  "historico",
+  "movimentacao",
+  "data movimento",
+  // Cabeçalho da tabela repetido no topo de cada página do extrato BB.
+  "dia lote",
+  "dia lote documento",
+];
 
 /** Linhas de controle de saldo — nunca viram movimentação. */
 const SALDO_METADATA = [
@@ -272,6 +280,47 @@ function dataDaColunaDia(linha: PdfLine, anoBase: number): string | null {
   return null;
 }
 
+/**
+ * ROW ASSEMBLY — reconstrói a LINHA VISUAL do extrato antes de qualquer leitura.
+ *
+ * O extrator de PDF pode devolver as células separadas por coluna visual
+ * (ESQUERDA/DIREITA). Nesse caso a coluna "Dia" (x≈30) chega em uma linha e o
+ * valor (x≈520) em outra, mesmo sendo a MESMA linha física do extrato — e a
+ * ordem de leitura deixa de ser cronológica (todas as datas da página vêm antes
+ * de todas as movimentações).
+ *
+ * Aqui reagrupamos por (página, Y) e ordenamos em ORDEM DOCUMENTAL REAL
+ * (página ASC, Y DESC), para que o passe único do parser leia o extrato na
+ * mesma ordem em que ele é lido no papel.
+ */
+export function montarVisualRowsBb(linhas: PdfLine[]): PdfLine[] {
+  // Sem geometria (texto puro) a ordem recebida já é a ordem documental.
+  if (!linhas.length || linhas.some((l) => !l.cells.length)) return linhas;
+
+  const grupos = new Map<string, { page: number; y: number; cells: PdfCell[] }>();
+  for (const linha of linhas) {
+    const page = linha.page ?? 1;
+    const y = Math.round(linha.y / 3) * 3;
+    const chave = `${page}|${y}`;
+    const atual = grupos.get(chave) ?? { page, y, cells: [] };
+    atual.cells.push(...linha.cells);
+    grupos.set(chave, atual);
+  }
+
+  return [...grupos.values()]
+    .sort((a, b) => (a.page - b.page) || (b.y - a.y))
+    .map(({ page, y, cells }) => {
+      const ordenadas = [...cells].sort((a, b) => a.x - b.x);
+      return {
+        page,
+        y,
+        cells: ordenadas,
+        text: ordenadas.map((c) => c.text).join(" ").replace(/\s+/g, " ").trim(),
+      } satisfies PdfLine;
+    })
+    .filter((l) => l.text);
+}
+
 
 /**
  * DATA CONTÁBIL = coluna "Dia" do extrato (posting date).
@@ -319,8 +368,12 @@ function recuperarDatas(
 }
 
 /** Interpreta as linhas já reconstruídas do PDF do BB. */
-export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement {
+export function parseBancoDoBrasilLines(linhasEntrada: PdfLine[]): ParsedBankStatement {
+  // ORDEM DOCUMENTAL REAL: página ASC, Y DESC, células da mesma linha física
+  // reunidas. Sem isso a leitura cronológica (e a data contábil) se perde.
+  const linhas = montarVisualRowsBb(linhasEntrada);
   const textos = linhas.map((l) => l.text.replace(/\s+/g, " ").trim()).filter(Boolean);
+
   const cabecalho = parseBBStatementPeriod(textos.join(" "));
   const periodoOficial = cabecalho ? { inicio: cabecalho.start, fim: cabecalho.end } : null;
   const anoBase = periodoOficial?.inicio
@@ -356,6 +409,9 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
   const aceitos: ParsedBankStatement["aceitos"] = [];
   const checkpoints: NonNullable<ParsedBankStatement["checkpoints"]> = [];
   const rejeitados: ParsedBankStatement["rejeitados"] = [];
+  /** Rastro temporal do passe único (diagnóstico — nunca altera o resultado). */
+  const temporalTrace: NonNullable<ParsedBankStatement["temporalTrace"]> = [];
+
 
 
   let secao: Secao = "MOVIMENTOS";
@@ -383,7 +439,22 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     // Com geometria, só vale se estiver mesmo à esquerda da coluna Histórico.
     const leadEhColunaDia = !!dataLead && (linha.cells.length ? dataLead.data === dataGeometrica : true);
     const dataColuna = dataGeometrica ?? (leadEhColunaDia ? dataLead!.data : null);
-    if (dataColuna) ultimaData = dataColuna;
+    if (dataColuna) {
+      ultimaData = dataColuna;
+      temporalTrace.push({
+        page: linha.page ?? null,
+        row: raw,
+        event: "POSTING_DATE_CONTEXT",
+        date: dataColuna,
+      });
+    }
+    // Cabeçalho repetido no topo da página 2 ("Extrato de Conta Corrente")
+    // não encerra a tabela de lançamentos: a primeira linha com data na coluna
+    // "Dia" retoma a seção de movimentos.
+    if (secao === "METADATA" && dataColuna) secao = "MOVIMENTOS";
+
+
+
 
     // Valor + sinal podem estar na mesma linha ou o sinal na linha seguinte.
     let alvo = raw;
@@ -437,16 +508,35 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       const fechamento = /^s a l d o$|^saldo$|^saldo final|^saldo atual/.test(t);
       if (abertura) {
         saldoInicial = valor;
-        saldoInicialData = data ?? saldoInicialData;
+        // SALDO ANTERIOR: a data sai da PRÓPRIA linha física (ex.: 29/12/2025).
+        // Nenhuma data posterior pode substituí-la.
+        saldoInicialData = dataColuna ?? data ?? saldoInicialData;
+        temporalTrace.push({
+          page: linha.page ?? null,
+          row: raw,
+          event: "OPENING_BALANCE",
+          date: saldoInicialData,
+          amount: valor,
+        });
       } else {
         saldoFinal = valor;
         // O saldo final não herda a última data lançada: sem data própria ele
         // cai no fim do período oficial.
-        if (fechamento) saldoFinalData = dataColuna ?? saldoFinalData;
+        if (fechamento) {
+          saldoFinalData = dataColuna ?? saldoFinalData;
+          temporalTrace.push({
+            page: linha.page ?? null,
+            row: raw,
+            event: "CLOSING_BALANCE",
+            date: saldoFinalData,
+            amount: valor,
+          });
+        }
       }
 
       // Saldo do dia é CHECKPOINT de conferência — nunca vira movimentação.
       // O sinal impresso é preservado (saldo devedor fica negativo).
+      // A data é CONGELADA aqui, no momento da criação do checkpoint.
       if (data && !abertura && (!fechamento || dataColuna)) {
         checkpoints.push({
           data,
@@ -454,7 +544,15 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
           rotulo: descricao,
           tipo: fechamento ? "CLOSING" : "DAILY",
         });
+        temporalTrace.push({
+          page: linha.page ?? null,
+          row: raw,
+          event: "CHECKPOINT_CREATED",
+          date: data,
+          amount: valor,
+        });
       }
+
       rejeitados.push({
         raw,
         valor,
@@ -485,6 +583,7 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       continue;
     }
 
+    // EVENTO MONTADO: a data contábil é congelada aqui e nunca mais muda.
     const movimento: ParsedBankMovement = {
       data: data ?? ultimaData,
       eventDate:
@@ -499,6 +598,14 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
       valor,
       tipo: classificarBb(descricao, valor),
     };
+    temporalTrace.push({
+      page: linha.page ?? null,
+      row: raw,
+      event: "TRANSACTION_CREATED",
+      date: movimento.data,
+      amount: valor,
+    });
+
 
     if (secao === "FUTUROS") {
       futuros.push(movimento);
@@ -539,6 +646,8 @@ export function parseBancoDoBrasilLines(linhas: PdfLine[]): ParsedBankStatement 
     saldoFinal: saldoFinal ?? saldoRotulado,
     saldoFinalData: saldoFinalData ?? periodoOficial?.fim ?? null,
     movimentos,
+    temporalTrace,
+
     // Um checkpoint por dia: o último saldo impresso é o que vale.
     checkpoints: [...new Map(checkpoints.map((c) => [c.data, c])).values()].sort((a, b) =>
       a.data.localeCompare(b.data),

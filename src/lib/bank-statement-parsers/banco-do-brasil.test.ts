@@ -368,3 +368,204 @@ describe("Banco do Brasil — data contábil da coluna Dia", () => {
     expect(r.checkpoints?.some((c) => c.data === "2025-12-29")).toBe(false);
   });
 });
+
+/**
+ * REGRESSÃO ONE-PASS / EVENT-DRIVEN — janeiro/2026.
+ *
+ * O extrator de PDF pode devolver as células separadas por COLUNA VISUAL: toda
+ * a coluna "Dia" da página chega antes de todas as movimentações. Lido nessa
+ * ordem, o parser aplicava a ÚLTIMA data da página a todos os lançamentos
+ * (19/01 na página 1, 31/01 na página 2).
+ *
+ * A montagem de linhas visuais (página ASC, Y DESC) devolve a ordem documental
+ * real e a data contábil é CONGELADA no momento em que cada evento é criado.
+ */
+type LinhaFisica = { page: number; y: number; cells: Array<[number, string]> };
+
+/** Emula a extração por coluna: primeiro a coluna "Dia", depois o resto. */
+const porColunas = (linhas: LinhaFisica[]): PdfLine[] => {
+  const saida: PdfLine[] = [];
+  for (const page of [...new Set(linhas.map((l) => l.page))].sort()) {
+    const daPagina = linhas.filter((l) => l.page === page);
+    for (const lado of [0, 1]) {
+      for (const l of daPagina) {
+        const cells = l.cells
+          .filter(([x]) => (lado === 0 ? x < 200 : x >= 200))
+          .map(([x, text]) => ({ x, text }));
+        if (!cells.length) continue;
+        saida.push({
+          page,
+          y: l.y,
+          cells,
+          text: cells.map((c) => c.text).join(" "),
+        });
+      }
+    }
+  }
+  return saida;
+};
+
+const dia = (page: number, y: number, data: string): LinhaFisica => ({
+  page,
+  y,
+  cells: [[30, data], [110, "13105"], [170, "10501"]],
+});
+const mov = (
+  page: number,
+  y: number,
+  historico: string,
+  valor: string,
+  data?: string,
+): LinhaFisica => ({
+  page,
+  y,
+  cells: [
+    ...(data ? ([[30, data], [110, "13105"]] as Array<[number, string]>) : []),
+    [265, historico],
+    [520, valor],
+  ],
+});
+const saldoDoDia = (page: number, y: number, valor: string): LinhaFisica => ({
+  page,
+  y,
+  cells: [[265, "Saldo do dia"], [520, valor]],
+});
+
+const JANEIRO_COLUNAS = porColunas([
+  { page: 1, y: 800, cells: [[30, "Extrato de Conta Corrente"]] },
+  { page: 1, y: 790, cells: [[30, "Cliente: RODRIGO NUNES AMADOR"]] },
+  { page: 1, y: 780, cells: [[30, "Período: 01 a 31/01/2026"]] },
+  { page: 1, y: 770, cells: [[30, "Dia"], [110, "Lote"], [170, "Documento"], [265, "Histórico"], [520, "Valor"]] },
+  { page: 1, y: 760, cells: [[30, "29/12/2025"], [265, "Saldo Anterior"], [520, "4.115,02 (+)"]] },
+
+  mov(1, 740, "Pix - Enviado 04/01 12:48 EDUARDO GARCIA", "500,00 (-)", "05/01/2026"),
+  mov(1, 730, "Pagamento Fatura de Água TUBARAO SANEAMENTO", "68,46 (-)"),
+  saldoDoDia(1, 710, "3.546,56 (+)"),
+
+  dia(1, 690, "07/01/2026"),
+  mov(1, 685, "Pix - Recebido VALDIR PAULO", "183,00 (+)"),
+  mov(1, 675, "Pix - Recebido MARCOS", "114,00 (+)"),
+  saldoDoDia(1, 665, "3.843,56 (+)"),
+
+  mov(1, 645, "Pagamento de Boleto CENTRO", "25,00 (-)", "09/01/2026"),
+  saldoDoDia(1, 635, "3.818,56 (+)"),
+
+  mov(1, 615, "Pix - Recebido ANA", "600,00 (+)", "13/01/2026"),
+  mov(1, 605, "Pix - Enviado JOSE", "130,00 (-)"),
+  saldoDoDia(1, 595, "4.288,56 (+)"),
+
+  mov(1, 575, "Pagto cartão crédito", "4,32 (-)", "14/01/2026"),
+  mov(1, 565, "Pagamento de Boleto CELESC DISTRIBUICAO S.A", "493,75 (-)"),
+  saldoDoDia(1, 555, "3.790,49 (+)"),
+
+  mov(1, 535, "Pix - Recebido TUBARAO COM", "200,00 (+)", "15/01/2026"),
+  mov(1, 525, "Pagamento Fatura de Água TUBARAO SANEAMENTO", "70,15 (-)"),
+  saldoDoDia(1, 515, "3.920,34 (+)"),
+
+  mov(1, 495, "Pix - Enviado CARLOS", "68,20 (-)", "16/01/2026"),
+  saldoDoDia(1, 485, "3.852,14 (+)"),
+
+  // Última data da página 1 — a continuação atravessa a quebra de página.
+  dia(1, 200, "19/01/2026"),
+  { page: 2, y: 800, cells: [[30, "Extrato de Conta Corrente"]] },
+  { page: 2, y: 790, cells: [[30, "Cliente: RODRIGO NUNES AMADOR"]] },
+  { page: 2, y: 780, cells: [[30, "Período: 01 a 31/01/2026"]] },
+  { page: 2, y: 770, cells: [[30, "Dia"], [110, "Lote"], [170, "Documento"], [265, "Histórico"], [520, "Valor"]] },
+  mov(2, 750, "Pix - Enviado 17/01 11:42 ANDERSON LUIZ", "2.491,84 (-)"),
+  saldoDoDia(2, 740, "1.360,30 (+)"),
+
+  mov(2, 720, "Pagamento de Boleto CLARO S.A.", "113,22 (-)", "20/01/2026"),
+  saldoDoDia(2, 710, "1.247,08 (+)"),
+
+  mov(2, 690, "Pix - Recebido ANDERSON LUIZ", "1.500,00 (+)", "22/01/2026"),
+  saldoDoDia(2, 680, "2.747,08 (+)"),
+
+  mov(2, 660, "Pix - Recebido 26/01 12:45 FULLGAZ COM", "349,67 (+)", "26/01/2026"),
+
+  { page: 2, y: 600, cells: [[30, "31/01/2026"], [265, "S A L D O"], [520, "3.096,75 (+)"]] },
+]);
+
+describe("Banco do Brasil — janeiro/2026 lido em ordem documental", () => {
+  const r = parseBancoDoBrasilLines(JANEIRO_COLUNAS);
+  const diarios = (r.checkpoints ?? []).filter((c) => c.tipo === "DAILY");
+  const porDescricao = (re: RegExp) => r.movimentos.find((m) => re.test(m.descricaoOriginal));
+
+  it("nenhuma movimentação fica sem data contábil", () => {
+    expect(r.movimentos.length).toBeGreaterThan(0);
+    expect(r.movimentos.filter((m) => !m.data)).toHaveLength(0);
+  });
+
+  it("congela a data no momento da criação de cada movimentação", () => {
+    expect(porDescricao(/EDUARDO/)?.data).toBe("2026-01-05");
+    expect(porDescricao(/EDUARDO/)?.eventDate).toBe("2026-01-04");
+    expect(porDescricao(/TUBARAO SANEAMENTO/)?.data).toBe("2026-01-05");
+    expect(porDescricao(/VALDIR/)?.data).toBe("2026-01-07");
+    expect(porDescricao(/MARCOS/)?.data).toBe("2026-01-07");
+    expect(porDescricao(/CENTRO/)?.data).toBe("2026-01-09");
+    expect(porDescricao(/ANA/)?.data).toBe("2026-01-13");
+    expect(porDescricao(/JOSE/)?.data).toBe("2026-01-13");
+    expect(porDescricao(/cart[ãa]o/i)?.data).toBe("2026-01-14");
+    expect(porDescricao(/CELESC/)?.data).toBe("2026-01-14");
+    expect(porDescricao(/TUBARAO COM/)?.data).toBe("2026-01-15");
+    expect(porDescricao(/CARLOS/)?.data).toBe("2026-01-16");
+    expect(porDescricao(/CLARO/)?.data).toBe("2026-01-20");
+    expect(porDescricao(/Recebido ANDERSON/)?.data).toBe("2026-01-22");
+    expect(porDescricao(/26\/01/)?.data).toBe("2026-01-26");
+  });
+
+  it("mantém a data contábil na virada de página e separa occurredAt", () => {
+    const continuacao = porDescricao(/Enviado 17\/01/);
+    expect(continuacao?.data).toBe("2026-01-19");
+    expect(continuacao?.eventDate).toBe("2026-01-17");
+  });
+
+  it("o fechamento 31/01 não redata as movimentações anteriores", () => {
+    expect(r.movimentos.some((m) => m.data === "2026-01-31")).toBe(false);
+    expect(r.saldoFinal).toBe(3096.75);
+    expect(r.saldoFinalData).toBe("2026-01-31");
+  });
+
+  it("cria 10 checkpoints DAILY com as datas contábeis corretas", () => {
+    expect(diarios.map((c) => [c.data, c.saldo])).toEqual([
+      ["2026-01-05", 3546.56],
+      ["2026-01-07", 3843.56],
+      ["2026-01-09", 3818.56],
+      ["2026-01-13", 4288.56],
+      ["2026-01-14", 3790.49],
+      ["2026-01-15", 3920.34],
+      ["2026-01-16", 3852.14],
+      ["2026-01-19", 1360.3],
+      ["2026-01-20", 1247.08],
+      ["2026-01-22", 2747.08],
+    ]);
+  });
+
+  it("saldo anterior mantém a data da própria linha (29/12)", () => {
+    expect(r.saldoInicial).toBe(4115.02);
+    expect(r.saldoInicialData).toBe("2025-12-29");
+    expect(r.periodoInicio).toBe("2026-01-01");
+  });
+
+  it("fecha matematicamente com o saldo impresso", () => {
+    const soma = r.movimentos.reduce((a, m) => a + m.valor, 0);
+    expect(Number((r.saldoInicial! + soma).toFixed(2))).toBe(3096.75);
+  });
+
+  it("todo checkpoint fecha com o acumulado até a sua data", () => {
+    for (const c of diarios) {
+      const soma = r.movimentos
+        .filter((m) => (m.data ?? "") <= c.data)
+        .reduce((a, m) => a + m.valor, 0);
+      expect(Number((r.saldoInicial! + soma).toFixed(2))).toBe(c.saldo);
+    }
+  });
+
+  it("registra o rastro temporal na ordem cronológica do passe único", () => {
+    const trace = r.temporalTrace ?? [];
+    const primeiro = trace.find((t) => t.event === "TRANSACTION_CREATED");
+    expect(primeiro?.date).toBe("2026-01-05");
+    const checkpoint = trace.find((t) => t.event === "CHECKPOINT_CREATED");
+    expect(checkpoint?.date).toBe("2026-01-05");
+    expect(trace.find((t) => t.event === "OPENING_BALANCE")?.date).toBe("2025-12-29");
+  });
+});
