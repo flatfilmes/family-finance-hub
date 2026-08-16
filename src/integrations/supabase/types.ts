@@ -1149,7 +1149,9 @@ export type Database = {
       }
       purchase_items: {
         Row: {
+          categoria_ajustada: boolean
           categoria_id: string | null
+          categoria_sugerida: string | null
           created_at: string
           descricao_produto: string
           id: string
@@ -1161,7 +1163,9 @@ export type Database = {
           valor_unitario: number
         }
         Insert: {
+          categoria_ajustada?: boolean
           categoria_id?: string | null
+          categoria_sugerida?: string | null
           created_at?: string
           descricao_produto: string
           id?: string
@@ -1173,7 +1177,9 @@ export type Database = {
           valor_unitario?: number
         }
         Update: {
+          categoria_ajustada?: boolean
           categoria_id?: string | null
+          categoria_sugerida?: string | null
           created_at?: string
           descricao_produto?: string
           id?: string
@@ -1188,6 +1194,13 @@ export type Database = {
           {
             foreignKeyName: "purchase_items_categoria_id_fkey"
             columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_items_categoria_sugerida_fkey"
+            columns: ["categoria_sugerida"]
             isOneToOne: false
             referencedRelation: "expense_categories"
             referencedColumns: ["id"]
