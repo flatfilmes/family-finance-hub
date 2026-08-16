@@ -32,6 +32,7 @@ import { Route as AuthenticatedDevBankParserDiagnosticsRouteImport } from './rou
 import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authenticated/historico.index'
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 import { Route as AuthenticatedBancosAccountIdAuditoriaRouteImport } from './routes/_authenticated/bancos_.$accountId.auditoria'
+import { Route as AuthenticatedBancosAccountIdDiagnosticoParserRouteImport } from './routes/_authenticated/bancos_.$accountId.diagnostico-parser'
 import { Route as AuthenticatedCartoesFaturasImportIdRouteImport } from './routes/_authenticated/cartoes.faturas.$importId'
 import { Route as AuthenticatedCartoesCardIdProjecaoRouteImport } from './routes/_authenticated/cartoes_.$cardId.projecao'
 import { Route as AuthenticatedComprasCategoriasPendentesRouteImport } from './routes/_authenticated/compras_.categorias.pendentes'
@@ -168,6 +169,12 @@ const AuthenticatedBancosAccountIdAuditoriaRoute =
     path: '/bancos/$accountId/auditoria',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBancosAccountIdDiagnosticoParserRoute =
+  AuthenticatedBancosAccountIdDiagnosticoParserRouteImport.update({
+    id: '/bancos_/$accountId/diagnostico-parser',
+    path: '/bancos/$accountId/diagnostico-parser',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCartoesFaturasImportIdRoute =
   AuthenticatedCartoesFaturasImportIdRouteImport.update({
     id: '/cartoes/faturas/$importId',
@@ -234,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/cartoes/': typeof AuthenticatedCartoesIndexRoute
   '/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/bancos/$accountId/auditoria': typeof AuthenticatedBancosAccountIdAuditoriaRoute
+  '/bancos/$accountId/diagnostico-parser': typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/cartoes/$cardId/projecao': typeof AuthenticatedCartoesCardIdProjecaoRoute
   '/compras/categorias/pendentes': typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -265,6 +273,7 @@ export interface FileRoutesByTo {
   '/cartoes': typeof AuthenticatedCartoesIndexRoute
   '/historico': typeof AuthenticatedHistoricoIndexRoute
   '/bancos/$accountId/auditoria': typeof AuthenticatedBancosAccountIdAuditoriaRoute
+  '/bancos/$accountId/diagnostico-parser': typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/cartoes/$cardId/projecao': typeof AuthenticatedCartoesCardIdProjecaoRoute
   '/compras/categorias/pendentes': typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -298,6 +307,7 @@ export interface FileRoutesById {
   '/_authenticated/cartoes/': typeof AuthenticatedCartoesIndexRoute
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/_authenticated/bancos_/$accountId/auditoria': typeof AuthenticatedBancosAccountIdAuditoriaRoute
+  '/_authenticated/bancos_/$accountId/diagnostico-parser': typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
   '/_authenticated/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/_authenticated/cartoes_/$cardId/projecao': typeof AuthenticatedCartoesCardIdProjecaoRoute
   '/_authenticated/compras_/categorias/pendentes': typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -331,6 +341,7 @@ export interface FileRouteTypes {
     | '/cartoes/'
     | '/historico/'
     | '/bancos/$accountId/auditoria'
+    | '/bancos/$accountId/diagnostico-parser'
     | '/cartoes/faturas/$importId'
     | '/cartoes/$cardId/projecao'
     | '/compras/categorias/pendentes'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/cartoes'
     | '/historico'
     | '/bancos/$accountId/auditoria'
+    | '/bancos/$accountId/diagnostico-parser'
     | '/cartoes/faturas/$importId'
     | '/cartoes/$cardId/projecao'
     | '/compras/categorias/pendentes'
@@ -394,6 +406,7 @@ export interface FileRouteTypes {
     | '/_authenticated/cartoes/'
     | '/_authenticated/historico/'
     | '/_authenticated/bancos_/$accountId/auditoria'
+    | '/_authenticated/bancos_/$accountId/diagnostico-parser'
     | '/_authenticated/cartoes/faturas/$importId'
     | '/_authenticated/cartoes_/$cardId/projecao'
     | '/_authenticated/compras_/categorias/pendentes'
@@ -573,6 +586,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBancosAccountIdAuditoriaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos_/$accountId/diagnostico-parser': {
+      id: '/_authenticated/bancos_/$accountId/diagnostico-parser'
+      path: '/bancos/$accountId/diagnostico-parser'
+      fullPath: '/bancos/$accountId/diagnostico-parser'
+      preLoaderRoute: typeof AuthenticatedBancosAccountIdDiagnosticoParserRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/cartoes/faturas/$importId': {
       id: '/_authenticated/cartoes/faturas/$importId'
       path: '/cartoes/faturas/$importId'
@@ -645,6 +665,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCartoesIndexRoute: typeof AuthenticatedCartoesIndexRoute
   AuthenticatedHistoricoIndexRoute: typeof AuthenticatedHistoricoIndexRoute
   AuthenticatedBancosAccountIdAuditoriaRoute: typeof AuthenticatedBancosAccountIdAuditoriaRoute
+  AuthenticatedBancosAccountIdDiagnosticoParserRoute: typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
   AuthenticatedCartoesFaturasImportIdRoute: typeof AuthenticatedCartoesFaturasImportIdRoute
   AuthenticatedCartoesCardIdProjecaoRoute: typeof AuthenticatedCartoesCardIdProjecaoRoute
   AuthenticatedComprasCategoriasPendentesRoute: typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -677,6 +698,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHistoricoIndexRoute: AuthenticatedHistoricoIndexRoute,
   AuthenticatedBancosAccountIdAuditoriaRoute:
     AuthenticatedBancosAccountIdAuditoriaRoute,
+  AuthenticatedBancosAccountIdDiagnosticoParserRoute:
+    AuthenticatedBancosAccountIdDiagnosticoParserRoute,
   AuthenticatedCartoesFaturasImportIdRoute:
     AuthenticatedCartoesFaturasImportIdRoute,
   AuthenticatedCartoesCardIdProjecaoRoute:
