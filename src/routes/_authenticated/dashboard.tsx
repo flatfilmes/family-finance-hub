@@ -62,21 +62,19 @@ const FUTURE_MODULES = [
 
 function Dashboard() {
   const { data: profile } = useProfile();
-  const { data: family, isLoading } = useFamily();
+  const { data: family } = useFamily();
   const { data: members } = useMembers(family?.id);
-  const { data: financial } = useFinancialProfile(family?.id);
-  const summary = useFinancialSummary(family?.id);
-  const gastos = useExpenseSummary(family?.id);
-  const orcamento = useBudgetProgress(family?.id);
   const [filtroMembro, setFiltroMembro] = useState("");
   const view = useViewMode();
   const escopo = view.scoped(filtroMembro);
+  const gastos = useExpenseSummary(family?.id, escopo);
+  const orcamento = useBudgetProgress(family?.id, undefined, escopo);
   const engine = useFinancialEngine(family?.id, escopo);
   const compromissos = useFutureCommitments(family?.id, escopo);
 
   const primeiroNome = profile?.nome_completo?.split(" ")[0];
-  const comprometimento = summary.comprometimento;
   const nomeEscopo = (members ?? []).find((m) => m.id === escopo)?.nome;
+
 
   return (
     <div>
