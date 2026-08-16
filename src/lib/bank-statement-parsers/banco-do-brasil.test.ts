@@ -654,10 +654,14 @@ describe("Banco do Brasil — descrição econômica das transactions", () => {
   const porValor = (v: number) => r.movimentos.find((m) => Math.abs(m.valor) === v);
 
   it("nunca usa Lote/Documento como descrição", () => {
-    expect(r.movimentos).toHaveLength(7);
+    expect(r.movimentos).toHaveLength(10);
     for (const m of r.movimentos) {
       expect(m.descricaoOriginal.trim()).not.toMatch(/^[\d\s.]+$/);
-      expect(m.descricaoOriginal).not.toMatch(/\b(13013|13105|14397|10501|28308|11901|11902)\b/);
+      expect(m.descricaoOriginal).not.toMatch(
+        /\b(13013|13105|14397|10501|28308|11901|11902|10701|12601|12602)\b/,
+      );
+      // Data/hora do evento pertence ao occurredAt, nunca à descrição.
+      expect(m.descricaoOriginal).not.toMatch(/\d{2}\/\d{2}\s+\d{2}:\d{2}/);
     }
   });
 
@@ -675,6 +679,7 @@ describe("Banco do Brasil — descrição econômica das transactions", () => {
     const pix = porValor(500);
     expect(pix?.descricaoOriginal).toBe("Pix - Enviado · EDUARDO GARCIA STANKOWICH");
     expect(pix?.bankOperation).toBe("Pix - Enviado");
+    expect(pix?.counterparty).toBe("EDUARDO GARCIA STANKOWICH");
     expect(pix?.data).toBe("2026-01-05");
     expect(pix?.eventDate).toBe("2026-01-04");
   });
@@ -685,8 +690,28 @@ describe("Banco do Brasil — descrição econômica das transactions", () => {
     expect(porValor(7466.84)?.descricaoOriginal).toBe(
       "Pagamento de Boleto · ITAU UNIBANCO HOLDING S.A.",
     );
+    expect(porValor(7466.84)?.bankOperation).toBe("Pagamento de Boleto");
+    expect(porValor(7466.84)?.counterparty).toBe("ITAU UNIBANCO HOLDING S.A.");
     expect(porValor(113.22)?.descricaoOriginal).toBe("CLARO RESIDENCIAL · NET SERVIÇOS");
     expect(porValor(4.32)?.descricaoOriginal).toBe("Pagto cartão crédito");
+  });
+
+  it("resolve os Pix recebidos e enviados do fim do mês", () => {
+    const felipe = porValor(114);
+    expect(felipe?.descricaoOriginal).toBe("Pix - Recebido · FELIPE DOS");
+    expect(felipe?.bankOperation).toBe("Pix - Recebido");
+    expect(felipe?.counterparty).toBe("FELIPE DOS");
+
+    const mercadoPago = porValor(250.33);
+    expect(mercadoPago?.descricaoOriginal).toBe("Pix - Enviado · MERCADO PAGO INSTITUICAO");
+    expect(mercadoPago?.bankOperation).toBe("Pix - Enviado");
+    expect(mercadoPago?.data).toBe("2026-01-26");
+    expect(mercadoPago?.eventDate).toBe("2026-01-25");
+
+    const nilton = porValor(400);
+    expect(nilton?.descricaoOriginal).toBe("Pix - Enviado · NILTON CAETANO FILHO");
+    expect(nilton?.bankOperation).toBe("Pix - Enviado");
+    expect(nilton?.data).toBe("2026-01-26");
   });
 
   it("mantém a identidade financeira intacta", () => {
@@ -694,7 +719,11 @@ describe("Banco do Brasil — descrição econômica das transactions", () => {
     expect(r.saldoInicialData).toBe("2025-12-29");
     expect(r.periodoInicio).toBe("2026-01-01");
     expect(r.periodoFim).toBe("2026-01-31");
-    expect(r.movimentos.every((m) => m.valor < 0)).toBe(true);
+    expect(porValor(114)?.valor).toBe(114);
     expect(porValor(4.32)?.data).toBe("2026-01-14");
+    // "Saldo do dia" continua sendo checkpoint, nunca movimentação.
+    expect(r.checkpoints?.some((c) => c.data === "2026-01-07" && c.saldo === 3843.56)).toBe(true);
+    expect(r.movimentos.some((m) => Math.abs(m.valor) === 3843.56)).toBe(false);
   });
 });
+
