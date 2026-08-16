@@ -639,13 +639,20 @@ function RevisarDocumento({
       </div>
 
       {extracao && (
-        <p className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
-          Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
-          {Number(extracao.valor_total) > 0
-            ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
-            : ""}
-          . Confira e ajuste o que precisar antes de confirmar.
-        </p>
+        <div className="mt-4 rounded-2xl bg-primary/5 px-4 py-3 text-xs text-muted-foreground">
+          <p>
+            Leitura automática do PDF: {itensPdf?.length ?? 0} produto(s) encontrado(s)
+            {Number(extracao.valor_total) > 0
+              ? ` · valor lido de ${formatCurrency(Number(extracao.valor_total))}`
+              : " · valor total não identificado"}
+            {pagamentoLido ? ` · pagamento sugerido: ${pagamentoLido}` : ""}. Confira e ajuste o que
+            precisar antes de confirmar.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="font-semibold">Produtos:</span>
+            <ConfiancaTag nivel={confianca.items} />
+          </div>
+        </div>
       )}
 
       <h3 className="mt-5 text-sm font-bold">Dados da compra</h3>
@@ -657,6 +664,15 @@ function RevisarDocumento({
             placeholder="Ex.: Mercado Silva"
             className={inputClass}
           />
+          {extracao && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {extracao.estabelecimento ? (
+                <ConfiancaTag nivel={confianca.estabelecimento} />
+              ) : (
+                NAO_IDENTIFICADO
+              )}
+            </p>
+          )}
         </Field>
         <Field label="Data">
           <input
@@ -665,20 +681,38 @@ function RevisarDocumento({
             onChange={(e) => setDataCompra(e.target.value)}
             className={inputClass}
           />
+          {extracao && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {extracao.data_compra ? <ConfiancaTag nivel={confianca.data_compra} /> : NAO_IDENTIFICADO}
+            </p>
+          )}
         </Field>
         <MemberSelect familyId={familyId} value={responsavel} onChange={setResponsavel} />
         <Field label="Forma de pagamento">
           <select
             value={formaPagamento}
-            onChange={(e) => setFormaPagamento(e.target.value as PaymentMethod)}
+            onChange={(e) => setFormaPagamento(e.target.value as PaymentMethod | "")}
             className={inputClass}
           >
+            <option value="">Selecione</option>
             {FORMAS_REVISAO.map((m) => (
               <option key={m} value={m}>
                 {PAYMENT_METHOD_LABELS[m]}
               </option>
             ))}
           </select>
+          {extracao && (
+            <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              {extracao.forma_pagamento ? (
+                <>
+                  <ConfiancaTag nivel={confianca.forma_pagamento} />
+                  {pagamentoLido ? <span>lido: {pagamentoLido}</span> : null}
+                </>
+              ) : (
+                NAO_IDENTIFICADO
+              )}
+            </p>
+          )}
         </Field>
         {formaPagamento === "CREDITO" ? (
           <Field label="Cartão">
@@ -691,7 +725,7 @@ function RevisarDocumento({
               ))}
             </select>
           </Field>
-        ) : usesBankAccount(formaPagamento) ? (
+        ) : formaPagamento && usesBankAccount(formaPagamento) ? (
           <Field label="Conta bancária">
             <select value={contaId} onChange={(e) => setContaId(e.target.value)} className={inputClass}>
               <option value="">Selecione</option>
@@ -706,6 +740,7 @@ function RevisarDocumento({
           </Field>
         ) : null}
       </div>
+
 
       <div className="mt-5 flex items-center justify-between">
         <h3 className="text-sm font-bold">Produtos</h3>
