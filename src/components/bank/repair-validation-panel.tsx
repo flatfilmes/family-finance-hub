@@ -41,6 +41,22 @@ export function RepairValidationPanel({ v }: { v: RepairValidation }) {
       </div>
 
       <p className="mb-2 text-xs font-semibold text-muted-foreground">
+        VALIDATION_REPAIR — checagens obrigatórias
+      </p>
+      <div className="mb-6 space-y-1.5">
+        {v.verificacoes.map((c) => (
+          <div
+            key={c.chave}
+            className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 px-3 py-2"
+          >
+            <StatusBadge tone={c.status === "PASS" ? "ok" : "danger"}>{c.status}</StatusBadge>
+            <span className="text-xs font-semibold">{c.titulo}</span>
+            <span className="text-[11px] text-muted-foreground">{c.detalhe}</span>
+          </div>
+        ))}
+      </div>
+
+      <p className="mb-2 text-xs font-semibold text-muted-foreground">
         Transação Y — o movimento exato que seria criado
       </p>
       {v.candidatos.length === 0 ? (
