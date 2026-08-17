@@ -101,16 +101,17 @@ function AuditoriaContaPage() {
     ],
   );
 
-  const falseTransfer = useMemo(
+  const financialRepair = useMemo(
     () =>
-      buildFalseTransferDryRun({
+      buildFinancialRepairDryRun({
         accountId,
         transactions: transactions ?? [],
         accounts: accounts ?? [],
+        imports: imports ?? [],
         checkpoints: checkpoints ?? [],
         statementItems: statementItems ?? [],
       }),
-    [accountId, transactions, accounts, checkpoints, statementItems],
+    [accountId, transactions, accounts, imports, checkpoints, statementItems],
   );
 
   if (!family) return <NoFamily />;
