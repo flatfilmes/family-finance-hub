@@ -18,6 +18,20 @@ import {
 } from "@/lib/bank-statements/draft";
 import * as dedupe from "@/lib/bank-statements/dedupe";
 
+// Ambiente de teste é Node: emula a sessão do navegador usada pelo rascunho.
+if (typeof globalThis.sessionStorage === "undefined") {
+  const store = new Map<string, string>();
+  Object.defineProperty(globalThis, "sessionStorage", {
+    value: {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+      clear: () => store.clear(),
+    },
+    configurable: true,
+  });
+}
+
 describe("expenses é legado somente leitura", () => {
   it("não expõe nenhuma função de escrita", () => {
     const escritas = ["createExpense", "updateExpense", "deleteExpense"];
