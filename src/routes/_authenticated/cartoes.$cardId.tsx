@@ -32,6 +32,7 @@ import {
 
 import { useStatementItems } from "@/hooks/useCardStatements";
 import { formatDate } from "@/lib/expenses";
+import { cardSubtitle } from "@/lib/institutions";
 import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "@/components/no-family";
 
@@ -244,7 +245,7 @@ function CartaoDetalhePage() {
         backTo="/cartoes"
         backLabel="Voltar para Cartões"
         title={cartao.nome_cartao}
-        subtitle={`${memberName(cartao.member_id)} · ${cartao.banco}`}
+        subtitle={`${memberName(cartao.member_id)} · ${cardSubtitle(cartao)}`}
         badges={
           <>
             <Badge tone={cartao.ativo ? "ok" : "muted"}>{cartao.ativo ? "Ativo" : "Inativo"}</Badge>

@@ -24,6 +24,7 @@ import { MemberFilter, filterByMember } from "@/components/member-filter";
 import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import { useStickyState } from "@/hooks/useStickyState";
 import { formatDate } from "@/lib/expenses";
+import { cardSubtitle } from "@/lib/institutions";
 import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "@/components/no-family";
 
@@ -149,9 +150,8 @@ function CartoesPage() {
             {ultimasPorCartao.map(({ cartao, imp }) => (
               <li key={cartao.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">
-                    {cartao.banco} · {cartao.nome_cartao}
-                  </p>
+                  <p className="truncate text-sm font-semibold">{cartao.nome_cartao}</p>
+                  <p className="truncate text-xs text-muted-foreground">{cardSubtitle(cartao)}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     Fatura {competenciaImportacao(imp)} ·{" "}
                     {formatCurrency(Number(imp.valor_total_fatura) || 0)}

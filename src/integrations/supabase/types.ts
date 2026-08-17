@@ -22,6 +22,8 @@ export type Database = {
           created_by: string | null
           family_id: string
           id: string
+          institution_id: string | null
+          institution_mapping_required: boolean
           member_id: string | null
           nome_conta: string
           saldo_atual: number
@@ -35,6 +37,8 @@ export type Database = {
           created_by?: string | null
           family_id: string
           id?: string
+          institution_id?: string | null
+          institution_mapping_required?: boolean
           member_id?: string | null
           nome_conta: string
           saldo_atual?: number
@@ -48,6 +52,8 @@ export type Database = {
           created_by?: string | null
           family_id?: string
           id?: string
+          institution_id?: string | null
+          institution_mapping_required?: boolean
           member_id?: string | null
           nome_conta?: string
           saldo_atual?: number
@@ -60,6 +66,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_accounts_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "financial_institutions"
             referencedColumns: ["id"]
           },
           {
@@ -1078,12 +1091,16 @@ export type Database = {
         Row: {
           ativo: boolean
           banco: string
+          bandeira: string | null
           created_at: string
           created_by: string | null
           dia_fechamento: number
           dia_vencimento: number
           family_id: string
+          final_cartao: string | null
           id: string
+          institution_mapping_required: boolean
+          issuer_institution_id: string | null
           limite: number
           member_id: string | null
           nome_cartao: string
@@ -1092,12 +1109,16 @@ export type Database = {
         Insert: {
           ativo?: boolean
           banco: string
+          bandeira?: string | null
           created_at?: string
           created_by?: string | null
           dia_fechamento?: number
           dia_vencimento?: number
           family_id: string
+          final_cartao?: string | null
           id?: string
+          institution_mapping_required?: boolean
+          issuer_institution_id?: string | null
           limite?: number
           member_id?: string | null
           nome_cartao: string
@@ -1106,12 +1127,16 @@ export type Database = {
         Update: {
           ativo?: boolean
           banco?: string
+          bandeira?: string | null
           created_at?: string
           created_by?: string | null
           dia_fechamento?: number
           dia_vencimento?: number
           family_id?: string
+          final_cartao?: string | null
           id?: string
+          institution_mapping_required?: boolean
+          issuer_institution_id?: string | null
           limite?: number
           member_id?: string | null
           nome_cartao?: string
@@ -1123,6 +1148,13 @@ export type Database = {
             columns: ["family_id"]
             isOneToOne: false
             referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_cards_issuer_institution_id_fkey"
+            columns: ["issuer_institution_id"]
+            isOneToOne: false
+            referencedRelation: "financial_institutions"
             referencedColumns: ["id"]
           },
           {
@@ -1789,6 +1821,48 @@ export type Database = {
           reset_type?: string
           totais?: Json | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      financial_institutions: {
+        Row: {
+          active: boolean
+          code: string
+          country_code: string
+          created_at: string
+          id: string
+          institution_type: string
+          official_name: string
+          short_name: string | null
+          supports_bank_account: boolean
+          supports_credit_card: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          country_code?: string
+          created_at?: string
+          id?: string
+          institution_type?: string
+          official_name: string
+          short_name?: string | null
+          supports_bank_account?: boolean
+          supports_credit_card?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          country_code?: string
+          created_at?: string
+          id?: string
+          institution_type?: string
+          official_name?: string
+          short_name?: string | null
+          supports_bank_account?: boolean
+          supports_credit_card?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3151,6 +3225,7 @@ export type Database = {
         Args: { _member_id: string; _user_id: string }
         Returns: boolean
       }
+      match_financial_institution: { Args: { _texto: string }; Returns: string }
       merge_duplicate_purchase: {
         Args: { p_duplicada: string; p_principal: string }
         Returns: Json

@@ -22,6 +22,9 @@ import {
   runBankStatementDryRun,
   type BankStatementDryRunResult,
 } from "@/lib/bank-statements/dry-run";
+import { buildParserInput, DOCUMENT_PARSER_REGISTRY } from "@/lib/document-parsers/registry";
+import { routeDocumentParser } from "@/lib/document-parsers/routing";
+import type { InstitutionCode, ParserRoutingResult } from "@/lib/document-parsers/types";
 
 type SaidaExtrato = {
   bank?: string | null;
@@ -171,8 +174,11 @@ export function BankParserDiagnosticsPage({
   source = "BANK_STATEMENT",
   backTo,
   backLabel = "Voltar",
+  contextInstitution = null,
 }: {
   source?: DiagnosticSource;
+  /** Instituição OFICIAL da conta/cartão de origem — nunca texto livre. */
+  contextInstitution?: InstitutionCode | null;
   backTo?: { to: string; params?: Record<string, string> };
   backLabel?: string;
 }) {
@@ -182,6 +188,7 @@ export function BankParserDiagnosticsPage({
   const [erro, setErro] = useState("");
   const [aba, setAba] = useState<Aba>("RESUMO");
   const [copiado, setCopiado] = useState(false);
+  const [routing, setRouting] = useState<ParserRoutingResult | null>(null);
   const auto = useRef(false);
   const familyId = useFamily().data?.id ?? undefined;
 
@@ -190,9 +197,27 @@ export function BankParserDiagnosticsPage({
     setLendo(true);
     setErro("");
     setResultado(null);
+    setRouting(null);
     try {
       const r = await runBankStatementDryRun({ file: arquivo, source });
       setResultado(r);
+      if (source === "BANK_STATEMENT" || source === "CARD_STATEMENT") {
+        const entrada = await buildParserInput(arquivo);
+        setRouting(
+          routeDocumentParser({
+            registry: DOCUMENT_PARSER_REGISTRY,
+            contextInstitution,
+            documentType:
+              source === "CARD_STATEMENT" ? "CREDIT_CARD_STATEMENT" : "BANK_STATEMENT",
+            input: entrada,
+            detectedDocumentType:
+              r.documentType.type === "CREDIT_CARD_STATEMENT" ||
+              r.documentType.type === "BANK_STATEMENT"
+                ? r.documentType.type
+                : null,
+          }),
+        );
+      }
       if (r.error) setErro(r.error);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível ler este PDF.");
@@ -354,6 +379,33 @@ export function BankParserDiagnosticsPage({
         <p className="mt-8 inline-flex items-center gap-2 text-[14px] text-muted-foreground">
           <Loader2 className="size-4 animate-spin" /> Executando o pipeline em memória…
         </p>
+      )}
+
+      {routing && (
+        <section className="mt-6 rounded-2xl border border-border bg-card p-5">
+          <h2 className="text-[15px] font-extrabold">
+            ROTEAMENTO INSTITUCIONAL: {routing.status}
+          </h2>
+          <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["CONTEXT INSTITUTION", routing.contextInstitution ?? "—"],
+              ["DETECTED INSTITUTION", routing.detectedInstitution ?? "—"],
+              ["DOCUMENT TYPE", routing.documentType],
+              ["PARSER FAMILY", routing.parserFamily ?? "—"],
+              ["PARSER KEY", routing.parserKey ?? "—"],
+              ["FORMAT VERSION", routing.formatVersion ? String(routing.formatVersion) : "—"],
+              ["DETECTION SCORE", String(routing.detectionScore)],
+              ["THRESHOLD", String(routing.threshold)],
+              ["ROUTING RESULT", routing.status === "PASS" ? "PASS" : "BLOCKED"],
+            ].map(([k, v]) => (
+              <div key={k} className="flex gap-2">
+                <dt className="font-semibold text-muted-foreground">{k}:</dt>
+                <dd className="font-bold">{v}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-2 text-xs text-muted-foreground">{routing.reason}</p>
+        </section>
       )}
 
       {resultado && (
