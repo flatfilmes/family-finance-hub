@@ -21,6 +21,7 @@ import {
 import type { Transaction } from "@/lib/transactions";
 import { formatCurrency } from "@/lib/finance";
 import { RepairPlanPanel } from "@/components/bank/repair-plan-panel";
+import { RepairImpactPanel } from "@/components/bank/repair-impact-panel";
 
 export function PipelineIntegrity({
   accountId,
@@ -33,8 +34,15 @@ export function PipelineIntegrity({
   imports: LineageImportInput[];
   items: LineageItemInput[];
   transactions: Transaction[];
-  checkpoints: { data: string; saldo: number; importId?: string | null }[];
+  checkpoints: {
+    id?: string | null;
+    data: string;
+    saldo: number;
+    tipo?: string | null;
+    importId?: string | null;
+  }[];
 }) {
+
   const [aberto, setAberto] = useState<string | null>(null);
 
   const lineages = useMemo(
