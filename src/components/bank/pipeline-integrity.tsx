@@ -61,7 +61,8 @@ export function PipelineIntegrity({
   return (
     <>
     <RepairPlanPanel lineages={lineages} imports={imports} items={items} checkpoints={checkpoints} />
-    <Card className="mb-5">
+    <RepairImpactPanel lineages={lineages} />
+
       <SectionTitle
         title="Integridade do pipeline"
         hint="Diagnóstico por linha do documento: onde cada movimento do extrato foi parar. Somente leitura — nenhum valor é criado ou corrigido aqui."
