@@ -48,6 +48,7 @@ export type GoldenItauStatement = {
   transactions: number;
   dailyCheckpoints: number;
   lastHistoricalBalance: { date: string; amount: number };
+  closing: { date: string; amount: number; derived: boolean };
   reference: { date: string; amount: number };
 };
 
@@ -62,5 +63,6 @@ export const ITAU_CONTA_JAN_JUN_2026: GoldenItauStatement = {
   transactions: 17,
   dailyCheckpoints: 7,
   lastHistoricalBalance: { date: "2026-06-17", amount: 120.81 },
+  closing: { date: "2026-06-30", amount: 120.81, derived: true },
   reference: { date: "2026-08-13", amount: 4.16 },
 };

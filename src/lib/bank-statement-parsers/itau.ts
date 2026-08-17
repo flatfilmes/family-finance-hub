@@ -366,6 +366,10 @@ export type ItauPipelineDiagnostics = {
   parsedTransactions: number;
   parsedCheckpoints: number;
   openingBalance: { amount: number | null; date: string | null };
+  /** Último saldo impresso DENTRO do período (histórico, nunca derivado). */
+  lastHistoricalCheckpoint: { amount: number | null; date: string | null };
+  /** Fechamento ancorado no fim do período; `derived` quando não impresso. */
+  closingBalance: { amount: number | null; date: string | null; derived: boolean };
   referenceBalance: { amount: number | null; date: string | null };
   validation: { status: "PASS" | "FAIL"; errors: string[] };
   rows: ItauRow[];
@@ -453,10 +457,25 @@ function interpretar(
   const referencia = posteriores.length ? posteriores[posteriores.length - 1]! : null;
 
   // Um checkpoint por dia: o último saldo impresso do dia é o que vale.
-  const checkpoints = [...new Map(doPeriodo.map((c) => [c.data, c])).values()].sort((a, b) =>
-    a.data.localeCompare(b.data),
-  );
-  const saldoFinal = checkpoints.length ? checkpoints[checkpoints.length - 1]!.saldo : null;
+  const checkpoints: ParsedBalanceCheckpoint[] = [
+    ...new Map(doPeriodo.map((c) => [c.data, c])).values(),
+  ]
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map((c) => ({ ...c, tipo: "DAILY" as const }));
+
+  // Último saldo REALMENTE impresso dentro do período (histórico).
+  const ultimoCheckpointHistorico = checkpoints.length
+    ? { data: checkpoints[checkpoints.length - 1]!.data, saldo: checkpoints[checkpoints.length - 1]!.saldo }
+    : null;
+
+  // Fechamento: mesmo valor, mas ancorado no fim do período declarado.
+  // Nenhum checkpoint DAILY é inventado nessa data.
+  const saldoFinal = ultimoCheckpointHistorico?.saldo ?? null;
+  const saldoFinalData = ultimoCheckpointHistorico
+    ? periodoFim ?? ultimoCheckpointHistorico.data
+    : null;
+  const saldoFinalDerivado =
+    !!ultimoCheckpointHistorico && !!periodoFim && periodoFim !== ultimoCheckpointHistorico.data;
 
   const dentroDoPeriodo = (d: string | null) =>
     !!d && (!periodoInicio || d >= periodoInicio) && (!periodoFim || d <= periodoFim);
@@ -503,6 +522,10 @@ function interpretar(
     parsedTransactions: realizados.length,
     parsedCheckpoints: checkpoints.length,
     openingBalance: { amount: abertura?.saldo ?? null, date: abertura?.data ?? null },
+    lastHistoricalCheckpoint: ultimoCheckpointHistorico
+      ? { amount: ultimoCheckpointHistorico.saldo, date: ultimoCheckpointHistorico.data }
+      : { amount: null, date: null },
+    closingBalance: { amount: saldoFinal, date: saldoFinalData, derived: saldoFinalDerivado },
     referenceBalance: { amount: referencia?.saldo ?? null, date: referencia?.data ?? null },
     validation: { status: erros.length ? "FAIL" : "PASS", errors: erros },
     rows,
@@ -514,7 +537,11 @@ function interpretar(
     periodoInicio,
     periodoFim,
     saldoInicial: abertura?.saldo ?? null,
+    saldoInicialData: abertura?.data ?? null,
     saldoFinal,
+    saldoFinalData,
+    saldoFinalDerivado,
+    ultimoCheckpointHistorico,
     saldoReferenciaAtual: referencia ? { data: referencia.data, saldo: referencia.saldo } : null,
     movimentos: realizados,
     checkpoints,

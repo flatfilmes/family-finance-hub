@@ -153,3 +153,35 @@ describe("Golden ITAU_CONTA_JAN_JUN_2026", () => {
     }
   });
 });
+
+describe("Semântica de abertura e fechamento", () => {
+  const parsed = parseItauBankStatementLines(fixture);
+
+  it("abertura carrega a data 31/12/2025 sem virar checkpoint do período", () => {
+    expect(parsed.saldoInicialData).toBe(GOLDEN.opening.date);
+    expect(parsed.saldoInicial).toBe(GOLDEN.opening.amount);
+    expect((parsed.checkpoints ?? []).some((c) => c.data === GOLDEN.opening.date)).toBe(false);
+  });
+
+  it("último checkpoint histórico é 17/06/2026 e nada é inventado em 30/06", () => {
+    expect(parsed.ultimoCheckpointHistorico).toEqual({
+      data: GOLDEN.lastHistoricalBalance.date,
+      saldo: GOLDEN.lastHistoricalBalance.amount,
+    });
+    expect((parsed.checkpoints ?? []).length).toBe(GOLDEN.dailyCheckpoints);
+    expect((parsed.checkpoints ?? []).some((c) => c.data === GOLDEN.closing.date)).toBe(false);
+    expect((parsed.checkpoints ?? []).every((c) => c.tipo === "DAILY")).toBe(true);
+  });
+
+  it("fechamento é derivado no fim do período com o mesmo valor", () => {
+    expect(parsed.saldoFinal).toBe(GOLDEN.closing.amount);
+    expect(parsed.saldoFinalData).toBe(GOLDEN.closing.date);
+    expect(parsed.saldoFinalDerivado).toBe(GOLDEN.closing.derived);
+    expect(parsed.pipeline.closingBalance).toEqual({
+      amount: GOLDEN.closing.amount,
+      date: GOLDEN.closing.date,
+      derived: true,
+    });
+    expect(parsed.pipeline.validation.status).toBe("PASS");
+  });
+});
