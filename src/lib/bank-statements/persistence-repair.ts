@@ -18,6 +18,8 @@ import { movementEffect } from "@/lib/bank-ledger";
 import type { Transaction } from "@/lib/transactions";
 import type { LineageImportInput, LineageItemInput, LineageRow, StatementLineage } from "./lineage";
 import { classifyCheckpointDiagnostic } from "./chained-validation";
+import { buildStatementSelection } from "./statement-selection";
+import { createPresenceLedger } from "./economic-identity";
 
 const CONFERE = 0.01;
 
@@ -234,7 +236,12 @@ export function buildPersistenceRepairPlan(input: {
   // período idêntico são agrupados e só o canônico participa da contagem, dos
   // checkpoints, do saldo e dos candidatos de reparo.
   const selecao = buildStatementSelection({
-    imports: input.imports.map((i) => ({
+    imports: input.imports.map((raw) => {
+      const i = raw as LineageImportInput & {
+        status?: string | null;
+        created_at?: string | null;
+      };
+      return {
       id: i.id,
       nome_arquivo: i.nome_arquivo,
       periodo_inicio: i.periodo_inicio,
@@ -244,19 +251,27 @@ export function buildPersistenceRepairPlan(input: {
       status: i.status ?? null,
       created_at: i.created_at ?? null,
       dados_brutos_json: i.dados_brutos_json,
-    })),
+      };
+    }),
     checkpoints: input.checkpoints.map((c) => ({
       data: c.data,
       saldo: c.saldo,
       tipo: c.tipo ?? null,
       importId: c.importId ?? null,
     })),
-    statementItems: input.items.map((i) => ({
-      import_id: i.import_id,
-      incluir: i.incluir ?? null,
-      transaction_id_criada: i.transaction_id_criada ?? null,
-      transaction_id_matched: i.transaction_id_matched ?? null,
-    })),
+    statementItems: input.items.map((raw) => {
+      const i = raw as LineageItemInput & {
+        incluir?: boolean | null;
+        transaction_id_criada?: string | null;
+        transaction_id_matched?: string | null;
+      };
+      return {
+        import_id: i.import_id,
+        incluir: i.incluir ?? null,
+        transaction_id_criada: i.transaction_id_criada ?? null,
+        transaction_id_matched: i.transaction_id_matched ?? null,
+      };
+    }),
   });
   const canonicalIds = new Set(selecao.canonicalIds);
 
