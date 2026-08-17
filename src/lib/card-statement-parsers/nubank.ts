@@ -181,10 +181,15 @@ function parseNubankRows(rows: VisualRow[]): ParsedStatement {
   ) => {
     for (let i = 0; i < textos.length; i++) {
       const p = plano(textos[i] ?? "");
-      if (!rotulos.some((r) => p.includes(r))) continue;
+      const encontrado = rotulos.find((r) => p.includes(r));
+      if (!encontrado) continue;
       if (proibidos.some((r) => p.includes(r))) continue;
-      const semRotulo = p.replace(new RegExp(rotulos.join("|"), "g"), " ");
-      const direta = lerDataMes(semRotulo, anoBase, mesFim);
+      // a data válida é a que vem DEPOIS do rótulo (uma mesma row pode conter
+      // "FATURA 17 AGO 2026" e "EMISSAO E ENVIO 10 AGO 2026")
+      const depois = p.slice(p.indexOf(encontrado) + encontrado.length);
+      const direta =
+        lerDataMes(depois, anoBase, mesFim) ??
+        lerDataMes(p.replace(new RegExp(rotulos.join("|"), "g"), " "), anoBase, mesFim);
       if (direta) return direta;
       for (let j = i + 1; j <= i + 2 && j < textos.length; j++) {
         const seguinte = lerDataMes(plano(textos[j] ?? ""), anoBase, mesFim);
