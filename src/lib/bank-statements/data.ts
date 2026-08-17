@@ -83,7 +83,7 @@ export async function createBankStatementImport(input: {
       quantidade_lancamentos: input.linhas.length,
       status: "READY_FOR_REVIEW",
       created_by: input.createdBy,
-      dados_brutos_json: snapshot as unknown as Record<string, unknown>,
+      dados_brutos_json: JSON.parse(JSON.stringify(snapshot)),
     })
     .select()
     .single();

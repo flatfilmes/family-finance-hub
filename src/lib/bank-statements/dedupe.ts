@@ -22,7 +22,7 @@
  * Nada aqui apaga registro: a duplicata apenas nasce com a ação IGNORE — e
  * somente quando existe um ALVO CONCRETO comprovado.
  */
-import type { ParsedBalanceCheckpoint, ParsedBankMovement } from "./types";
+import type { ParsedBankMovement } from "./types";
 import { normalizeDescricao } from "@/lib/card-statement-parsers/generic";
 
 export type MovementIdentity = {
@@ -212,13 +212,13 @@ export function marcarDuplicados(
 }
 
 /** Checkpoints inéditos: mesma conta + mesma data + mesmo saldo é reutilizado. */
-export function checkpointsInéditos(
-  checkpoints: ParsedBalanceCheckpoint[],
+export function checkpointsInéditos<T extends { data: string; saldo: number }>(
+  checkpoints: T[],
   existentes: Array<{ data: string; saldo: number }>,
-) {
+): T[] {
   const chave = (c: { data: string; saldo: number }) => `${c.data}|${c.saldo.toFixed(2)}`;
   const jaExiste = new Set(existentes.map(chave));
-  const novos: ParsedBalanceCheckpoint[] = [];
+  const novos: T[] = [];
   for (const c of checkpoints) {
     const k = chave(c);
     if (jaExiste.has(k)) continue;
