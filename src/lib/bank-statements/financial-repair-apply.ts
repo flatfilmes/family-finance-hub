@@ -151,6 +151,7 @@ export async function validateRepairExecution(
   const a = AUTHORIZED_REPAIR;
   let bb: string | null = null;
   let grupo: string | null = null;
+  const sqlErrors: string[] = [];
 
   const ids = [a.remove.transactionId, ...a.directionFixes.map((f) => f.transactionId)];
   const { data, error } = await supabase
@@ -159,12 +160,14 @@ export async function validateRepairExecution(
     .in("id", ids);
 
   if (error) {
+    sqlErrors.push(error.message);
     checks.push({
       id: "LEITURA_BANCO",
       label: "Releitura das transações no banco",
       status: "FAIL",
       detail: error.message,
     });
+
   } else {
     const rows = data ?? [];
     const alvo = rows.find((r) => r.id === a.remove.transactionId);
