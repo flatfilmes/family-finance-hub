@@ -521,6 +521,13 @@ export function buildPersistenceRepairPlan(input: {
     geradoEm: new Date().toISOString(),
     dryRun: true,
     accountId: input.accountId,
+    statements: {
+      encontrados: selecao.importsEncontrados,
+      canonicalIds: selecao.canonicalIds,
+      overlaps,
+      samePeriodOverlap: selecao.samePeriodOverlap,
+    },
+    jaPresentes,
     periodos,
     metadados,
     totais: {
@@ -532,7 +539,12 @@ export function buildPersistenceRepairPlan(input: {
       importsSemSnapshot: metadados.filter((m) => !m.snapshotCanonico).length,
       linhasSemIdentidade: metadados.reduce((a, m) => a + m.linhasSemIdentidade, 0),
       checkpointsSemTipo: metadados.reduce((a, m) => a + m.checkpointsSemTipo, 0),
+      statementsEncontrados: selecao.importsEncontrados,
+      statementsCanonicos: selecao.canonicalIds.length,
+      overlapsPreservados: overlaps.length,
+      jaPresentesEmOutroImport: jaPresentes.length,
     },
+
   };
 }
 
