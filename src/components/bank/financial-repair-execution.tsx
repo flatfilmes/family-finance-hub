@@ -63,7 +63,12 @@ export function FinancialRepairExecution({
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const habilitado = validacao?.status === "PASS" && !resultado;
+  const provaOk =
+    proof.status === "PASS" &&
+    proof.residualDifference === 0 &&
+    proof.checkpointsPass === 7 &&
+    proof.checkpointsTotal === 7;
+  const habilitado = validacao?.status === "PASS" && provaOk && !resultado && !ocupado;
 
   async function validar() {
     setOcupado(true);
