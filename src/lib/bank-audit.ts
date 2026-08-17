@@ -29,6 +29,7 @@ import {
   type StatementPeriodOrigin,
 } from "@/lib/bank-statements/period";
 import { eventDateFromHistory } from "@/lib/bank-statements/event-date";
+import { buildStatementSelection } from "@/lib/bank-statements/statement-selection";
 
 export type Severity = "CRITICO" | "ATENCAO" | "PENDENCIA" | "INFORMATIVO";
 
@@ -463,6 +464,8 @@ export function buildBankAudit(input: {
         checkpointsPdfClosing: snap?.checkpoints.filter((c) => c.type === "CLOSING").length ?? 0,
         openingDatePdf: snap?.openingBalance?.date ?? null,
         status: i.status,
+        canonico: canonicalIds.has(i.id),
+        relacaoPeriodo: relacaoPorImport.get(i.id) ?? "UNIQUE_PERIOD",
       };
     })
     .sort((a, b) => String(a.inicio ?? "").localeCompare(String(b.inicio ?? "")));
@@ -494,7 +497,9 @@ export function buildBankAudit(input: {
 
   // ---------- continuidade e cobertura de período ----------
   // A cobertura vem SEMPRE do documento (period_start → period_end).
-  const comPeriodo = extratos.filter((e) => e.inicio && e.fim);
+  // Só extratos canônicos entram na continuidade: encadear dois imports do
+  // mesmo período criaria uma falsa quebra (fim → início do próprio período).
+  const comPeriodo = extratos.filter((e) => e.inicio && e.fim && e.canonico);
   const continuidade: ContinuityLink[] = [];
   for (let i = 1; i < comPeriodo.length; i++) {
     const anterior = comPeriodo[i - 1]!;
@@ -723,11 +728,13 @@ export function buildBankAudit(input: {
     const checkpointsDoMes = checkpointsDiariosPorMes.get(key) ?? 0;
     const checkpointsConferem = days.filter((d) => d.confere === true).length;
     // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
-    const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
+    // Reimportações do mesmo período não somam checkpoints: só o canônico conta.
+    const importsCanonicosDoMes = importsDoMes.filter((e) => e.canonico);
+    const checkpointsPdf = importsCanonicosDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
     // DAILY e CLOSING são métricas SEPARADAS: o fechamento nunca pode contar
     // como um "saldo do dia faltando".
-    const dailyPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdfDaily ?? 0), 0);
-    const closingPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdfClosing ?? 0), 0);
+    const dailyPdf = importsCanonicosDoMes.reduce((acc, e) => acc + (e.checkpointsPdfDaily ?? 0), 0);
+    const closingPdf = importsCanonicosDoMes.reduce((acc, e) => acc + (e.checkpointsPdfClosing ?? 0), 0);
     const fimDoMes = importsDoMes[importsDoMes.length - 1]?.fim ?? null;
     const closingPersistido = fimDoMes && checkpointPorDia.has(fimDoMes) ? 1 : 0;
     const closingConfere =
