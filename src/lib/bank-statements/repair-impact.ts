@@ -133,7 +133,6 @@ export function analyzeRepairImpact(input: { lineages: StatementLineage[] }): Re
 
     const deltaPeriodo = linhas.reduce((acc, l) => acc + l.deltaSaldo, 0);
     acumulado = Math.round((acumulado + deltaPeriodo) * 100) / 100;
-    const saldoFinalDocumento = lin.saldoFinalDocumento ?? null;
 
     periodos.push({
       importId: lin.importId,
@@ -142,9 +141,9 @@ export function analyzeRepairImpact(input: { lineages: StatementLineage[] }): Re
       periodEnd: lin.periodEnd,
       linhas,
       deltaPeriodo: Math.round(deltaPeriodo * 100) / 100,
-      saldoFinalDocumento,
-      saldoFinalCorrigido: null,
+      deltaAcumulado: acumulado,
     });
+
   }
 
   return {
