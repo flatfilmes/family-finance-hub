@@ -106,6 +106,12 @@ type Aba = (typeof ABAS)[number][0];
 /** Abas válidas para FATURA: extrato bancário não se aplica a este documento. */
 const ABAS_FATURA: Aba[] = ["RESUMO", "FATURA", "LINHAS", "RAW", "ERROS", "JSON"] as Aba[];
 
+const dataBr = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const [a, m, d] = iso.split("-");
+  return a && m && d ? `${d}/${m}/${a}` : iso;
+};
+
 const moeda = (v: number | null | undefined) =>
   v === null || v === undefined
     ? "—"
