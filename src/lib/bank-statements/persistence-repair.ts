@@ -47,6 +47,8 @@ export type CheckpointComparison = {
   confereAntes: boolean;
   confereDepois: boolean;
   tipo: string | null;
+  /** Classificação diagnóstica (não altera o tipo gravado nem o saldo). */
+  tipoDiagnostico: "DAILY" | "CLOSING";
 };
 
 export type TransferEvidence = {
