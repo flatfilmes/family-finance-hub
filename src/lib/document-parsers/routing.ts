@@ -15,7 +15,7 @@ import type {
 } from "./types";
 
 /** Confiança mínima explícita: "maior score vence" não basta. */
-export const VERSION_DETECTION_THRESHOLD = 4;
+export const VERSION_DETECTION_THRESHOLD = 5;
 
 export type RouteOptions = {
   registry: DocumentParserDescriptor[];
