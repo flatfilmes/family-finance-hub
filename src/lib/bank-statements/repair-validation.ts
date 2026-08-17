@@ -84,26 +84,6 @@ export type RepairValidation = {
   veredito: "PRONTO_PARA_REPARO" | "NADA_A_REPARAR" | "REVISAR";
 };
 
-const MESES = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
-
-function rotuloMes(mes: string) {
-  const [ano, m] = mes.split("-");
-  return `${MESES[Number(m) - 1] ?? m}/${ano}`;
-}
-
 export function buildRepairValidation(input: {
   accountId: string;
   plan: PersistenceRepairPlan;
