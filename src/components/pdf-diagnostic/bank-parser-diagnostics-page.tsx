@@ -15,6 +15,8 @@ import {
   type DiagnosticSource,
   type ParserDryRunResult,
 } from "@/lib/pdf-diagnostic";
+import { useFamily } from "@/hooks/useFamilyData";
+import { CardPersistenceDryRunPanel } from "@/components/pdf-diagnostic/card-persistence-dry-run-panel";
 import { peekDiagnosticFile } from "@/lib/pdf-diagnostic/file-handoff";
 import {
   runBankStatementDryRun,
@@ -99,6 +101,7 @@ const ABAS = [
   ["TRANSACOES", "Transações"],
   ["CHECKPOINTS", "Checkpoints"],
   ["FATURA", "Fatura"],
+  ["PERSISTENCIA", "Persistência"],
   ["LINHAS", "Linhas"],
   ["RAW", "Raw PDF"],
   ["ERROS", "Erros"],
@@ -107,7 +110,15 @@ const ABAS = [
 type Aba = (typeof ABAS)[number][0];
 
 /** Abas válidas para FATURA: extrato bancário não se aplica a este documento. */
-const ABAS_FATURA: Aba[] = ["RESUMO", "FATURA", "LINHAS", "RAW", "ERROS", "JSON"] as Aba[];
+const ABAS_FATURA: Aba[] = [
+  "RESUMO",
+  "FATURA",
+  "PERSISTENCIA",
+  "LINHAS",
+  "RAW",
+  "ERROS",
+  "JSON",
+] as Aba[];
 
 const dataBr = (iso: string | null | undefined) => {
   if (!iso) return "—";
@@ -172,6 +183,7 @@ export function BankParserDiagnosticsPage({
   const [aba, setAba] = useState<Aba>("RESUMO");
   const [copiado, setCopiado] = useState(false);
   const auto = useRef(false);
+  const familyId = useFamily().data?.id ?? undefined;
 
   async function rodar(arquivo: File | null) {
     if (!arquivo) return;
@@ -529,6 +541,36 @@ export function BankParserDiagnosticsPage({
                   tom={fatura?.validation?.status === "CARD_STATEMENT_VALID" ? "ok" : "falha"}
                 />
               </div>
+            )}
+
+            {aba === "PERSISTENCIA" && ehFatura && (
+              <CardPersistenceDryRunPanel
+                {...(familyId ? { familyId } : {})}
+                invoice={{
+                  issuer: fatura?.invoice?.issuer ?? null,
+                  holder: fatura?.invoice?.holder ?? null,
+                  cardLast4: fatura?.invoice?.cardLast4 ?? null,
+                  cardLast4s: fatura?.invoice?.cardLast4s ?? [],
+                  periodStart: fatura?.invoice?.periodStart ?? null,
+                  periodEnd: fatura?.invoice?.periodEnd ?? null,
+                  closingDate: fatura?.invoice?.closingDate ?? null,
+                  nextClosingDate: fatura?.invoice?.nextClosingDate ?? null,
+                  dueDate: fatura?.invoice?.dueDate ?? null,
+                  issueDate: fatura?.invoice?.issueDate ?? null,
+                  invoiceTotal: fatura?.invoice?.invoiceTotal ?? null,
+                  previousInvoiceTotal: fatura?.invoice?.previousInvoiceTotal ?? null,
+                  previousPayment: fatura?.invoice?.previousPayment ?? null,
+                }}
+                items={itensFatura.map((i) => ({
+                  category: i.category,
+                  date: i.date,
+                  description: i.description,
+                  amount: i.amount,
+                  installmentCurrent: i.installmentCurrent,
+                  installmentTotal: i.installmentTotal,
+                  cardLast4: i.cardLast4,
+                }))}
+              />
             )}
 
             {aba === "FATURA" && (
