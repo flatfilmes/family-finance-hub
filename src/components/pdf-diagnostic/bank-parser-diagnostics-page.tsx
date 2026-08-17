@@ -434,7 +434,89 @@ export function BankParserDiagnosticsPage({
           </nav>
 
           <section className="mt-6">
-            {aba === "RESUMO" && (
+            {aba === "RESUMO" && ehFatura && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Cartao label="Document type" valor="CREDIT_CARD_STATEMENT" tom="ok" />
+                <Cartao label="Emissor" valor={fatura?.invoice?.issuer ?? "—"} />
+                <Cartao label="Titular" valor={fatura?.invoice?.holder ?? "—"} />
+                <Cartao
+                  label="Total desta fatura"
+                  valor={moeda(fatura?.invoice?.invoiceTotal ?? null)}
+                />
+                <Cartao label="Vencimento" valor={fatura?.invoice?.dueDate ?? "—"} />
+                <Cartao label="Emissão" valor={fatura?.invoice?.issueDate ?? "—"} />
+                <Cartao
+                  label="Fatura anterior"
+                  valor={moeda(fatura?.invoice?.previousInvoiceTotal ?? null)}
+                  detalhe={
+                    fatura?.invoice?.previousPayment
+                      ? `pagamento ${fatura.invoice.previousPayment.data ?? "—"} · ${moeda(
+                          fatura.invoice.previousPayment.valor,
+                        )}`
+                      : undefined
+                  }
+                />
+                <Cartao
+                  label="Limite total de crédito"
+                  valor={moeda(fatura?.invoice?.creditLimit ?? null)}
+                />
+                <Cartao label="Bank transactions" valor="0" tom="ok" detalhe="fatura não gera movimentação bancária" />
+                <Cartao label="Bank checkpoints" valor="0" tom="ok" detalhe="fatura não possui saldo diário" />
+                <Cartao
+                  label="Card statement items"
+                  valor={String(itensFatura.length)}
+                  detalhe={Object.entries(fatura?.itemCounts ?? {})
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(" · ")}
+                />
+                <Cartao
+                  label="Validation"
+                  valor={fatura?.validation?.status ?? "—"}
+                  detalhe={`itens cobrados ${moeda(fatura?.validation?.chargedItemsTotal ?? null)}`}
+                  tom={fatura?.validation?.status === "CARD_STATEMENT_VALID" ? "ok" : "falha"}
+                />
+              </div>
+            )}
+
+            {aba === "FATURA" && (
+              <div className="w-full overflow-x-auto rounded-2xl border border-border">
+                <table className="w-full text-[13px]">
+                  <thead className="bg-accent/40">
+                    <tr>
+                      <Th>Data</Th>
+                      <Th largo>Estabelecimento</Th>
+                      <Th>Categoria</Th>
+                      <Th>Parcela</Th>
+                      <Th>Cartão</Th>
+                      <Th>Valor</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensFatura.map((i, idx) => (
+                      <tr key={`${i.description}-${idx}`} className="border-t border-border/60 align-top">
+                        <td className="px-3 py-2 font-mono whitespace-nowrap">{i.date ?? "—"}</td>
+                        <td className={`px-3 py-2 ${quebra}`}>{i.description}</td>
+                        <td className="px-3 py-2 font-bold">{i.category}</td>
+                        <td className="px-3 py-2">
+                          {i.installmentTotal ? `${i.installmentCurrent}/${i.installmentTotal}` : "—"}
+                        </td>
+                        <td className="px-3 py-2">{i.cardLast4 ?? "—"}</td>
+                        <td className="px-3 py-2 font-mono whitespace-nowrap">{moeda(i.amount)}</td>
+                      </tr>
+                    ))}
+                    {!itensFatura.length && (
+                      <tr>
+                        <td className="px-3 py-4 text-muted-foreground" colSpan={6}>
+                          Nenhum lançamento devolvido pelo parser de fatura.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {aba === "RESUMO" && !ehFatura && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Cartao
                   label="Período"
