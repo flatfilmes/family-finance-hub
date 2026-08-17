@@ -547,6 +547,7 @@ export async function buildBankParserDiagnostics(
     periodEnd: statement.periodEnd,
     openingBalance: statement.openingBalance,
     closingBalance: statement.closingBalance,
+    lastHistoricalCheckpoint: statement.lastHistoricalCheckpoint,
     referenceBalance: statement.referenceBalance,
     transactions: statement.transactions,
     checkpoints: statement.checkpoints,
@@ -756,7 +757,10 @@ export function diagnosticsFromParsedStatement(
 
       periodEnd: statement.periodEnd,
       openingBalance: statement.openingBalance,
+      // Fechamento derivado vs. último saldo realmente impresso: campos
+      // semânticos, sem qualquer efeito sobre a matemática do extrato.
       closingBalance: statement.closingBalance,
+      lastHistoricalCheckpoint: statement.lastHistoricalCheckpoint,
       referenceBalance: statement.referenceBalance,
       transactions: statement.transactions,
       checkpoints: statement.checkpoints,
