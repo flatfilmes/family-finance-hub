@@ -126,6 +126,7 @@ export function parseNubank(pdfLinhas: PdfLine[]): ParsedStatement {
   for (const linha of textos) {
     const p = plano(linha);
     const m = p.match(/de\s+(\d{1,2})\s+([a-z]{3})\.?\s*(?:de\s*(\d{4}))?\s+a\s+(\d{1,2})\s+([a-z]{3})\.?\s*(?:de\s*(\d{4}))?/);
+    if (!m) continue;
     const mesFim = MESES[m[5] ?? ""];
     const mesIni = MESES[m[2] ?? ""];
     if (!mesIni || !mesFim) continue;
