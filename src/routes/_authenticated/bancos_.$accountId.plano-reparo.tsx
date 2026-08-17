@@ -234,7 +234,15 @@ function PlanoReparoPage() {
             </button>
             <button
               onClick={() =>
-                baixar(JSON.stringify(plan, null, 2), `${base}.json`, "application/json")
+                baixar(
+                  JSON.stringify(
+                    { financialRepairDryRun: provaFinanceira, persistenceRepairPlan: plan },
+                    null,
+                    2,
+                  ),
+                  `${base}.json`,
+                  "application/json",
+                )
               }
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
             >
