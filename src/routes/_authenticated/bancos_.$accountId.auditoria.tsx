@@ -18,6 +18,7 @@ import { RepairHistoryDialog } from "@/components/bank/repair-history-dialog";
 import { RepairPostingDatesDialog } from "@/components/bank/repair-posting-dates-dialog";
 import { CheckpointsOnlyButton } from "@/components/bank/checkpoints-only-button";
 import { ImportResetDialog } from "@/components/bank/import-reset-dialog";
+import { PipelineIntegrity } from "@/components/bank/pipeline-integrity";
 import {
   auditToCsv,
   buildBankAudit,
