@@ -53,17 +53,56 @@ type SaidaExtrato = {
   validation?: { status?: string; problems?: string[]; math?: Record<string, unknown> };
 };
 
+type SaidaFatura = {
+  documentType?: string;
+  invoice?: {
+    issuer?: string | null;
+    holder?: string | null;
+    cardLast4?: string | null;
+    closingDate?: string | null;
+    dueDate?: string | null;
+    issueDate?: string | null;
+    invoiceTotal?: number | null;
+    previousInvoiceTotal?: number | null;
+    previousPayment?: { data: string | null; valor: number } | null;
+    creditLimit?: number | null;
+  };
+  validation?: {
+    status?: string;
+    declaredInvoiceTotal?: number | null;
+    chargedItemsTotal?: number | null;
+    difference?: number | null;
+    problems?: string[];
+  };
+  itemCounts?: Record<string, number>;
+  items?: Array<{
+    category: string;
+    date: string | null;
+    description: string;
+    amount: number;
+    installmentCurrent: number | null;
+    installmentTotal: number | null;
+    cardLast4: string | null;
+  }>;
+  bankTransactions?: number;
+  bankCheckpoints?: number;
+};
+
 const ABAS = [
   ["RESUMO", "Resumo"],
   ["PIPELINE", "Pipeline"],
   ["TRANSACOES", "Transações"],
   ["CHECKPOINTS", "Checkpoints"],
+  ["FATURA", "Fatura"],
   ["LINHAS", "Linhas"],
   ["RAW", "Raw PDF"],
   ["ERROS", "Erros"],
   ["JSON", "JSON"],
 ] as const;
 type Aba = (typeof ABAS)[number][0];
+
+/** Abas válidas para FATURA: extrato bancário não se aplica a este documento. */
+const ABAS_FATURA: Aba[] = ["RESUMO", "FATURA", "LINHAS", "RAW", "ERROS", "JSON"] as Aba[];
 
 const moeda = (v: number | null | undefined) =>
   v === null || v === undefined
@@ -152,6 +191,9 @@ export function BankParserDiagnosticsPage({
   }, []);
 
   const parser: ParserDryRunResult | null = resultado?.parser ?? null;
+  const ehFatura = resultado?.routing.parserFamily === "CARD_STATEMENT";
+  const fatura = (ehFatura ? (parser?.output as SaidaFatura) : null) ?? null;
+  const itensFatura = fatura?.items ?? [];
   const executou = parser?.parserExecutionInput?.["executed"] === true && !!parser?.output;
   const saida = (executou ? (parser?.output as SaidaExtrato) : null) ?? null;
   const transacoes = saida?.transactions ?? [];
@@ -323,7 +365,9 @@ export function BankParserDiagnosticsPage({
 
           {/* TABS */}
           <nav className="mt-8 flex flex-wrap gap-2">
-            {ABAS.map(([id, label]) => (
+            {ABAS.filter(([id]) =>
+              ehFatura ? ABAS_FATURA.includes(id) : id !== "FATURA",
+            ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
