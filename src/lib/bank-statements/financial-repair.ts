@@ -397,3 +397,98 @@ export function buildFinancialRepairDryRun(input: {
         : "Simulação concluída com ressalvas: as correções não zeram todas as diferenças.",
   };
 }
+
+/**
+ * PROVA EXPORTÁVEL — objeto ÚNICO consumido pela tela e pelo arquivo JSON.
+ *
+ * Não recalcula nada: apenas projeta o FinancialRepairDryRun já produzido acima
+ * no formato canônico de prova. UI = JSON = mesmo dry run. Somente leitura.
+ */
+export type FinancialRepairCorrection =
+  | {
+      type: "REMOVE_EXTRA_LEDGER_TRANSACTION";
+      transactionId: string;
+      date: string;
+      amount: number;
+      effectOnBalance: number;
+      reason: string;
+    }
+  | {
+      type: "CORRECT_DIRECTION";
+      transactionId: string;
+      date: string;
+      amount: number;
+      from: "IN" | "OUT" | "NEUTRO";
+      to: "IN" | "OUT" | null;
+      effectOnBalance: number;
+      reason: string;
+    };
+
+export type FinancialRepairProof = {
+  status: "PASS" | "FAIL";
+  dryRun: true;
+  accountId: string;
+  canonicalImportId: string | null;
+  documentTransactionCount: number;
+  ledgerBefore: { transactionCount: number; balance: number };
+  corrections: FinancialRepairCorrection[];
+  ledgerAfter: { transactionCount: number; balance: number };
+  residualDifference: number;
+  checkpoints: {
+    date: string;
+    expected: number;
+    simulated: number;
+    difference: number;
+    pass: boolean;
+  }[];
+  checkpointsPass: number;
+  checkpointsTotal: number;
+};
+
+export function toFinancialRepairProof(dry: FinancialRepairDryRun): FinancialRepairProof {
+  const corrections: FinancialRepairCorrection[] = [
+    ...dry.remocoes.map(
+      (c): FinancialRepairCorrection => ({
+        type: "REMOVE_EXTRA_LEDGER_TRANSACTION",
+        transactionId: c.transactionId,
+        date: c.data,
+        amount: round(c.valor),
+        effectOnBalance: round(c.efeitoSaldo),
+        reason: "ARTIFICIAL_COUNTERPART",
+      }),
+    ),
+    ...dry.inversoes.map(
+      (c): FinancialRepairCorrection => ({
+        type: "CORRECT_DIRECTION",
+        transactionId: c.transactionId,
+        date: c.data,
+        amount: round(c.valor),
+        from: c.direcaoAtual,
+        to: c.direcaoCorreta,
+        effectOnBalance: round(c.efeitoSaldo),
+        reason: "WRONG_DIRECTION_VS_DOCUMENT",
+      }),
+    ),
+  ];
+
+  return {
+    status: dry.aprovado ? "PASS" : "FAIL",
+    dryRun: true,
+    accountId: dry.accountId,
+    canonicalImportId: dry.canonico.importId,
+    documentTransactionCount: dry.ledger.documento,
+    ledgerBefore: { transactionCount: dry.ledger.antes, balance: dry.saldo.antes },
+    corrections,
+    ledgerAfter: { transactionCount: dry.ledger.depois, balance: dry.saldo.depois },
+    residualDifference: dry.saldo.residual,
+    checkpoints: dry.checkpoints.map((c) => ({
+      date: c.data,
+      expected: c.banco,
+      simulated: c.calculadoDepois,
+      difference: c.diferencaDepois,
+      pass: c.confereDepois,
+    })),
+    checkpointsPass: dry.checkpointsResumo.conferem,
+    checkpointsTotal: dry.checkpointsResumo.total,
+  };
+}
