@@ -24,7 +24,10 @@ import {
   repairPlanToCsv,
   type RepairPeriod,
 } from "@/lib/bank-statements/persistence-repair";
+import { buildRepairProof } from "@/lib/bank-statements/repair-proof";
+import { RepairProofPanel } from "@/components/bank/repair-proof-panel";
 import { formatCurrency } from "@/lib/finance";
+
 
 export const Route = createFileRoute("/_authenticated/bancos_/$accountId/plano-reparo")({
   head: () => ({
