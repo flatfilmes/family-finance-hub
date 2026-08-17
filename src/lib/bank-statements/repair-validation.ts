@@ -50,19 +50,11 @@ export type ValidatedCandidate = {
   explicacao: string;
 };
 
-export type MonthDiff = {
-  mes: string;
-  rotulo: string;
-  movimentosAntes: number;
-  movimentosDepois: number;
-  saldoAntes: number;
-  saldoDepois: number;
-  delta: number;
-  saldoBanco: number | null;
-  diferencaAntes: number | null;
-  diferencaDepois: number | null;
-  confereAntes: boolean | null;
-  confereDepois: boolean | null;
+export type RepairCheck = {
+  chave: string;
+  titulo: string;
+  status: "PASS" | "FAIL";
+  detalhe: string;
 };
 
 export type RepairValidation = {
@@ -70,9 +62,14 @@ export type RepairValidation = {
   dryRun: true;
   accountId: string;
   candidatos: ValidatedCandidate[];
-  meses: MonthDiff[];
+  /** Cada mês validado isoladamente pelo saldo inicial oficial do seu PDF. */
+  standaloneValidation: StandaloneValidation;
+  /** Ledger encadeado mês a mês — leitura oficial do impacto do reparo. */
+  chainedValidation: ChainedValidation;
+  verificacoes: RepairCheck[];
+  validationRepair: "PASS" | "FAIL";
   totais: {
-    seriamRestauradas: number;
+    restoreCount: number;
     naoSeriamRestauradas: number;
     efeitoSaldoFinal: number;
     mesesCorrigidos: number;
