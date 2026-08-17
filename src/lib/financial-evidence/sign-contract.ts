@@ -22,12 +22,14 @@ export const SOURCE_SIGN_CONVENTION: Record<EvidenceSourceType, SignConvention> 
   // Ledger bancário: débito vem negativo, crédito positivo.
   BANK_STATEMENT_PDF: "NEGATIVE_IS_OUT",
   BANK_SCREENSHOT: "NEGATIVE_IS_OUT",
-  // Fatura de cartão: a despesa vem positiva; crédito/estorno vem negativo.
+  // Fatura de cartão (documento fechado): a despesa vem positiva e o
+  // crédito/estorno vem negativo — convenção oposta à do extrato.
   CREDIT_CARD_STATEMENT_PDF: "POSITIVE_IS_OUT",
-  CARD_SCREENSHOT: "POSITIVE_IS_OUT",
-  // Comprovantes e fotos de compra descrevem uma despesa em valor positivo.
-  RECEIPT_IMAGE: "POSITIVE_IS_OUT",
-  PURCHASE_IMAGE: "POSITIVE_IS_OUT",
+  // Leitura de imagem (print, recibo, foto): o extrator devolve valor
+  // assinado no padrão de ledger — saída negativa, entrada positiva.
+  CARD_SCREENSHOT: "NEGATIVE_IS_OUT",
+  RECEIPT_IMAGE: "NEGATIVE_IS_OUT",
+  PURCHASE_IMAGE: "NEGATIVE_IS_OUT",
 };
 
 export type NormalizedAmount = {
@@ -60,9 +62,7 @@ export function defaultEconomicKind(
   direction: CandidateDirection,
   sourceType: EvidenceSourceType,
 ): EconomicKind {
-  const cartao =
-    SOURCE_SIGN_CONVENTION[sourceType] === "POSITIVE_IS_OUT" &&
-    (sourceType === "CREDIT_CARD_STATEMENT_PDF" || sourceType === "CARD_SCREENSHOT");
   if (direction === "OUT") return "PURCHASE";
-  return cartao ? "REFUND" : "INCOME";
+  // Numa fatura de cartão, dinheiro entrando é crédito/estorno, não receita.
+  return sourceType === "CREDIT_CARD_STATEMENT_PDF" ? "REFUND" : "INCOME";
 }

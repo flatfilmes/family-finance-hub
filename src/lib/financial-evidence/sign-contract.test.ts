@@ -80,6 +80,10 @@ describe("contrato canônico de sinal", () => {
   });
 
   it("normaliza pelo contrato, não pelo sourceType espalhado no domínio", () => {
+    expect(normalizeAmount(-10, "CARD_SCREENSHOT")).toMatchObject({
+      amount: 10,
+      direction: "OUT",
+    });
     expect(normalizeAmount(-10, "BANK_SCREENSHOT")).toMatchObject({
       amount: 10,
       direction: "OUT",
