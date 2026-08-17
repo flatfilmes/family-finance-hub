@@ -38,7 +38,10 @@ import { buildRepairValidation, type RepairValidation } from "@/lib/bank-stateme
 import { RepairValidationPanel } from "@/components/bank/repair-validation-panel";
 import { buildRepairPrecondition } from "@/lib/bank-statements/repair-precondition";
 import { RepairPreconditionPanel } from "@/components/bank/repair-precondition-panel";
-import { buildFinancialRepairDryRun } from "@/lib/bank-statements/financial-repair";
+import {
+  buildFinancialRepairDryRun,
+  toFinancialRepairProof,
+} from "@/lib/bank-statements/financial-repair";
 import { formatCurrency } from "@/lib/finance";
 
 
