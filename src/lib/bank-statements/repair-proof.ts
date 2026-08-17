@@ -12,6 +12,7 @@
 import type { StatementLineage } from "./lineage";
 import { documentEvidenceFor } from "./document-evidence";
 import type { PersistenceRepairPlan } from "./persistence-repair";
+import { buildChainedValidation } from "./chained-validation";
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
