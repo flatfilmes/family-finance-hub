@@ -1930,7 +1930,13 @@ export type Database = {
         Row: {
           amount: number
           card_last4: string | null
+          confirmation_id: string | null
+          confirmation_status: string
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
+          created_purchase_id: string | null
+          created_transaction_id: string | null
           description: string
           direction: string | null
           economic_kind: string | null
@@ -1950,6 +1956,7 @@ export type Database = {
           matched_transaction_id: string | null
           normalized_description: string
           ordem: number
+          override_of_status: string | null
           posting_date: string | null
           raw_text: string | null
           review_action: string | null
@@ -1962,7 +1969,13 @@ export type Database = {
         Insert: {
           amount: number
           card_last4?: string | null
+          confirmation_id?: string | null
+          confirmation_status?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
+          created_purchase_id?: string | null
+          created_transaction_id?: string | null
           description: string
           direction?: string | null
           economic_kind?: string | null
@@ -1982,6 +1995,7 @@ export type Database = {
           matched_transaction_id?: string | null
           normalized_description: string
           ordem?: number
+          override_of_status?: string | null
           posting_date?: string | null
           raw_text?: string | null
           review_action?: string | null
@@ -1994,7 +2008,13 @@ export type Database = {
         Update: {
           amount?: number
           card_last4?: string | null
+          confirmation_id?: string | null
+          confirmation_status?: string
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
+          created_purchase_id?: string | null
+          created_transaction_id?: string | null
           description?: string
           direction?: string | null
           economic_kind?: string | null
@@ -2014,6 +2034,7 @@ export type Database = {
           matched_transaction_id?: string | null
           normalized_description?: string
           ordem?: number
+          override_of_status?: string | null
           posting_date?: string | null
           raw_text?: string | null
           review_action?: string | null
@@ -2024,6 +2045,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "financial_evidence_items_created_purchase_id_fkey"
+            columns: ["created_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_items_created_transaction_id_fkey"
+            columns: ["created_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "financial_evidence_items_evidence_import_id_fkey"
             columns: ["evidence_import_id"]
@@ -2064,6 +2099,85 @@ export type Database = {
             columns: ["matched_transaction_id"]
             isOneToOne: false
             referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_evidence_reviews: {
+        Row: {
+          action: string
+          candidate_key: string
+          confirmation_id: string | null
+          created_entity_id: string | null
+          created_entity_kind: string | null
+          evidence_import_id: string
+          evidence_item_id: string | null
+          family_id: string
+          id: string
+          matched_entity_id: string | null
+          matched_entity_kind: string | null
+          observacao: string | null
+          original_status: Database["public"]["Enums"]["evidence_match_status"]
+          reviewed_at: string
+          reviewed_by: string
+          source_type: Database["public"]["Enums"]["evidence_source_type"]
+        }
+        Insert: {
+          action: string
+          candidate_key: string
+          confirmation_id?: string | null
+          created_entity_id?: string | null
+          created_entity_kind?: string | null
+          evidence_import_id: string
+          evidence_item_id?: string | null
+          family_id: string
+          id?: string
+          matched_entity_id?: string | null
+          matched_entity_kind?: string | null
+          observacao?: string | null
+          original_status: Database["public"]["Enums"]["evidence_match_status"]
+          reviewed_at?: string
+          reviewed_by?: string
+          source_type: Database["public"]["Enums"]["evidence_source_type"]
+        }
+        Update: {
+          action?: string
+          candidate_key?: string
+          confirmation_id?: string | null
+          created_entity_id?: string | null
+          created_entity_kind?: string | null
+          evidence_import_id?: string
+          evidence_item_id?: string | null
+          family_id?: string
+          id?: string
+          matched_entity_id?: string | null
+          matched_entity_kind?: string | null
+          observacao?: string | null
+          original_status?: Database["public"]["Enums"]["evidence_match_status"]
+          reviewed_at?: string
+          reviewed_by?: string
+          source_type?: Database["public"]["Enums"]["evidence_source_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_evidence_reviews_evidence_import_id_fkey"
+            columns: ["evidence_import_id"]
+            isOneToOne: false
+            referencedRelation: "financial_evidence_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_reviews_evidence_item_id_fkey"
+            columns: ["evidence_item_id"]
+            isOneToOne: false
+            referencedRelation: "financial_evidence_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_reviews_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
             referencedColumns: ["id"]
           },
         ]
