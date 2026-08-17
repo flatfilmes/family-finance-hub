@@ -14,7 +14,9 @@
  * Nada é executado por conta própria: só a partir de um clique humano.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchBankBalanceCheckpoints } from "./data";
 import type { FinancialRepairProof } from "./financial-repair";
+
 
 export const REPAIR_TYPE = "ITAU_LEDGER_REPAIR_2026_01_06";
 
@@ -54,15 +56,19 @@ export const AUTHORIZED_REPAIR = {
 export type ExecutionCheck = { id: string; label: string; status: "PASS" | "FAIL"; detail: string };
 
 export type RepairExecutionValidation = {
-  status: "PASS" | "FAIL";
+  /** ERROR = alguma consulta falhou; nunca pode ser tratado como PASS. */
+  status: "PASS" | "FAIL" | "ERROR";
   executadoEm: string;
   checks: ExecutionCheck[];
   motivos: string[];
+  /** Mensagens brutas de erro SQL encontradas durante a validação. */
+  sqlErrors: string[];
   /** Provas de preservação do outro banco. */
   itauTransactionToRemove: string;
   bbTransactionToPreserve: string | null;
   transferGroupId: string | null;
 };
+
 
 const eq = (a: number, b: number) => Math.abs(a - b) <= 0.005;
 
@@ -145,6 +151,7 @@ export async function validateRepairExecution(
   const a = AUTHORIZED_REPAIR;
   let bb: string | null = null;
   let grupo: string | null = null;
+  const sqlErrors: string[] = [];
 
   const ids = [a.remove.transactionId, ...a.directionFixes.map((f) => f.transactionId)];
   const { data, error } = await supabase
@@ -153,12 +160,14 @@ export async function validateRepairExecution(
     .in("id", ids);
 
   if (error) {
+    sqlErrors.push(error.message);
     checks.push({
       id: "LEITURA_BANCO",
       label: "Releitura das transações no banco",
       status: "FAIL",
       detail: error.message,
     });
+
   } else {
     const rows = data ?? [];
     const alvo = rows.find((r) => r.id === a.remove.transactionId);
@@ -204,10 +213,12 @@ export async function validateRepairExecution(
 
     grupo = alvo?.transfer_group_id ?? null;
     if (grupo) {
-      const { data: pares } = await supabase
+      const { data: pares, error: erroPares } = await supabase
         .from("transactions")
         .select("id, bank_account_id, data_movimento, valor, tipo, transfer_role, status")
         .eq("transfer_group_id", grupo);
+      if (erroPares) sqlErrors.push(erroPares.message);
+
       const perna = (pares ?? []).find(
         (p) => p.id !== a.remove.transactionId && p.bank_account_id !== a.accountId && p.status !== "CANCELADA",
       );
@@ -230,17 +241,46 @@ export async function validateRepairExecution(
     }
   }
 
+  // Checkpoints: MESMA camada usada pela auditoria (bank_balance_checkpoints →
+  // saldo_informado). Nenhuma segunda query SQL com nomes próprios de coluna.
+  try {
+    const cps = (await fetchBankBalanceCheckpoints(a.accountId)).filter(
+      (c) => (c.tipo ?? "DAILY") === "DAILY",
+    );
+    const esperados = proof?.checkpoints ?? [];
+    const conferem = esperados.every((e) =>
+      cps.some((c) => c.data === e.date && eq(c.saldo, e.expected)),
+    );
+    checks.push({
+      id: "CHECKPOINTS_BANCO",
+      label: "Checkpoints diários lidos do banco conferem com o dry run",
+      status: esperados.length === a.expected.checkpointsTotal && conferem ? "PASS" : "FAIL",
+      detail: `${cps.length} checkpoints DAILY na conta · ${esperados.length} no dry run`,
+    });
+  } catch (e) {
+    sqlErrors.push(e instanceof Error ? e.message : String(e));
+    checks.push({
+      id: "CHECKPOINTS_BANCO",
+      label: "Checkpoints diários lidos do banco conferem com o dry run",
+      status: "FAIL",
+      detail: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   const motivos = checks.filter((c) => c.status === "FAIL").map((c) => `${c.label} — ${c.detail}`);
   return {
-    status: motivos.length ? "FAIL" : "PASS",
+    // Qualquer erro SQL invalida a validação: nunca PASS.
+    status: sqlErrors.length ? "ERROR" : motivos.length ? "FAIL" : "PASS",
     executadoEm: new Date().toISOString(),
     checks,
     motivos,
+    sqlErrors,
     itauTransactionToRemove: a.remove.transactionId,
     bbTransactionToPreserve: bb,
     transferGroupId: grupo,
   };
 }
+
 
 export type FinancialRepairOutcome = {
   status: "SUCCESS" | "ALREADY_REPAIRED";

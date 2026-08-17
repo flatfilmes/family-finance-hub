@@ -68,20 +68,25 @@ export function FinancialRepairExecution({
     proof.residualDifference === 0 &&
     proof.checkpointsPass === 7 &&
     proof.checkpointsTotal === 7;
-  const habilitado = validacao?.status === "PASS" && provaOk && !resultado && !ocupado;
+  const semErroSql = !!validacao && validacao.status === "PASS" && validacao.sqlErrors.length === 0;
+  const habilitado = semErroSql && provaOk && !resultado && !ocupado && !erro;
 
   async function validar() {
     setOcupado(true);
     setErro(null);
     setResultado(null);
+    setValidacao(null); // nunca preservar um PASS antigo/stale
     try {
-      setValidacao(await validateRepairExecution(proof));
+      const v = await validateRepairExecution(proof);
+      setValidacao(v);
+      if (v.sqlErrors.length) setErro(`Erro de consulta: ${v.sqlErrors.join(" · ")}`);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Não foi possível validar.");
     } finally {
       setOcupado(false);
     }
   }
+
 
   async function aplicar() {
     if (ocupado || resultado) return; // trava contra duplo clique
@@ -141,7 +146,7 @@ export function FinancialRepairExecution({
           <Wrench className="size-3.5" /> {ocupado && confirmando ? "Aplicando reparo..." : "Aplicar reparo"}
         </button>
         {validacao && (
-          <StatusBadge tone={validacao.status === "PASS" ? "ok" : "danger"}>
+          <StatusBadge tone={semErroSql ? "ok" : "danger"}>
             REPAIR_EXECUTION_VALIDATION = {validacao.status}
           </StatusBadge>
         )}
