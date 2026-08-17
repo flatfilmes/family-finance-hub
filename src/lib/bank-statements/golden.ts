@@ -30,3 +30,37 @@ export const BB_GOLDEN_2026: GoldenStatement[] = [
 export function goldenFor(monthKey: string): GoldenStatement | undefined {
   return BB_GOLDEN_2026.find((g) => g.monthKey === monthKey);
 }
+
+/**
+ * GOLDEN DATASET — ITAÚ (extrato conta, Jan–Jun/2026).
+ *
+ * Valores conferidos no PDF real `itau_extrato_012026.pdf`. O saldo de
+ * 13/08/2026 é REFERÊNCIA (posterior ao período) e nunca fechamento.
+ */
+export type GoldenItauStatement = {
+  id: string;
+  bank: "ITAU";
+  agency: string;
+  account: string;
+  periodStart: string;
+  periodEnd: string;
+  opening: { date: string; amount: number };
+  transactions: number;
+  dailyCheckpoints: number;
+  lastHistoricalBalance: { date: string; amount: number };
+  reference: { date: string; amount: number };
+};
+
+export const ITAU_CONTA_JAN_JUN_2026: GoldenItauStatement = {
+  id: "ITAU_CONTA_JAN_JUN_2026",
+  bank: "ITAU",
+  agency: "4635",
+  account: "025583-1",
+  periodStart: "2026-01-01",
+  periodEnd: "2026-06-30",
+  opening: { date: "2025-12-31", amount: 0 },
+  transactions: 17,
+  dailyCheckpoints: 7,
+  lastHistoricalBalance: { date: "2026-06-17", amount: 120.81 },
+  reference: { date: "2026-08-13", amount: 4.16 },
+};
