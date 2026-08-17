@@ -410,7 +410,7 @@ export function buildBankAudit(input: {
     /** Evidência do documento relido: saldos do dia encontrados no PDF. */
     dados_brutos_json?: unknown;
   }[];
-  checkpoints: { data: string; saldo: number; importId?: string | null }[];
+  checkpoints: { data: string; saldo: number; tipo?: string | null; importId?: string | null }[];
   /** Lançamentos lidos dos PDFs — evidência do documento. */
   statementItems?: StatementItemInput[];
   /** Compras vinculadas, para saber o que está sem categoria. */
@@ -533,8 +533,10 @@ export function buildBankAudit(input: {
 
   // ---------- evidência do documento (itens lidos do PDF) ----------
   const extratoPorId = new Map(extratos.map((e) => [e.id, e]));
+  // Reimportação do mesmo período não duplica evidência: só o extrato canônico
+  // é comparado com o ledger.
   const itens = (input.statementItems ?? []).filter(
-    (i) => !SEM_EFEITO.includes(String(i.review_action ?? "")),
+    (i) => !SEM_EFEITO.includes(String(i.review_action ?? "")) && canonicalIds.has(i.import_id),
   );
   /** O mês de um item é o do EXTRATO que o originou, nunca o da sua data. */
   const mesDoItem = (it: StatementItemInput) =>
