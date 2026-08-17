@@ -61,7 +61,7 @@ export type ReviewContext = {
   creditCardId: string | null;
   memberId: string | null;
   /** Nome amigável do contexto (ex.: "Nubank ••••9982"). */
-  contextLabel?: string;
+  contextLabel?: string | undefined;
 };
 
 /** Decisão humana sobre um candidato específico. */
@@ -121,7 +121,7 @@ export function buildExpectedEffects(input: {
   action: ConfirmationAction;
   amount: number;
   formaPagamento: CandidateDecision["formaPagamento"];
-  contextLabel?: string;
+  contextLabel?: string | undefined;
   direction: FinancialCandidateEvent["direction"];
 }): ExpectedEffect[] {
   const valor = Math.abs(input.amount);
