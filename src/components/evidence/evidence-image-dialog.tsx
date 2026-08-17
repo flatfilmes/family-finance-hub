@@ -27,6 +27,7 @@ import {
 import { SOURCE_LABELS, type EvidenceSourceType, type UnifiedReconciliationResult } from "@/lib/financial-evidence/types";
 import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
+import { FinancialEvidenceReview } from "./financial-evidence-review";
 
 const ACEITA = "image/jpeg,image/jpg,image/png,image/webp";
 
@@ -92,6 +93,7 @@ export function EvidenceImageDialog({
   const [texto, setTexto] = useState("");
   const [resultado, setResultado] = useState<UnifiedReconciliationResult | null>(null);
   const [meta, setMeta] = useState<{ hash: string; provider: string; version: string } | null>(null);
+  const [importId, setImportId] = useState<string | null>(null);
 
   const existentes = useMemo(
     () => [
@@ -191,11 +193,11 @@ export function EvidenceImageDialog({
       });
       return importado;
     },
-    onSuccess: () => {
+    onSuccess: (importado) => {
       queryClient.invalidateQueries({ queryKey: ["evidence-imports"] });
       queryClient.invalidateQueries({ queryKey: ["evidence-items-family"] });
-      toast.success("Evidência guardada. Nenhum valor financeiro foi alterado.");
-      onClose();
+      toast.success("Evidência guardada. Agora revise o que será criado.");
+      setImportId(importado.id);
     },
     onError: (e) => setErro(e instanceof Error ? e.message : "Não foi possível guardar a evidência."),
   });
@@ -233,7 +235,26 @@ export function EvidenceImageDialog({
           </p>
         )}
 
-        {resultado && s && (
+        {importId && resultado && family && (
+          <div className="mt-4">
+            <FinancialEvidenceReview
+              resolutions={resultado.resolutions}
+              context={{
+                familyId: family.id,
+                evidenceImportId: importId,
+                sourceType,
+                bankAccountId,
+                creditCardId,
+                memberId: perms.myMemberId || null,
+                contextLabel: SOURCE_LABELS[sourceType],
+              }}
+              {...(file ? { fileName: file.name } : {})}
+              onFinished={onClose}
+            />
+          </div>
+        )}
+
+        {!importId && resultado && s && (
           <div className="mt-4 space-y-3">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
@@ -309,7 +330,7 @@ export function EvidenceImageDialog({
           >
             Cancelar
           </button>
-          {!resultado ? (
+          {importId ? null : !resultado ? (
             <PrimaryButton type="button" onClick={() => ler.mutate()} disabled={!file || ler.isPending}>
               {ler.isPending ? (
                 <span className="inline-flex items-center gap-2">
@@ -329,7 +350,7 @@ export function EvidenceImageDialog({
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-2">
-                  <CheckCircle2 className="size-4" /> Guardar evidência
+                  <CheckCircle2 className="size-4" /> Guardar evidência e revisar
                 </span>
               )}
             </PrimaryButton>
