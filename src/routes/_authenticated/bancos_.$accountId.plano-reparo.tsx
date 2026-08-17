@@ -36,6 +36,8 @@ import { buildRepairProof } from "@/lib/bank-statements/repair-proof";
 import { RepairProofPanel } from "@/components/bank/repair-proof-panel";
 import { buildRepairValidation, type RepairValidation } from "@/lib/bank-statements/repair-validation";
 import { RepairValidationPanel } from "@/components/bank/repair-validation-panel";
+import { buildRepairPrecondition } from "@/lib/bank-statements/repair-precondition";
+import { RepairPreconditionPanel } from "@/components/bank/repair-precondition-panel";
 import { formatCurrency } from "@/lib/finance";
 
 
