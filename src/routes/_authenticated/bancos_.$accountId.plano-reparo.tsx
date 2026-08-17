@@ -26,6 +26,8 @@ import {
 } from "@/lib/bank-statements/persistence-repair";
 import { buildRepairProof } from "@/lib/bank-statements/repair-proof";
 import { RepairProofPanel } from "@/components/bank/repair-proof-panel";
+import { buildRepairValidation, type RepairValidation } from "@/lib/bank-statements/repair-validation";
+import { RepairValidationPanel } from "@/components/bank/repair-validation-panel";
 import { formatCurrency } from "@/lib/finance";
 
 
@@ -61,7 +63,7 @@ function PlanoReparoPage() {
 
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
 
-  const [validado, setValidado] = useState(false);
+  const [validacao, setValidacao] = useState<RepairValidation | null>(null);
 
   const { plan, proof } = useMemo(() => {
     const lineages = buildAccountLineage({
@@ -177,7 +179,17 @@ function PlanoReparoPage() {
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => setValidado(true)}
+            onClick={() =>
+              setValidacao(
+                buildRepairValidation({
+                  accountId,
+                  plan,
+                  proof,
+                  transactions: transactions ?? [],
+                  checkpoints: checkpoints ?? [],
+                }),
+              )
+            }
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             <ShieldCheck className="size-3.5" /> Validar reparo
@@ -189,11 +201,25 @@ function PlanoReparoPage() {
           >
             Aplicar reparo
           </button>
-          {validado && (
-            <StatusBadge tone="ok">
-              Prova validada · {proof.grupos.reduce((a, g) => a + g.ausentes, 0)} movimento(s)
-              ausente(s) identificado(s) · efeito {formatCurrency(plan.totais.deltaSaldoAtual)}
-            </StatusBadge>
+          {validacao && (
+            <>
+              <StatusBadge tone="ok">
+                Dry run executado · {validacao.totais.seriamRestauradas} transação(ões) a criar ·
+                efeito {formatCurrency(validacao.totais.efeitoSaldoFinal)}
+              </StatusBadge>
+              <button
+                onClick={() =>
+                  baixar(
+                    JSON.stringify(validacao, null, 2),
+                    `${base}-validacao.json`,
+                    "application/json",
+                  )
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+              >
+                <FileJson className="size-3.5" /> Exportar dry run
+              </button>
+            </>
           )}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
@@ -201,6 +227,8 @@ function PlanoReparoPage() {
           liberada explicitamente.
         </p>
       </Card>
+
+      {validacao && <RepairValidationPanel v={validacao} />}
 
 
 
