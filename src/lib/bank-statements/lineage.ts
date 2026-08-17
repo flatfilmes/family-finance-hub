@@ -207,6 +207,7 @@ export function compareParsedStatementToLedger(input: {
   // Por isso, na ausência de sourceId, o ordinal é RECONTADO aqui, na ordem do
   // documento — sem alterar nenhum dado gravado.
   const ordinalLegado = new Map<string, number>();
+  const identidadeCache = new Map<string, string>();
   const identidade = (it: LineageItemInput) => {
     if (it.source_id) return it.source_id;
     const base = movementKey({
@@ -221,7 +222,7 @@ export function compareParsedStatementToLedger(input: {
     }
     return identidadeCache.get(it.id)!;
   };
-  const identidadeCache = new Map<string, string>();
+
   // Materializa a identidade na ordem do documento antes de qualquer consulta.
   for (const it of items) identidade(it);
 
