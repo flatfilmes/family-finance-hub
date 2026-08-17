@@ -144,6 +144,10 @@ function PlanoReparoPage() {
     [accountId, transactions, accounts, imports, checkpoints, items],
   );
 
+  /** Objeto autoritativo: a tela e o JSON exportado leem SÓ daqui. */
+  const provaFinanceira = useMemo(() => toFinancialRepairProof(financeiro), [financeiro]);
+
+
   /** Pré-condição por identidade — dry run, roda junto com a validação. */
   const precondicao = useMemo(() => {
     const candidato = validacao?.candidatos.find((c) => c.veredito === "SERIA_RESTAURADA");
