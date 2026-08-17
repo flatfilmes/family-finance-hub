@@ -20,11 +20,26 @@ import {
   type RawVisualLine,
 } from "@/lib/pdf-diagnostic";
 import { defaultDryRunForSource } from "@/lib/pdf-diagnostic/default-dry-runs";
+import {
+  detectDocumentType,
+  type DocumentType,
+  type DocumentTypeDetection,
+} from "@/lib/pdf-diagnostic/document-type";
 
 export type BankStatementDryRunResult = {
   fileName: string;
   dump: RawPdfDump;
   visualRows: RawVisualLine[];
+  /** Tipo econômico do documento, detectado ANTES de qualquer parser. */
+  documentType: DocumentTypeDetection;
+  /** Origem informada pela tela (rótulo) × tipo realmente detectado. */
+  routing: {
+    requestedSource: DiagnosticSource;
+    documentType: DocumentType;
+    parserFamily: "BANK_STATEMENT" | "CARD_STATEMENT" | "PURCHASE_RECEIPT" | "NONE";
+    status: "OK" | "WRONG_DOCUMENT_TYPE_FOR_BANK_STATEMENT" | "DOCUMENT_TYPE_UNKNOWN";
+    reason: string;
+  };
   /** Saída real do parser. `null` somente quando ele não pôde ser executado. */
   parser: ParserDryRunResult | null;
   package: DiagnosticPackage;
