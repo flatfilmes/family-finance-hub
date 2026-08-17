@@ -64,6 +64,35 @@ function PlanoReparoPage() {
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
 
   const [validacao, setValidacao] = useState<RepairValidation | null>(null);
+  const [resultado, setResultado] = useState<RepairOutcome | null>(null);
+  const [aplicando, setAplicando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const gate = evaluateRepairGate(validacao);
+
+  async function aplicar() {
+    if (!gate.habilitado || !gate.candidato || !family) return;
+    setErro(null);
+    setAplicando(true);
+    try {
+      const r = await applyPersistenceRepair({
+        accountId,
+        familyId: family.id,
+        candidato: gate.candidato,
+      });
+      setResultado(r);
+      setValidacao(null);
+      for (const key of ["transactions", "bank-accounts", "bank-statement-items"]) {
+        void queryClient.invalidateQueries({ queryKey: [key] });
+      }
+      void queryClient.invalidateQueries({ queryKey: ["bank-balance-checkpoints", accountId] });
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível aplicar o reparo.");
+    } finally {
+      setAplicando(false);
+    }
+  }
+
 
   const { plan, proof } = useMemo(() => {
     const lineages = buildAccountLineage({
