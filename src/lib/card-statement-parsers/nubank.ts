@@ -29,9 +29,9 @@ const iso = (a: number, m: number, d: number) =>
 function lerDataMes(texto: string, anoBase: number, mesFim: number | null): string | null {
   const m = plano(texto).match(/\b(\d{1,2})\s+([a-z]{3})\.?\s*(\d{4})?/);
   if (!m) return null;
-  const mes = MESES[m[2]];
+  const mes = MESES[m[2] ?? ""];
   if (!mes) return null;
-  const dia = Number(m[1]);
+  const dia = Number(m[1] ?? 0);
   if (m[3]) return iso(Number(m[3]), mes, dia);
   // sem ano: se o mês é maior que o mês de fechamento, pertence ao ano anterior
   const ano = mesFim !== null && mes > mesFim ? anoBase - 1 : anoBase;
@@ -50,7 +50,7 @@ function valorBr(raw: string): number {
 function ultimoValor(texto: string): number | null {
   const achados = texto.match(MOEDA);
   if (!achados?.length) return null;
-  return valorBr(achados[achados.length - 1]);
+  return valorBr(achados[achados.length - 1] ?? "");
 }
 
 // ------------------------------------------------------------------ seções
@@ -126,13 +126,13 @@ export function parseNubank(pdfLinhas: PdfLine[]): ParsedStatement {
   for (const linha of textos) {
     const p = plano(linha);
     const m = p.match(/de\s+(\d{1,2})\s+([a-z]{3})\.?\s*(?:de\s*(\d{4}))?\s+a\s+(\d{1,2})\s+([a-z]{3})\.?\s*(?:de\s*(\d{4}))?/);
-    if (!m || !MESES[m[2]] || !MESES[m[5]]) continue;
-    const mesFim = MESES[m[5]];
+    const mesFim = MESES[m[5] ?? ""];
+    const mesIni = MESES[m[2] ?? ""];
+    if (!mesIni || !mesFim) continue;
     const anoFim = Number(m[6]) || anoBase;
-    const mesIni = MESES[m[2]];
     const anoIni = Number(m[3]) || (mesIni > mesFim ? anoFim - 1 : anoFim);
-    periodoInicio = iso(anoIni, mesIni, Number(m[1]));
-    periodoFim = iso(anoFim, mesFim, Number(m[4]));
+    periodoInicio = iso(anoIni, mesIni, Number(m[1] ?? 0));
+    periodoFim = iso(anoFim, mesFim, Number(m[4] ?? 0));
     break;
   }
   const mesFimCiclo = periodoFim ? Number(periodoFim.slice(5, 7)) : null;
@@ -292,7 +292,7 @@ export function parseNubank(pdfLinhas: PdfLine[]): ParsedStatement {
     emissor: "NUBANK",
     titular,
     // fatura consolidada: não inferir um cartão único quando há vários
-    final_cartao: cartoes.length === 1 ? cartoes[0] : null,
+    final_cartao: cartoes.length === 1 ? (cartoes[0] ?? null) : null,
     data_fechamento: fechamento,
     data_vencimento: vencimento,
     periodo_inicio: periodoInicio,
