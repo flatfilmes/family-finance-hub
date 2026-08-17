@@ -1364,29 +1364,9 @@ async function enriquecerCompraComCobranca(input: {
     .eq("id", input.purchaseId);
 
   const valorTotal = Number(compra.valor_total) || valorParcela * parcelas;
-  const { data: expense, error: expenseError } = await supabase
-    .from("expenses")
-    .insert({
-      family_id: compra.family_id,
-      member_id: compra.member_id,
-      created_by: input.userId,
-      purchase_id: compra.id,
-      descricao: compra.estabelecimento,
-      valor: valorTotal,
-      data_compra: compra.data_compra,
-      forma_pagamento: "CREDITO",
-      tipo_compra: parcelado ? "PARCELADO" : "CARTAO_CREDITO",
-      cartao_id: card.id,
-      parcelas_total: parcelas,
-      parcela_atual: parcelaAtual,
-    })
-    .select()
-    .single();
-  if (expenseError) throw expenseError;
 
   await generateInstallments({
     familyId: compra.family_id,
-    expenseId: expense.id,
     card,
     dataCompra: item.data_lancamento ?? compra.data_compra,
     valorTotal,
