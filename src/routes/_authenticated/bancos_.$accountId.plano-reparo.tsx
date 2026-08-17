@@ -42,6 +42,7 @@ import {
   buildFinancialRepairDryRun,
   toFinancialRepairProof,
 } from "@/lib/bank-statements/financial-repair";
+import { FinancialRepairExecution } from "@/components/bank/financial-repair-execution";
 import { formatCurrency } from "@/lib/finance";
 
 
