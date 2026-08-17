@@ -63,6 +63,9 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
         ],
   };
 
+  // Fonte única de verdade do status de extração.
+  const extractionStatus: "READY" | "BLOCKED" = valida ? "READY" : "BLOCKED";
+
   const cardLast4s = [
     ...new Set(entries.map((e) => e.card_last4).filter((v): v is string => Boolean(v))),
   ];
@@ -162,8 +165,7 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
       diagnosticStatus,
       parserFamily: "CARD_STATEMENT",
       // Nunca READY com validação falha: extração bloqueada até difference = 0.
-      extractionStatus:
-        valida && parsed.extraction_status !== "REVIEW_REQUIRED" ? "READY" : "BLOCKED",
+      extractionStatus,
       persistenceAllowed: false,
       // Semântica de fatura: nenhum saldo/checkpoint bancário existe aqui.
       bankTransactions: 0,
@@ -199,7 +201,7 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
         { campo: "validacao", valor: validation.status },
         { campo: "next_closing_date", valor: parsed.metadata?.next_closing_date ?? null },
         { campo: "data_fechamento_atual", valor: parsed.data_fechamento },
-        { campo: "extraction_status", valor: parsed.extraction_status ?? null },
+        { campo: "extraction_status", valor: extractionStatus },
       ],
     },
   };

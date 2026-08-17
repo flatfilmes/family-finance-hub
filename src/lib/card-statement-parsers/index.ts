@@ -40,6 +40,10 @@ export async function readCardStatementPdf(file: Blob): Promise<ParsedStatement>
     const espacial = parseItauSpatial(pages);
     return { ...espacial, extraction_status: "READY", positional_debug: pages.map(debugPdfPageLayout) };
   }
+  if (parser.parseLayout) {
+    // NUBANK_PDF (e outros espaciais): monta a linha econômica pelos itens posicionais.
+    return parser.parseLayout(pages);
+  }
   return parser.parse(linhas);
 }
 
