@@ -5,7 +5,7 @@
  * hoje no extrato do sistema, quais linhas exatas voltariam (com sourceId) e
  * qual saldo final o período passaria a ter. Nenhuma gravação acontece aqui.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Download, FileJson } from "lucide-react";
 
