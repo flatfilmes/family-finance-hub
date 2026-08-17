@@ -261,7 +261,7 @@ export function buildPersistenceRepairPlan(input: {
       .filter((c) => (!inicio || c.data >= inicio) && (!fim || c.data <= fim))
       .sort((a, b) => a.data.localeCompare(b.data));
 
-    const checkpoints: CheckpointComparison[] = doImport.map((c) => {
+    const checkpoints: CheckpointComparison[] = doImport.map((c, idx) => {
       const atual = saldoAtualPorDia.get(c.data) ?? null;
       const simulado = saldoSimuladoPorDia.get(c.data) ?? null;
       return {
@@ -272,6 +272,14 @@ export function buildPersistenceRepairPlan(input: {
         confereAntes: atual !== null && Math.abs(atual - c.saldo) <= CONFERE,
         confereDepois: simulado !== null && Math.abs(simulado - c.saldo) <= CONFERE,
         tipo: c.tipo ?? null,
+        tipoDiagnostico: classifyCheckpointDiagnostic({
+          data: c.data,
+          saldo: c.saldo,
+          tipoGravado: c.tipo ?? null,
+          periodEnd: fim,
+          saldoDocumento,
+          ehUltimoDoPeriodo: idx === doImport.length - 1,
+        }),
       };
     });
 
