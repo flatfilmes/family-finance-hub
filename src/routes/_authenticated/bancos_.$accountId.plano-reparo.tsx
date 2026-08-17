@@ -251,10 +251,19 @@ function PlanoReparoPage() {
                 {validacao.totais.restoreCount} transação(ões) a criar · efeito{" "}
                 {formatCurrency(validacao.totais.efeitoSaldoFinal)}
               </StatusBadge>
+              {precondicao && (
+                <StatusBadge tone={precondicao.repairPrecondition === "PASS" ? "ok" : "danger"}>
+                  REPAIR_PRECONDITION = {precondicao.repairPrecondition}
+                </StatusBadge>
+              )}
               <button
                 onClick={() =>
                   baixar(
-                    JSON.stringify(validacao, null, 2),
+                    JSON.stringify(
+                      { validacao, precondicao },
+                      null,
+                      2,
+                    ),
                     `${base}-validacao.json`,
                     "application/json",
                   )
@@ -275,6 +284,8 @@ function PlanoReparoPage() {
       </Card>
 
       {resultado && <RepairResultPanel r={resultado} />}
+
+      {precondicao && <RepairPreconditionPanel pc={precondicao} />}
 
       {validacao && <RepairValidationPanel v={validacao} />}
 
