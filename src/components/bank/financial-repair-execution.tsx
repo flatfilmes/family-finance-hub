@@ -28,15 +28,27 @@ import {
   type RepairExecutionValidation,
 } from "@/lib/bank-statements/financial-repair-apply";
 
-const CONFIRMACAO = `Este reparo fará 3 correções específicas na conta Itaú:
+const CONFIRMACAO = `Este reparo fará exatamente 3 correções:
 
-• remover 1 contrapartida artificial de R$ 7.466,84;
-• corrigir a direção de R$ 0,03;
-• corrigir a direção de R$ 0,12.
+• remover a contrapartida artificial de R$ 7.466,84;
+• corrigir R$ 0,03 de saída para entrada;
+• corrigir R$ 0,12 de saída para entrada.
 
-Saldo esperado: R$ 7.587,35 → R$ 120,81.
+Saldo esperado:
+R$ 7.587,35 → R$ 120,81
 
-Nenhum extrato será apagado.`;
+Nenhum extrato será apagado.
+A movimentação original do Banco do Brasil será preservada.`;
+
+/** Traduz a falha do executor sem tratá-la como sucesso. */
+function mensagemDeErro(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  if (raw.includes("REPAIR_PRECONDITION_FAILED"))
+    return `REPAIR_PRECONDITION_FAILED — a pré-checagem no banco falhou e nada foi alterado. (${raw})`;
+  if (raw.includes("REPAIR_POST_VALIDATION_FAILED"))
+    return `REPAIR_POST_VALIDATION_FAILED — a conferência depois da gravação não fechou; tudo foi revertido (rollback). (${raw})`;
+  return raw || "Não foi possível aplicar o reparo.";
+}
 
 export function FinancialRepairExecution({
   proof,
