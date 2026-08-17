@@ -168,6 +168,42 @@ export function isBancoDoBrasil(textos: string[]) {
   return linhasComSinal >= 3;
 }
 
+/**
+ * Pontuação ESPECÍFICA do Banco do Brasil.
+ *
+ * "Agência", "Conta" e "Saldo do dia" NÃO entram aqui: são sinais genéricos,
+ * presentes também no Itaú, e por isso ficam com peso auxiliar no detector
+ * central. O que identifica o BB é o layout com colunas Lote/Documento, o
+ * título "Extrato de Conta Corrente" e o sinal impresso "(+)/(-)".
+ */
+export function scoreBancoDoBrasil(textos: string[]): {
+  score: number;
+  matchedSignals: string[];
+} {
+  const t = plano(textos.join(" "));
+  const linhasComSinal = textos.filter(
+    (l) => VALOR_COM_SINAL.test(l) || SINAL_ANTES_DO_VALOR.test(l),
+  ).length;
+
+  const sinais: Array<{ id: string; peso: number; ok: boolean }> = [
+    {
+      id: "marca Banco do Brasil / banco 001",
+      peso: 4,
+      ok: t.includes("banco do brasil") || t.includes("bb.com.br") || /\bbanco\s*001\b/.test(t),
+    },
+    { id: "Extrato de Conta Corrente", peso: 4, ok: t.includes("extrato de conta corrente") },
+    { id: "coluna Lote", peso: 2, ok: /\blote\b/.test(t) },
+    { id: "coluna Documento", peso: 2, ok: /\bdocumento\b/.test(t) },
+    { id: "Saldo Anterior", peso: 2, ok: t.includes("saldo anterior") },
+    { id: `layout BB — valor com (+)/(-) (${linhasComSinal}x)`, peso: 3, ok: linhasComSinal >= 3 },
+  ];
+
+  const matched = sinais.filter((s) => s.ok);
+  return { score: matched.reduce((a, s) => a + s.peso, 0), matchedSignals: matched.map((s) => s.id) };
+}
+
+
+
 /** Coluna "Histórico" do extrato BB começa por volta de x = 265. */
 const HISTORICO_X_MIN = 200;
 /** Distância vertical máxima entre a linha financeira e o texto do histórico. */
