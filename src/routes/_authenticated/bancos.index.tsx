@@ -1,18 +1,16 @@
 import { useState } from "react";
-import { ArrowLeftRight, Landmark } from "lucide-react";
-import { SearchInput, matchesSearch } from "@/components/search-input";
+import { ArrowLeftRight, Landmark, Plus } from "lucide-react";
 import { EmptyState } from "@/components/empty-state";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Card, Field, PageHeader, inputClass } from "@/components/page-header";
+import { Card, PageHeader, inputClass } from "@/components/page-header";
 import { Metric } from "@/components/detail-page";
 import { useFamily, useMembers } from "@/hooks/useFamilyData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
 import { useTransactions } from "@/hooks/useTransactions";
-import { MemberFilter, filterByMember } from "@/components/member-filter";
-import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
+import { filterByMember } from "@/components/member-filter";
+import { useViewMode } from "@/components/view-mode";
 import { useStickyState } from "@/hooks/useStickyState";
 import { formatCurrency } from "@/lib/finance";
-import { BANK_ACCOUNT_TYPE_LABELS } from "@/lib/bank-accounts";
 import { currentMonth, monthLabel } from "@/lib/expenses";
 import type { Transaction } from "@/lib/transactions";
 import { NoFamily } from "@/components/no-family";
@@ -46,22 +44,14 @@ function BancosPage() {
   const { data: movimentos } = useTransactions(family?.id);
   const view = useViewMode();
 
-  const [filtroMembro, setFiltroMembro] = useStickyState("bancos:membro", "");
-  const [filtroBanco, setFiltroBanco] = useStickyState("bancos:banco", "");
   const [periodo, setPeriodo] = useStickyState("bancos:periodo", currentMonth());
-  const [busca, setBusca] = useStickyState("bancos:busca", "");
   const [transferOpen, setTransferOpen] = useState(false);
 
   if (!family) return <NoFamily />;
 
-  const bancos = Array.from(new Set((accounts ?? []).map((a) => a.banco))).sort();
-
-  const lista = filterByMember(accounts ?? [], view.scoped(filtroMembro)).filter(
-    (a) =>
-      (filtroBanco ? a.banco === filtroBanco : true) &&
-      matchesSearch(busca, a.banco, a.nome_conta),
-  );
-  const temFiltro = Boolean(busca || filtroBanco || filtroMembro);
+  // Visão geral simples: sem busca nem filtros de pessoa/banco.
+  // O escopo do perfil (membro/visualizador) continua sendo respeitado.
+  const lista = filterByMember(accounts ?? [], view.scoped(""));
 
   const idsVisiveis = new Set(lista.map((a) => a.id));
   const movimentosVisiveis = (movimentos ?? []).filter(
@@ -92,30 +82,41 @@ function BancosPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4">
         <PageHeader
           title="Bancos da família"
-          subtitle="Visão geral das contas. Clique em uma conta para abrir a página completa com extrato e filtros."
+          subtitle="Visão geral das contas. Clique em uma conta para abrir extrato, importações e ferramentas."
         />
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            to="/bancos/diagnostico-importacao"
-            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted"
-          >
-            Diagnóstico de importação
-          </Link>
-          <button
-            type="button"
-            onClick={() => setTransferOpen(true)}
-            disabled={(accounts ?? []).filter((a) => a.ativo).length < 2}
-            className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
-          >
-            <ArrowLeftRight className="size-4" />
-            Transferir entre contas
-          </button>
-        </div>
+        <label className="mt-1 flex shrink-0 flex-col items-end">
+          <span className="mb-1.5 block text-xs font-semibold text-muted-foreground">Período</span>
+          <input
+            type="month"
+            aria-label="Período"
+            className={`${inputClass} w-auto py-2`}
+            value={periodo}
+            onChange={(e) => setPeriodo(e.target.value)}
+          />
+        </label>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          to="/configuracoes"
+          className="inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
+        >
+          <Plus className="size-4" />
+          Adicionar conta
+        </Link>
+        <button
+          type="button"
+          onClick={() => setTransferOpen(true)}
+          disabled={(accounts ?? []).filter((a) => a.ativo).length < 2}
+          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold transition-colors hover:bg-muted disabled:opacity-50"
+        >
+          <ArrowLeftRight className="size-4" />
+          Transferir entre contas
+        </button>
+      </div>
 
       <TransferDialog
         open={transferOpen}
@@ -124,7 +125,7 @@ function BancosPage() {
         accounts={(accounts ?? []).filter((a) => a.ativo)}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Metric label="Saldo total em contas" value={formatCurrency(saldoTotal)} big />
         <Metric label="Entradas do período" value={formatCurrency(entradas)} />
         <Metric label="Saídas do período" value={formatCurrency(saidas)} />
@@ -136,135 +137,74 @@ function BancosPage() {
         />
       </div>
 
-      <Card className="mt-4">
-        <div className="mb-3">
-          <SearchInput
-            value={busca}
-            onChange={setBusca}
-            label="Buscar conta"
-            placeholder="Banco ou nome da conta"
-          />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {view.isAdmin ? (
-            <MemberFilter familyId={family.id} value={filtroMembro} onChange={setFiltroMembro} />
-          ) : (
-            <div className="flex items-end">
-              <ViewModeSwitch mode={view.mode} onChange={view.setMode} canSwitch={false} />
-            </div>
-          )}
-          <Field label="Banco">
-            <select
-              className={inputClass}
-              value={filtroBanco}
-              onChange={(e) => setFiltroBanco(e.target.value)}
-              aria-label="Banco"
-            >
-              <option value="">Todos</option>
-              {bancos.map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Período">
-            <input
-              type="month"
-              className={inputClass}
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value)}
-            />
-          </Field>
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          Movimentações de {periodo ? monthLabel(periodo) : "todo o histórico"}. Os valores vêm das
-          movimentações confirmadas — cada compra entra uma única vez.
-        </p>
-      </Card>
+      <p className="mt-3 text-xs text-muted-foreground">
+        Movimentações de {periodo ? monthLabel(periodo) : "todo o histórico"}, a partir das
+        movimentações confirmadas.
+      </p>
 
       {isLoading ? (
-        <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
+        <p className="mt-6 text-sm text-muted-foreground">Carregando...</p>
       ) : lista.length === 0 ? (
-        <Card className="mt-4">
+        <Card className="mt-6">
           <EmptyState
             icon={<Landmark className="size-5" />}
-            title={temFiltro ? "Nenhuma conta com esses filtros" : "Nenhuma conta bancária ainda"}
-            description={
-              temFiltro
-                ? "Ajuste a busca ou o filtro de banco para ver as contas da família."
-                : "As contas são cadastradas no perfil de cada pessoa, na aba “Contas bancárias”."
-            }
+            title="Nenhuma conta bancária ainda"
+            description="As contas são cadastradas no perfil de cada pessoa, na aba “Contas bancárias”."
             action={
-              temFiltro ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBusca("");
-                    setFiltroBanco("");
-                  }}
-                  className="min-h-11 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                >
-                  Limpar filtros
-                </button>
-              ) : (
-                <Link
-                  to="/configuracoes"
-                  className="inline-flex min-h-11 items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-                >
-                  Ir para Família e Finanças
-                </Link>
-              )
+              <Link
+                to="/configuracoes"
+                className="inline-flex min-h-11 items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+              >
+                Ir para Família e Finanças
+              </Link>
             }
           />
         </Card>
       ) : (
-        <div className="mt-4 grid gap-4">
+        <div className="mt-6 grid gap-6">
           {grupos.map(({ membro, contas }) => (
-            <Card key={membro.id}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="text-base font-bold">{membro.nome}</h2>
+            <section key={membro.id}>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                <h2 className="truncate text-base font-bold">{membro.nome}</h2>
                 <Link
                   to="/membro/$memberId"
                   params={{ memberId: membro.id }}
-                  className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                  className="shrink-0 text-xs font-semibold text-primary hover:underline"
                 >
                   Ver perfil financeiro
                 </Link>
               </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 {contas.map((a) => (
                   <ContaCard
                     key={a.id}
                     id={a.id}
                     banco={a.banco}
                     nome={a.nome_conta}
-                    tipo={BANK_ACCOUNT_TYPE_LABELS[a.tipo_conta]}
                     ativo={a.ativo}
                     saldo={Number(a.saldo_atual) || 0}
                   />
                 ))}
               </div>
-            </Card>
+            </section>
           ))}
 
           {semTitular.length > 0 && (
-            <Card>
+            <section>
               <h2 className="text-base font-bold">Contas da família (sem titular)</h2>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 {semTitular.map((a) => (
                   <ContaCard
                     key={a.id}
                     id={a.id}
                     banco={a.banco}
                     nome={a.nome_conta}
-                    tipo={BANK_ACCOUNT_TYPE_LABELS[a.tipo_conta]}
                     ativo={a.ativo}
                     saldo={Number(a.saldo_atual) || 0}
                   />
                 ))}
               </div>
-            </Card>
+            </section>
           )}
         </div>
       )}
@@ -276,14 +216,12 @@ function ContaCard({
   id,
   banco,
   nome,
-  tipo,
   ativo,
   saldo,
 }: {
   id: string;
   banco: string;
   nome: string;
-  tipo: string;
   ativo: boolean;
   saldo: number;
 }) {
@@ -291,19 +229,15 @@ function ContaCard({
     <Link
       to="/bancos/$accountId"
       params={{ accountId: id }}
-      className="block rounded-2xl border border-border p-4 transition-colors hover:bg-muted/60"
+      className="block rounded-3xl border border-border bg-card p-5 shadow-card transition-colors hover:bg-muted/40"
     >
       <p className="truncate text-sm font-bold">
-        {banco} · {nome}
-      </p>
-      <p className="text-xs text-muted-foreground">
-        {tipo}
+        {nome}
         {ativo ? "" : " · inativa"}
       </p>
-      <p className="mt-2 text-xl font-extrabold">{formatCurrency(saldo)}</p>
-      <span className="mt-2 inline-block text-xs font-semibold text-primary">
-        Abrir conta completa
-      </span>
+      <p className="truncate text-xs text-muted-foreground">{banco}</p>
+      <p className="mt-3 text-2xl font-extrabold">{formatCurrency(saldo)}</p>
+      <span className="mt-2 inline-block text-xs font-semibold text-primary">Abrir conta →</span>
     </Link>
   );
 }
