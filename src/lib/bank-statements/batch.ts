@@ -98,9 +98,18 @@ export function detectPeriodOverlaps(files: BatchFile[]): BatchOverlap[] {
  */
 export function markDuplicatesAcrossBatch(
   filesOrdenados: BatchFile[],
-  jaNoSistema: Set<string> = new Set(),
+  jaNoSistema: ExistingIndex | Set<string> = new Set<string>(),
 ): Record<string, boolean[]> {
-  const vistos = new Set<string>();
+  const index: ExistingIndex =
+    jaNoSistema instanceof Set
+      ? {
+          porOcorrencia: new Map([...jaNoSistema].map((k) => [`${k}#0`, k])),
+          porSourceId: new Map(),
+        }
+      : jaNoSistema;
+  // Ordinal de ocorrência: dois lançamentos idênticos no mesmo dia são dois
+  // eventos. Só é duplicata quando existe uma ocorrência ANTERIOR concreta.
+  const contagem = new Map<string, number>();
   const mapa: Record<string, boolean[]> = {};
   for (const f of filesOrdenados) {
     const marcas: boolean[] = [];
@@ -109,9 +118,12 @@ export function markDuplicatesAcrossBatch(
         data: m.data,
         valor: m.valor,
         descricao: m.descricaoOriginal,
+        documentNumber: m.documentNumber ?? null,
+        lot: m.lot ?? null,
       });
-      marcas.push(jaNoSistema.has(chave) || vistos.has(chave));
-      vistos.add(chave);
+      const occ = contagem.get(chave) ?? 0;
+      contagem.set(chave, occ + 1);
+      marcas.push(index.porOcorrencia.has(`${chave}#${occ}`));
     }
     mapa[f.id] = marcas;
   }
