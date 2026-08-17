@@ -125,3 +125,23 @@ describe("NUBANK_PDF espacial — row assembler", () => {
     }
   });
 });
+
+describe("NUBANK_PDF — issueDate vs dueDate", () => {
+  it("EMISSÃO E ENVIO tem prioridade sobre FATURA", () => {
+    expect(parsed.metadata?.data_emissao).toBe("2026-08-10");
+    expect(parsed.data_vencimento).toBe("2026-08-17");
+    expect(parsed.metadata?.data_emissao).not.toBe(parsed.data_vencimento);
+  });
+
+  it("rótulos colados na mesma row visual", () => {
+    const linha: PdfTextItem[] = [
+      it_("FATURA", 60, 700),
+      it_("17 AGO 2026", 200, 700),
+      it_("EMISSÃO E ENVIO", 330, 700),
+      it_("10 AGO 2026", 470, 700),
+    ];
+    const r = parseNubankSpatial([{ page: 1, width: 595, height: 842, items: [...linha] }]);
+    expect(r.metadata?.data_emissao).toBe("2026-08-10");
+    expect(r.data_vencimento).toBe("2026-08-17");
+  });
+});
