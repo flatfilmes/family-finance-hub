@@ -131,6 +131,10 @@ export type StatementPeriod = {
   /** Data do saldo anterior conforme o snapshot canônico do documento. */
   openingDatePdf: string | null;
   status: string;
+  /** Extrato eleito para validar o ledger no seu período. */
+  canonico: boolean;
+  /** Relação com os demais imports do mesmo período. */
+  relacaoPeriodo: "SAME_PERIOD_OVERLAP" | "UNIQUE_PERIOD";
 };
 
 export type ContinuityLink = {
