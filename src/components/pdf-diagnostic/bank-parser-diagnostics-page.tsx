@@ -335,10 +335,24 @@ export function BankParserDiagnosticsPage({
 
       {resultado && (
         <>
+          {ehFatura && (
+            <p className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-[13px] font-semibold text-amber-800 dark:text-amber-300">
+              WRONG_DOCUMENT_TYPE_FOR_BANK_STATEMENT — este PDF é uma fatura de cartão, não um
+              extrato de conta. O parser de extrato foi ignorado e o diagnóstico rodou com o
+              parser real de fatura. Nenhuma transação bancária foi produzida.
+            </p>
+          )}
+
           {/* RESUMO DO PIPELINE — 3 colunas no desktop */}
           <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Cartao label="PDF.JS" valor={`${resultado.dump.items.length} items`} detalhe={`${resultado.dump.numPages} página(s)`} />
             <Cartao label="Rows" valor={`${resultado.visualRows.length} rows`} />
+            <Cartao
+              label="Document type"
+              valor={resultado.documentType.type}
+              detalhe={resultado.documentType.matchedSignals.slice(0, 3).join(" · ") || undefined}
+              tom={resultado.documentType.status === "PASS" ? "ok" : "falha"}
+            />
             <Cartao
               label="Bank detection"
               valor={parser?.bank ?? "não detectado"}
@@ -347,20 +361,55 @@ export function BankParserDiagnosticsPage({
             />
             <Cartao
               label="Parser"
-              valor={resultado.package.parser.name ?? "não selecionado"}
-              tom={resultado.package.parser.status === "FOUND" ? "ok" : "falha"}
+              valor={(ehFatura ? parser?.parser : resultado.package.parser.name) ?? "não selecionado"}
+              detalhe={ehFatura ? "parser real de fatura de cartão" : undefined}
+              tom={ehFatura || resultado.package.parser.status === "FOUND" ? "ok" : "falha"}
             />
-            <Cartao
-              label="Output"
-              valor={executou ? `${transacoes.length} transações` : "Parser não executado"}
-              detalhe={executou ? `${checkpoints.length} checkpoints` : undefined}
-              tom={executou ? "ok" : "falha"}
-            />
-            <Cartao
-              label="Validation"
-              valor={validacao}
-              tom={validacao === "PASS" || validacao === "VALID" ? "ok" : "falha"}
-            />
+            {ehFatura ? (
+              <>
+                <Cartao
+                  label="Invoice total"
+                  valor={moeda(fatura?.invoice?.invoiceTotal ?? null)}
+                  detalhe={`vencimento ${fatura?.invoice?.dueDate ?? "—"}`}
+                />
+                <Cartao
+                  label="Card"
+                  valor={fatura?.invoice?.cardLast4 ? `final ${fatura.invoice.cardLast4}` : "—"}
+                  detalhe={fatura?.invoice?.holder ?? undefined}
+                />
+                <Cartao
+                  label="Card statement items"
+                  valor={`${itensFatura.length} lançamentos`}
+                  detalhe={`bank transactions 0 · bank checkpoints 0`}
+                  tom="ok"
+                />
+                <Cartao
+                  label="Validation"
+                  valor={fatura?.validation?.status ?? "—"}
+                  detalhe={
+                    fatura?.validation?.difference !== null &&
+                    fatura?.validation?.difference !== undefined
+                      ? `diferença ${moeda(fatura.validation.difference)}`
+                      : undefined
+                  }
+                  tom={fatura?.validation?.status === "CARD_STATEMENT_VALID" ? "ok" : "falha"}
+                />
+              </>
+            ) : (
+              <>
+                <Cartao
+                  label="Output"
+                  valor={executou ? `${transacoes.length} transações` : "Parser não executado"}
+                  detalhe={executou ? `${checkpoints.length} checkpoints` : undefined}
+                  tom={executou ? "ok" : "falha"}
+                />
+                <Cartao
+                  label="Validation"
+                  valor={validacao}
+                  tom={validacao === "PASS" || validacao === "VALID" ? "ok" : "falha"}
+                />
+              </>
+            )}
           </section>
 
           {/* TABS */}
