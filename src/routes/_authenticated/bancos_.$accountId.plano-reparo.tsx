@@ -168,6 +168,42 @@ function PlanoReparoPage() {
         </div>
       </Card>
 
+      <RepairProofPanel proof={proof} />
+
+      <Card className="mb-5 border-primary/30 bg-primary/5">
+        <SectionTitle
+          title="Validação do reparo"
+          hint="Validar apenas confere a prova acima: cada linha ausente tem documento identificado e efeito de saldo conhecido. Nenhum dado financeiro é alterado nesta etapa."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setValidado(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <ShieldCheck className="size-3.5" /> Validar reparo
+          </button>
+          <button
+            disabled
+            title="Ainda não disponível — o reparo só será executado em uma etapa própria."
+            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground opacity-60"
+          >
+            Aplicar reparo
+          </button>
+          {validado && (
+            <StatusBadge tone="ok">
+              Prova validada · {proof.grupos.reduce((a, g) => a + g.ausentes, 0)} movimento(s)
+              ausente(s) identificado(s) · efeito {formatCurrency(plan.totais.deltaSaldoAtual)}
+            </StatusBadge>
+          )}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Nada foi executado. "Aplicar reparo" permanece desligado até que a restauração seja
+          liberada explicitamente.
+        </p>
+      </Card>
+
+
+
       <Card className="mb-5">
         <SectionTitle
           title="Períodos com movimento perdido"
