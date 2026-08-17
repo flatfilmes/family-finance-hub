@@ -249,3 +249,96 @@ export function statementTotals(statement: CanonicalStatement) {
     count: statement.transactions.length,
   };
 }
+
+/**
+ * SNAPSHOT CANÔNICO PERSISTIDO DO EXTRATO.
+ *
+ * Fotografia mínima e suficiente do ParsedBankStatement validado, gravada junto
+ * da importação (`dados_brutos_json`). É a FONTE DE VERDADE da auditoria sobre
+ * "o que o PDF dizia" — sem ela, checkpoints, data do saldo anterior e
+ * identidade das linhas se perdem e a auditoria passa a chutar por heurística.
+ *
+ * Não guarda o PDF binário: guarda a estrutura econômica declarada.
+ */
+export type StatementSnapshotTransaction = {
+  sourceId: string;
+  occurrenceIndex: number;
+  postingDate: string | null;
+  amount: number;
+  direction: CanonicalDirection;
+  description: string;
+  documentNumber: string | null;
+  lot: string | null;
+};
+
+export type StatementSnapshot = {
+  snapshotVersion: 1;
+  parserVersion: ParserVersion;
+  parser: string;
+  bank: string | null;
+  accountIdentifier: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  openingBalance: { date: string | null; amount: number | null };
+  closingBalance: { date: string | null; amount: number | null };
+  referenceBalance: { date: string; amount: number } | null;
+  transactionsMetadata: StatementSnapshotTransaction[];
+  checkpoints: CanonicalCheckpoint[];
+};
+
+/** Constrói o snapshot canônico a partir do statement canônico. */
+export function buildStatementSnapshot(statement: CanonicalStatement): StatementSnapshot {
+  const contagem = new Map<string, number>();
+  const transactionsMetadata = statement.transactions.map((t) => {
+    const base = [t.postingDate ?? "", t.amount.toFixed(2), t.direction, t.normalizedDescription]
+      .join("|");
+    const occurrenceIndex = contagem.get(base) ?? 0;
+    contagem.set(base, occurrenceIndex + 1);
+    return {
+      sourceId: t.sourceId,
+      occurrenceIndex,
+      postingDate: t.postingDate,
+      amount: t.amount,
+      direction: t.direction,
+      description: t.description,
+      documentNumber: t.documentNumber ?? null,
+      lot: t.lot ?? null,
+    };
+  });
+
+  return {
+    snapshotVersion: 1,
+    parserVersion: statement.parserVersion,
+    parser: statement.parser,
+    bank: statement.bank,
+    accountIdentifier: statement.account,
+    periodStart: statement.periodStart,
+    periodEnd: statement.periodEnd,
+    openingBalance: statement.openingBalance,
+    closingBalance: statement.closingBalance,
+    referenceBalance: statement.referenceBalance,
+    transactionsMetadata,
+    checkpoints: statement.checkpoints,
+  };
+}
+
+/** Lê um snapshot persistido com segurança (importações antigas não têm). */
+export function readStatementSnapshot(raw: unknown): StatementSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const s = raw as Partial<StatementSnapshot>;
+  if (!Array.isArray(s.checkpoints) && !Array.isArray(s.transactionsMetadata)) return null;
+  return {
+    snapshotVersion: 1,
+    parserVersion: s.parserVersion ?? "desconhecido",
+    parser: s.parser ?? "desconhecido",
+    bank: s.bank ?? null,
+    accountIdentifier: s.accountIdentifier ?? null,
+    periodStart: s.periodStart ?? null,
+    periodEnd: s.periodEnd ?? null,
+    openingBalance: s.openingBalance ?? { date: null, amount: null },
+    closingBalance: s.closingBalance ?? { date: null, amount: null },
+    referenceBalance: s.referenceBalance ?? null,
+    transactionsMetadata: Array.isArray(s.transactionsMetadata) ? s.transactionsMetadata : [],
+    checkpoints: Array.isArray(s.checkpoints) ? s.checkpoints : [],
+  };
+}
