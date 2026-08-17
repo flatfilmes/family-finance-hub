@@ -352,10 +352,18 @@ function PlanoReparoPage() {
       <FinancialRepairExecution
         proof={provaFinanceira}
         onApplied={() => {
-          for (const key of ["transactions", "bank-accounts", "bank-statement-items"]) {
+          for (const key of [
+            "transactions",
+            "bank-accounts",
+            "bank-statement-items",
+            "bank-statement-imports",
+            "bank-balance-checkpoints",
+            "bank-movements",
+            "bank-audit",
+          ]) {
             void queryClient.invalidateQueries({ queryKey: [key] });
           }
-          void queryClient.invalidateQueries({ queryKey: ["bank-balance-checkpoints", accountId] });
+          void queryClient.invalidateQueries();
         }}
       />
 

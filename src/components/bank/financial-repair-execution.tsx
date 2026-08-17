@@ -8,6 +8,13 @@
 import { useState } from "react";
 import { ShieldCheck, Wrench } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card } from "@/components/page-header";
 import { SectionTitle, Metric } from "@/components/detail-page";
 import { StatusBadge } from "@/components/status-badge";
@@ -21,15 +28,27 @@ import {
   type RepairExecutionValidation,
 } from "@/lib/bank-statements/financial-repair-apply";
 
-const CONFIRMACAO = `Este reparo fará 3 correções específicas na conta Itaú:
+const CONFIRMACAO = `Este reparo fará exatamente 3 correções:
 
-• remover 1 contrapartida artificial de R$ 7.466,84;
-• corrigir a direção de R$ 0,03;
-• corrigir a direção de R$ 0,12.
+• remover a contrapartida artificial de R$ 7.466,84;
+• corrigir R$ 0,03 de saída para entrada;
+• corrigir R$ 0,12 de saída para entrada.
 
-Saldo esperado: R$ 7.587,35 → R$ 120,81.
+Saldo esperado:
+R$ 7.587,35 → R$ 120,81
 
-Nenhum extrato será apagado.`;
+Nenhum extrato será apagado.
+A movimentação original do Banco do Brasil será preservada.`;
+
+/** Traduz a falha do executor sem tratá-la como sucesso. */
+function mensagemDeErro(e: unknown): string {
+  const raw = e instanceof Error ? e.message : String(e);
+  if (raw.includes("REPAIR_PRECONDITION_FAILED"))
+    return `REPAIR_PRECONDITION_FAILED — a pré-checagem no banco falhou e nada foi alterado. (${raw})`;
+  if (raw.includes("REPAIR_POST_VALIDATION_FAILED"))
+    return `REPAIR_POST_VALIDATION_FAILED — a conferência depois da gravação não fechou; tudo foi revertido (rollback). (${raw})`;
+  return raw || "Não foi possível aplicar o reparo.";
+}
 
 export function FinancialRepairExecution({
   proof,
@@ -44,7 +63,12 @@ export function FinancialRepairExecution({
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const habilitado = validacao?.status === "PASS" && !resultado;
+  const provaOk =
+    proof.status === "PASS" &&
+    proof.residualDifference === 0 &&
+    proof.checkpointsPass === 7 &&
+    proof.checkpointsTotal === 7;
+  const habilitado = validacao?.status === "PASS" && provaOk && !resultado && !ocupado;
 
   async function validar() {
     setOcupado(true);
@@ -60,16 +84,17 @@ export function FinancialRepairExecution({
   }
 
   async function aplicar() {
-    setConfirmando(false);
+    if (ocupado || resultado) return; // trava contra duplo clique
     setOcupado(true);
     setErro(null);
     try {
       const r = await applyFinancialLedgerRepair();
       setResultado(r);
       setValidacao(null);
+      setConfirmando(false);
       onApplied?.();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível aplicar o reparo.");
+      setErro(mensagemDeErro(e));
     } finally {
       setOcupado(false);
     }
@@ -99,6 +124,7 @@ export function FinancialRepairExecution({
 
       <div className="flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={validar}
           disabled={ocupado}
           className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
@@ -106,11 +132,13 @@ export function FinancialRepairExecution({
           <ShieldCheck className="size-3.5" /> Validar para aplicação
         </button>
         <button
+          type="button"
+          data-testid="aplicar-reparo"
           onClick={() => setConfirmando(true)}
-          disabled={!habilitado || ocupado}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+          disabled={!habilitado}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Wrench className="size-3.5" /> Aplicar reparo
+          <Wrench className="size-3.5" /> {ocupado && confirmando ? "Aplicando reparo..." : "Aplicar reparo"}
         </button>
         {validacao && (
           <StatusBadge tone={validacao.status === "PASS" ? "ok" : "danger"}>
@@ -152,26 +180,34 @@ export function FinancialRepairExecution({
         </div>
       )}
 
-      {confirmando && (
-        <div className="mt-4 rounded-2xl border border-primary/40 bg-background px-4 py-3">
-          <p className="whitespace-pre-line text-sm">{CONFIRMACAO}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+      <Dialog open={confirmando} onOpenChange={(o) => !ocupado && setConfirmando(o)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Confirmar reparo da conta Itaú</DialogTitle>
+            <DialogDescription className="whitespace-pre-line text-left">
+              {CONFIRMACAO}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-4">
             <button
-              onClick={aplicar}
-              disabled={ocupado}
-              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              Confirmar e aplicar
-            </button>
-            <button
+              type="button"
               onClick={() => setConfirmando(false)}
-              className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
+              disabled={ocupado}
+              className="min-h-11 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               Cancelar
             </button>
+            <button
+              type="button"
+              onClick={aplicar}
+              disabled={ocupado}
+              className="min-h-11 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {ocupado ? "Aplicando reparo..." : "Confirmar e aplicar reparo"}
+            </button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {resultado && (
         <div className="mt-4 rounded-2xl border border-border px-4 py-3">
