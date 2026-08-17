@@ -180,26 +180,34 @@ export function FinancialRepairExecution({
         </div>
       )}
 
-      {confirmando && (
-        <div className="mt-4 rounded-2xl border border-primary/40 bg-background px-4 py-3">
-          <p className="whitespace-pre-line text-sm">{CONFIRMACAO}</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+      <Dialog open={confirmando} onOpenChange={(o) => !ocupado && setConfirmando(o)}>
+        <DialogContent className="rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Confirmar reparo da conta Itaú</DialogTitle>
+            <DialogDescription className="whitespace-pre-line text-left">
+              {CONFIRMACAO}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-4">
             <button
-              onClick={aplicar}
-              disabled={ocupado}
-              className="rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              Confirmar e aplicar
-            </button>
-            <button
+              type="button"
               onClick={() => setConfirmando(false)}
-              className="rounded-full border border-border px-4 py-2 text-xs font-semibold"
+              disabled={ocupado}
+              className="min-h-11 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50"
             >
               Cancelar
             </button>
+            <button
+              type="button"
+              onClick={aplicar}
+              disabled={ocupado}
+              className="min-h-11 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+            >
+              {ocupado ? "Aplicando reparo..." : "Confirmar e aplicar reparo"}
+            </button>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {resultado && (
         <div className="mt-4 rounded-2xl border border-border px-4 py-3">
