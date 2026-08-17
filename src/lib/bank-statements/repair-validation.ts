@@ -119,83 +119,83 @@ export function buildRepairValidation(input: {
 
   const restauraveis = candidatos.filter((c) => c.veredito === "SERIA_RESTAURADA");
 
-  // ---- diff de saldos mês a mês -----------------------------------------
-  const eventos = ledger
-    .map((t) => ({ data: t.data_movimento, efeito: movementEffect(t), extra: false }))
-    .concat(
-      restauraveis
-        .filter((c) => !!c.preview.data_movimento)
-        .map((c) => ({
-          data: c.preview.data_movimento as string,
-          efeito: c.preview.efeitoSaldo,
-          extra: true,
-        })),
-    )
-    .sort((a, b) => a.data.localeCompare(b.data));
+  // ---- duas leituras, nunca misturadas ----------------------------------
+  const standaloneValidation = buildStandaloneValidation(input.plan);
+  const chainedValidation = buildChainedValidation(input.plan);
 
-  const primeiroMesAfetado = restauraveis
-    .map((c) => c.preview.data_movimento)
-    .filter((d): d is string => !!d)
-    .sort()[0]
-    ?.slice(0, 7);
+  const chainedComDocumento = chainedValidation.periodos.filter((p) => p.saldoDocumento !== null);
+  const mesesCorrigidos = chainedComDocumento.filter(
+    (p) => p.confereAntes === false && p.confereDepois === true,
+  ).length;
+  const mesesAindaDivergentes = chainedComDocumento.filter((p) => p.confereDepois === false).length;
 
-  const porMes = new Map<
-    string,
-    { antes: number; depois: number; movAntes: number; movDepois: number }
-  >();
-  let saldoAntes = 0;
-  let saldoDepois = 0;
-  for (const e of eventos) {
-    const mes = e.data.slice(0, 7);
-    if (!e.extra) saldoAntes = round(saldoAntes + e.efeito);
-    saldoDepois = round(saldoDepois + e.efeito);
-    const atual = porMes.get(mes) ?? { antes: saldoAntes, depois: saldoDepois, movAntes: 0, movDepois: 0 };
-    atual.antes = saldoAntes;
-    atual.depois = saldoDepois;
-    atual.movDepois += 1;
-    if (!e.extra) atual.movAntes += 1;
-    porMes.set(mes, atual);
+  // ---- verificações obrigatórias antes de liberar o reparo --------------
+  const verificacoes: RepairCheck[] = [];
+  const check = (chave: string, titulo: string, ok: boolean, detalhe: string) =>
+    verificacoes.push({ chave, titulo, status: ok ? "PASS" : "FAIL", detalhe });
+
+  const linhasDosGrupos = input.proof.grupos.flatMap((g) => g.linhas);
+  const ausentes = linhasDosGrupos.filter((l) => !l.presente);
+  const presentes = linhasDosGrupos.filter((l) => l.presente);
+
+  for (const l of ausentes) {
+    check(
+      `AUSENTE_${l.documentNumber ?? l.sourceId}`,
+      `Documento ${l.documentNumber ?? l.sourceId} continua ausente`,
+      true,
+      `${l.data ?? "sem data"} · ${l.direcao} ${l.valor.toFixed(2)} · sourceId ${l.sourceId} — nenhuma transação corresponde a esta linha hoje.`,
+    );
+  }
+  for (const l of presentes) {
+    check(
+      `PRESENTE_${l.documentNumber ?? l.sourceId}`,
+      `Documento ${l.documentNumber ?? l.sourceId} continua existente`,
+      !!l.ledgerTransactionId,
+      `${l.data ?? "sem data"} · ${l.direcao} ${l.valor.toFixed(2)} · transação ${l.ledgerTransactionId ?? "não encontrada"}.`,
+    );
   }
 
-  const ultimoCheckpointDoMes = new Map<string, { saldo: number; data: string }>();
-  for (const c of [...input.checkpoints].sort((a, b) => a.data.localeCompare(b.data))) {
-    ultimoCheckpointDoMes.set(c.data.slice(0, 7), { saldo: c.saldo, data: c.data });
-  }
+  const duplicadas = candidatos.filter((c) => c.veredito === "JA_EXISTE_NO_LEDGER");
+  check(
+    "SEM_EQUIVALENTE_NOVO",
+    "Nenhuma transação equivalente apareceu desde o dry run anterior",
+    duplicadas.length === 0,
+    duplicadas.length === 0
+      ? "Nenhum movimento igual em data, valor e sentido foi encontrado para as linhas ausentes."
+      : `${duplicadas.length} linha(s) já têm equivalente no ledger — restaurar duplicaria dinheiro.`,
+  );
 
-  const meses: MonthDiff[] = [...porMes.entries()]
-    .filter(([mes]) => !primeiroMesAfetado || mes >= primeiroMesAfetado)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([mes, v]) => {
-      const banco = ultimoCheckpointDoMes.get(mes)?.saldo ?? null;
-      const difAntes = banco === null ? null : round(v.antes - banco);
-      const difDepois = banco === null ? null : round(v.depois - banco);
-      return {
-        mes,
-        rotulo: rotuloMes(mes),
-        movimentosAntes: v.movAntes,
-        movimentosDepois: v.movDepois,
-        saldoAntes: v.antes,
-        saldoDepois: v.depois,
-        delta: round(v.depois - v.antes),
-        saldoBanco: banco,
-        diferencaAntes: difAntes,
-        diferencaDepois: difDepois,
-        confereAntes: difAntes === null ? null : Math.abs(difAntes) <= TOLERANCIA,
-        confereDepois: difDepois === null ? null : Math.abs(difDepois) <= TOLERANCIA,
-      };
-    });
+  check(
+    "CHAINED_FECHA_EM_ZERO",
+    "Ledger encadeado fecha em zero depois da simulação",
+    chainedValidation.todosZeradosDepois,
+    chainedValidation.todosZeradosDepois
+      ? "Todos os períodos com saldo de documento ficam com diferença 0 no encadeamento."
+      : `${mesesAindaDivergentes} período(s) continuariam divergentes no encadeamento.`,
+  );
 
-  const mesesCorrigidos = meses.filter((m) => m.confereAntes === false && m.confereDepois).length;
-  const mesesAindaDivergentes = meses.filter((m) => m.confereDepois === false).length;
+  check(
+    "UMA_TRANSACTION",
+    "Apenas uma transação seria criada",
+    restauraveis.length === 1,
+    `${restauraveis.length} transação(ões) nasceriam da simulação.`,
+  );
+
+  const validationRepair: "PASS" | "FAIL" = verificacoes.every((v) => v.status === "PASS")
+    ? "PASS"
+    : "FAIL";
 
   return {
     executadoEm: new Date().toISOString(),
     dryRun: true,
     accountId: input.accountId,
     candidatos,
-    meses,
+    standaloneValidation,
+    chainedValidation,
+    verificacoes,
+    validationRepair,
     totais: {
-      seriamRestauradas: restauraveis.length,
+      restoreCount: restauraveis.length,
       naoSeriamRestauradas: candidatos.length - restauraveis.length,
       efeitoSaldoFinal: round(restauraveis.reduce((a, c) => a + c.preview.efeitoSaldo, 0)),
       mesesCorrigidos,
@@ -203,7 +203,7 @@ export function buildRepairValidation(input: {
     },
     veredito: !candidatos.length
       ? "NADA_A_REPARAR"
-      : restauraveis.length && !mesesAindaDivergentes
+      : validationRepair === "PASS"
         ? "PRONTO_PARA_REPARO"
         : "REVISAR",
   };
