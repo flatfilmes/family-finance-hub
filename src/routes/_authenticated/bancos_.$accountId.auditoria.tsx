@@ -19,6 +19,8 @@ import { RepairPostingDatesDialog } from "@/components/bank/repair-posting-dates
 import { CheckpointsOnlyButton } from "@/components/bank/checkpoints-only-button";
 import { ImportResetDialog } from "@/components/bank/import-reset-dialog";
 import { PipelineIntegrity } from "@/components/bank/pipeline-integrity";
+import { FalseTransferPanel } from "@/components/bank/false-transfer-panel";
+import { buildFalseTransferDryRun } from "@/lib/bank-statements/false-transfer-repair";
 import {
   auditToCsv,
   buildBankAudit,
@@ -97,6 +99,18 @@ function AuditoriaContaPage() {
       accounts,
       conta,
     ],
+  );
+
+  const falseTransfer = useMemo(
+    () =>
+      buildFalseTransferDryRun({
+        accountId,
+        transactions: transactions ?? [],
+        accounts: accounts ?? [],
+        checkpoints: checkpoints ?? [],
+        statementItems: statementItems ?? [],
+      }),
+    [accountId, transactions, accounts, checkpoints, statementItems],
   );
 
   if (!family) return <NoFamily />;
@@ -321,6 +335,8 @@ function AuditoriaContaPage() {
         transactions={transactions ?? []}
         checkpoints={checkpoints ?? []}
       />
+
+      <FalseTransferPanel plano={falseTransfer} />
 
 
 
