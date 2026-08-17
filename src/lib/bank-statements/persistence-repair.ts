@@ -17,6 +17,7 @@
 import { movementEffect } from "@/lib/bank-ledger";
 import type { Transaction } from "@/lib/transactions";
 import type { LineageImportInput, LineageItemInput, LineageRow, StatementLineage } from "./lineage";
+import { classifyCheckpointDiagnostic } from "./chained-validation";
 
 const CONFERE = 0.01;
 
