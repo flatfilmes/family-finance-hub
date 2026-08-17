@@ -217,7 +217,17 @@ export function toCanonicalStatement(
     closingBalance: {
       date: parsed.saldoFinalData ?? parsed.periodoFim,
       amount: parsed.saldoFinal,
+      derived: parsed.saldoFinalDerivado ?? false,
+      derivedFromCheckpointDate: parsed.saldoFinalDerivadoDoCheckpoint ?? null,
     },
+    lastHistoricalCheckpoint: parsed.ultimoCheckpointHistorico
+      ? {
+          date: parsed.ultimoCheckpointHistorico.data,
+          amount: parsed.ultimoCheckpointHistorico.saldo,
+          source: parsed.ultimoCheckpointHistorico.origem,
+        }
+      : null,
+
     transactions: toTransactions(parsed.movimentos, parsed.aceitos ?? [], base),
     futureTransactions: toTransactions(
       parsed.futuros ?? [],
