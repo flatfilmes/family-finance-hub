@@ -16,6 +16,12 @@ import { movementEffect } from "@/lib/bank-ledger";
 import type { Transaction } from "@/lib/transactions";
 import type { PersistenceRepairPlan, RestoredLine } from "./persistence-repair";
 import type { RepairProof } from "./repair-proof";
+import {
+  buildChainedValidation,
+  buildStandaloneValidation,
+  type ChainedValidation,
+  type StandaloneValidation,
+} from "./chained-validation";
 
 const TOLERANCIA = 0.01;
 const round = (n: number) => Math.round(n * 100) / 100;
@@ -77,26 +83,6 @@ export type RepairValidation = {
   };
   veredito: "PRONTO_PARA_REPARO" | "NADA_A_REPARAR" | "REVISAR";
 };
-
-const MESES = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
-
-function rotuloMes(mes: string) {
-  const [ano, m] = mes.split("-");
-  return `${MESES[Number(m) - 1] ?? m}/${ano}`;
-}
 
 export function buildRepairValidation(input: {
   accountId: string;

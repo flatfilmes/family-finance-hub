@@ -196,16 +196,17 @@ function PlanoReparoPage() {
           </button>
           <button
             disabled
-            title="Ainda não disponível — o reparo só será executado em uma etapa própria."
+            title="Bloqueado nesta etapa — o reparo só será executado quando a restauração for liberada explicitamente."
             className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground opacity-60"
           >
             Aplicar reparo
           </button>
           {validacao && (
             <>
-              <StatusBadge tone="ok">
-                Dry run executado · {validacao.totais.seriamRestauradas} transação(ões) a criar ·
-                efeito {formatCurrency(validacao.totais.efeitoSaldoFinal)}
+              <StatusBadge tone={validacao.validationRepair === "PASS" ? "ok" : "warn"}>
+                VALIDATION_REPAIR = {validacao.validationRepair} ·{" "}
+                {validacao.totais.restoreCount} transação(ões) a criar · efeito{" "}
+                {formatCurrency(validacao.totais.efeitoSaldoFinal)}
               </StatusBadge>
               <button
                 onClick={() =>
