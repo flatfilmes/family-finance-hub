@@ -78,7 +78,7 @@ function PlanoReparoPage() {
   const [aplicando, setAplicando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const gate = evaluateRepairGate(validacao);
+  const gateBase = evaluateRepairGate(validacao);
 
   async function aplicar() {
     if (!gate.habilitado || !gate.candidato || !family) return;
@@ -134,6 +134,18 @@ function PlanoReparoPage() {
       transactions: transactions ?? [],
     });
   }, [accountId, validacao, proof, transactions]);
+
+  /** O reparo só libera quando a pré-condição por identidade também passa. */
+  const gate = {
+    ...gateBase,
+    habilitado: gateBase.habilitado && precondicao?.repairPrecondition === "PASS",
+    motivos: [
+      ...gateBase.motivos,
+      ...(gateBase.habilitado && precondicao && precondicao.repairPrecondition !== "PASS"
+        ? precondicao.motivos
+        : []),
+    ],
+  };
 
 
   if (!family) return <NoFamily />;
