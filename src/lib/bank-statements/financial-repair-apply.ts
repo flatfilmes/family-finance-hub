@@ -54,15 +54,19 @@ export const AUTHORIZED_REPAIR = {
 export type ExecutionCheck = { id: string; label: string; status: "PASS" | "FAIL"; detail: string };
 
 export type RepairExecutionValidation = {
-  status: "PASS" | "FAIL";
+  /** ERROR = alguma consulta falhou; nunca pode ser tratado como PASS. */
+  status: "PASS" | "FAIL" | "ERROR";
   executadoEm: string;
   checks: ExecutionCheck[];
   motivos: string[];
+  /** Mensagens brutas de erro SQL encontradas durante a validação. */
+  sqlErrors: string[];
   /** Provas de preservação do outro banco. */
   itauTransactionToRemove: string;
   bbTransactionToPreserve: string | null;
   transferGroupId: string | null;
 };
+
 
 const eq = (a: number, b: number) => Math.abs(a - b) <= 0.005;
 
