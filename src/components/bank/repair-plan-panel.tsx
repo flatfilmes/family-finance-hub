@@ -22,9 +22,9 @@ import type {
 } from "@/lib/bank-statements/lineage";
 import { formatCurrency } from "@/lib/finance";
 
-const TONE: Record<RepairSeverity, "success" | "warning" | "danger"> = {
-  INFO: "success",
-  ATENCAO: "warning",
+const TONE: Record<RepairSeverity, "info" | "warn" | "danger"> = {
+  INFO: "info",
+  ATENCAO: "warn",
   CRITICO: "danger",
 };
 
