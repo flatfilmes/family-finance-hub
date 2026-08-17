@@ -64,7 +64,20 @@ export type CanonicalStatement = {
   periodStart: string | null;
   periodEnd: string | null;
   openingBalance: { date: string | null; amount: number | null };
-  closingBalance: { date: string | null; amount: number | null };
+  /**
+   * Fechamento do período. `derived: true` significa que o banco NÃO imprimiu
+   * saldo nessa data: ele foi herdado do último checkpoint impresso porque não
+   * houve movimento depois dele. Nunca gera checkpoint.
+   */
+  closingBalance: {
+    date: string | null;
+    amount: number | null;
+    derived: boolean;
+    derivedFromCheckpointDate: string | null;
+  };
+  /** Último saldo REALMENTE impresso no documento dentro do período. */
+  lastHistoricalCheckpoint: { date: string; amount: number; source: "SALDO_DO_DIA" } | null;
+
   transactions: CanonicalTransaction[];
   checkpoints: CanonicalCheckpoint[];
   /** Lançamentos futuros: informativos, nunca entram no período realizado. */
@@ -204,7 +217,17 @@ export function toCanonicalStatement(
     closingBalance: {
       date: parsed.saldoFinalData ?? parsed.periodoFim,
       amount: parsed.saldoFinal,
+      derived: parsed.saldoFinalDerivado ?? false,
+      derivedFromCheckpointDate: parsed.saldoFinalDerivadoDoCheckpoint ?? null,
     },
+    lastHistoricalCheckpoint: parsed.ultimoCheckpointHistorico
+      ? {
+          date: parsed.ultimoCheckpointHistorico.data,
+          amount: parsed.ultimoCheckpointHistorico.saldo,
+          source: parsed.ultimoCheckpointHistorico.origem,
+        }
+      : null,
+
     transactions: toTransactions(parsed.movimentos, parsed.aceitos ?? [], base),
     futureTransactions: toTransactions(
       parsed.futuros ?? [],

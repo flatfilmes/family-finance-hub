@@ -11,6 +11,7 @@
 import { describe, expect, it } from "vitest";
 import { parseItauBankStatementLines } from "./itau";
 import { detectBankStatement, selectBankStatementParser } from "@/lib/bank-statements/parse";
+import { toCanonicalStatement } from "@/lib/bank-statements/canonical";
 import { ITAU_CONTA_JAN_JUN_2026 as GOLDEN } from "@/lib/bank-statements/golden";
 import type { PdfLine } from "@/lib/pdf-extract";
 
@@ -195,5 +196,40 @@ describe("Semântica de abertura e fechamento", () => {
       amount: GOLDEN.reference.amount,
     });
     expect(parsed.pipeline.validation.status).toBe("PASS");
+  });
+
+
+
+  it("modelo canônico exporta lastHistoricalCheckpoint e o fechamento derivado", () => {
+    const canonical = toCanonicalStatement(parsed, {
+      statementId: "golden-itau",
+      bank: "ITAU",
+      account: "025583-1",
+    });
+
+    expect(canonical.lastHistoricalCheckpoint).toEqual({
+      date: GOLDEN.lastHistoricalBalance.date,
+      amount: GOLDEN.lastHistoricalBalance.amount,
+      source: "SALDO_DO_DIA",
+    });
+    expect(canonical.closingBalance).toEqual({
+      date: GOLDEN.closing.date,
+      amount: GOLDEN.closing.amount,
+      derived: true,
+      derivedFromCheckpointDate: GOLDEN.lastHistoricalBalance.date,
+    });
+
+    // O JSON exportado precisa conter literalmente estes campos.
+    const json = JSON.parse(JSON.stringify(canonical));
+    expect(json).toHaveProperty("lastHistoricalCheckpoint.date", "2026-06-17");
+    expect(json).toHaveProperty("closingBalance.derived", true);
+    expect(json).toHaveProperty("closingBalance.derivedFromCheckpointDate", "2026-06-17");
+
+    // Matemática intocada.
+    expect(canonical.transactions.length).toBe(GOLDEN.transactions);
+    expect(canonical.checkpoints.length).toBe(GOLDEN.dailyCheckpoints);
+    expect(canonical.checkpoints.every((c) => c.type === "DAILY")).toBe(true);
+    expect(canonical.checkpoints.some((c) => c.date === GOLDEN.closing.date)).toBe(false);
+    expect(canonical.openingBalance.amount).toBe(0);
   });
 });
