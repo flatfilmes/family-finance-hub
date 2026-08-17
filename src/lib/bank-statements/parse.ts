@@ -324,44 +324,72 @@ export function parseBankStatementLines(linhas: PdfLine[]): ParsedBankStatement 
 const normalizarSinal = (texto: string) =>
   texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase().replace(/\s+/g, " ").trim();
 
+/** Sinais genéricos: existem em qualquer banco, valem no máximo 0,5 cada. */
+const SINAIS_GENERICOS = ["AGENCIA", "CONTA:", "SALDO DO DIA", "PERIODO"];
+const PESO_GENERICO = 0.5;
+
+export type BankDetectionScore = {
+  bank: DetectedBank;
+  score: number;
+  matchedSignals: string[];
+};
+
+/** Pontuação comparável por banco — sinais específicos primeiro. */
+export function scoreBankStatement(textos: string[]): BankDetectionScore[] {
+  const normalizados = textos.map(normalizarSinal);
+  const genericos = SINAIS_GENERICOS.filter((s) => normalizados.some((t) => t.includes(s)));
+  const bonusGenerico = genericos.length * PESO_GENERICO;
+
+  const bb = scoreBancoDoBrasil(textos);
+  const itau = scoreItauBankStatement(textos);
+
+  return [
+    {
+      bank: "ITAU" as const,
+      score: itau.score ? itau.score + bonusGenerico : 0,
+      matchedSignals: itau.score ? [...itau.matchedSignals, ...genericos] : [],
+    },
+    {
+      bank: "BANCO_DO_BRASIL" as const,
+      score: bb.score ? bb.score + bonusGenerico : 0,
+      matchedSignals: bb.score ? [...bb.matchedSignals, ...genericos] : [],
+    },
+  ].sort((a, b) => b.score - a.score);
+}
+
+/** Pontuação mínima de sinais ESPECÍFICOS para classificar um banco. */
+const SCORE_MINIMO = 4;
+
 /** Detecção única usada pela importação e pelo diagnóstico, sem persistência. */
 export function detectBankStatement(textos: string[]): BankDetectionResult {
-  const normalizados = textos.map(normalizarSinal);
-  const sinaisBB = [
-    "EXTRATO DE CONTA CORRENTE",
-    "PERIODO:",
-    "AGENCIA:",
-    "CONTA:",
-    "SALDO ANTERIOR",
-    "SALDO DO DIA",
-  ];
-  const matchedBB = sinaisBB.filter((sinal) => normalizados.some((texto) => texto.includes(sinal)));
-  if (isBancoDoBrasil(textos) || matchedBB.length >= 3)
-    return {
-      status: "PASS",
-      bank: "BANCO_DO_BRASIL",
-      matchedSignals: matchedBB,
-      missingSignals: sinaisBB.filter((sinal) => !matchedBB.includes(sinal)),
-      reason: "Layout reconhecido pelos sinais do extrato Banco do Brasil.",
-    };
+  const scores = scoreBankStatement(textos);
+  const vencedor = scores[0]!;
+  const perdedor = scores[1]!;
 
-  if (isItauBankStatement(textos))
+  if (vencedor.score >= SCORE_MINIMO && vencedor.score > perdedor.score)
     return {
       status: "PASS",
-      bank: "ITAU",
-      matchedSignals: ["EXTRATO ITAU"],
-      missingSignals: [],
-      reason: "Layout reconhecido pelo detector de extrato Itaú.",
+      bank: vencedor.bank,
+      matchedSignals: vencedor.matchedSignals,
+      missingSignals: perdedor.matchedSignals,
+      reason:
+        `Layout reconhecido por sinais específicos de ${vencedor.bank} ` +
+        `(score ${vencedor.score} × ${perdedor.bank} ${perdedor.score}). ` +
+        `Palavras genéricas (agência, conta, saldo do dia) valem ${PESO_GENERICO} e nunca decidem sozinhas.`,
     };
 
   return {
     status: "FAILED",
     bank: null,
-    matchedSignals: matchedBB,
-    missingSignals: sinaisBB.filter((sinal) => !matchedBB.includes(sinal)),
-    reason: "Nenhum layout bancário específico foi reconhecido; parser genérico selecionado.",
+    matchedSignals: vencedor.matchedSignals,
+    missingSignals: [],
+    reason:
+      vencedor.score === perdedor.score && vencedor.score >= SCORE_MINIMO
+        ? "Empate entre bancos: nenhum layout específico venceu; parser genérico selecionado."
+        : "Nenhum layout bancário específico foi reconhecido; parser genérico selecionado.",
   };
 }
+
 
 /** Pipeline puro compartilhado por Importar → Revisar e pela tela DEV. */
 export async function runBankStatementParserPipeline(file: Blob): Promise<BankParserPipelineResult> {
