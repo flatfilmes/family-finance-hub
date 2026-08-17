@@ -204,6 +204,102 @@ export type Database = {
           },
         ]
       }
+      bank_persistence_repair_logs: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          data_movimento: string
+          direction: string
+          executed_at: string
+          executed_by: string | null
+          family_id: string
+          id: string
+          item_state_before: Json | null
+          repair_type: string
+          revert_reason: string | null
+          reverted_at: string | null
+          source_id: string | null
+          source_import_id: string | null
+          source_item_id: string | null
+          transaction_id_created: string | null
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          data_movimento: string
+          direction: string
+          executed_at?: string
+          executed_by?: string | null
+          family_id: string
+          id?: string
+          item_state_before?: Json | null
+          repair_type?: string
+          revert_reason?: string | null
+          reverted_at?: string | null
+          source_id?: string | null
+          source_import_id?: string | null
+          source_item_id?: string | null
+          transaction_id_created?: string | null
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          data_movimento?: string
+          direction?: string
+          executed_at?: string
+          executed_by?: string | null
+          family_id?: string
+          id?: string
+          item_state_before?: Json | null
+          repair_type?: string
+          revert_reason?: string | null
+          reverted_at?: string | null
+          source_id?: string | null
+          source_import_id?: string | null
+          source_item_id?: string | null
+          transaction_id_created?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_persistence_repair_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_persistence_repair_logs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_persistence_repair_logs_source_import_id_fkey"
+            columns: ["source_import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_persistence_repair_logs_source_item_id_fkey"
+            columns: ["source_item_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_persistence_repair_logs_transaction_id_created_fkey"
+            columns: ["transaction_id_created"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_statement_imports: {
         Row: {
           bank_account_id: string
@@ -2680,8 +2776,11 @@ export type Database = {
           member_id: string | null
           natureza: string | null
           observacao: string | null
+          occurrence_index: number | null
           purchase_id: string | null
           reversal_of: string | null
+          source_id: string | null
+          statement_item_id: string | null
           status: Database["public"]["Enums"]["transaction_status"]
           tipo: Database["public"]["Enums"]["transaction_type"]
           transfer_group_id: string | null
@@ -2704,8 +2803,11 @@ export type Database = {
           member_id?: string | null
           natureza?: string | null
           observacao?: string | null
+          occurrence_index?: number | null
           purchase_id?: string | null
           reversal_of?: string | null
+          source_id?: string | null
+          statement_item_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tipo: Database["public"]["Enums"]["transaction_type"]
           transfer_group_id?: string | null
@@ -2728,8 +2830,11 @@ export type Database = {
           member_id?: string | null
           natureza?: string | null
           observacao?: string | null
+          occurrence_index?: number | null
           purchase_id?: string | null
           reversal_of?: string | null
+          source_id?: string | null
+          statement_item_id?: string | null
           status?: Database["public"]["Enums"]["transaction_status"]
           tipo?: Database["public"]["Enums"]["transaction_type"]
           transfer_group_id?: string | null
@@ -2794,6 +2899,13 @@ export type Database = {
             referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transactions_statement_item_id_fkey"
+            columns: ["statement_item_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_items"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -2804,6 +2916,18 @@ export type Database = {
       adjust_bank_account_balance: {
         Args: { _account_id: string; _motivo?: string; _novo_saldo: number }
         Returns: string
+      }
+      apply_bank_persistence_repair: {
+        Args: {
+          _data: string
+          _descricao: string
+          _direcao: string
+          _item_id: string
+          _occurrence_index: number
+          _source_id: string
+          _valor: number
+        }
+        Returns: Json
       }
       apply_statement_posting_dates: {
         Args: { _correcoes: Json; _import_id: string }
@@ -2972,6 +3096,10 @@ export type Database = {
       reverse_bank_transaction: {
         Args: { _motivo?: string; _transaction_id: string }
         Returns: string
+      }
+      revert_bank_persistence_repair: {
+        Args: { _log_id: string; _motivo?: string }
+        Returns: Json
       }
       set_bank_account_balance: {
         Args: {
