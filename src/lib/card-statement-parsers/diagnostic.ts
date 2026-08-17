@@ -78,6 +78,7 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
 
   return {
     parser: parsed.parser,
+    bank: parsed.emissor ?? null,
     status: "OK",
     error: null,
     counts: { rawItems: 0, rows: entries.length, transactions: 0, checkpoints: 0 },
