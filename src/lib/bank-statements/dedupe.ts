@@ -101,15 +101,6 @@ export function buildExistingMovementIndex(existentes: ExistingMovement[]): Exis
   return { porOcorrencia, porSourceId };
 }
 
-/** @deprecated usar `buildExistingMovementIndex` — chave sem ordinal apaga repetição legítima. */
-export function buildExistingMovementKeys(existentes: ExistingMovement[]) {
-  return new Set(
-    existentes.map((e) =>
-      movementKey({ data: e.data_movimento, valor: e.valor, descricao: e.descricao_original }),
-    ),
-  );
-}
-
 export type DedupeDecision = {
   ordem: number;
   sourceId: string | null;

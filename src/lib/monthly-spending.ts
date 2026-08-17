@@ -14,7 +14,7 @@ import { monthlyExpenseValue, type FixedExpense } from "@/lib/finance";
 
 export type InstallmentLike = {
   purchase_id?: string | null;
-  expense_id?: string;
+  expense_id?: string | null;
   numero_parcela: number;
   total_parcelas: number;
   valor_parcela: number | string;

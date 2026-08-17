@@ -10,7 +10,6 @@ import {
 } from "@/lib/card-recurrences";
 import type { Purchase } from "@/lib/purchases";
 import type { CreditCard } from "@/lib/finance";
-import type { Expense } from "@/lib/expenses";
 import { isStatementConfirmed } from "@/lib/card-statements";
 import { resolveReviewType } from "@/lib/statement-types";
 
@@ -69,7 +68,6 @@ export function linhasDaFatura(input: {
   parcelas: ExpenseInstallment[];
   comprasDoCartao: Purchase[];
   comprasComParcelas: Set<string>;
-  despesaPorId: Map<string, Expense>;
   compraPorId: Map<string, Purchase>;
   /** Quando informado, restringe as compras sem parcela ao ciclo da fatura. */
   card?: Pick<CreditCard, "dia_fechamento" | "dia_vencimento"> | null;
@@ -80,17 +78,16 @@ export function linhasDaFatura(input: {
     : [];
 
   for (const parcela of doInvoice) {
-    const despesa = input.despesaPorId.get(parcela.expense_id);
-    // A parcela já aponta para a compra (fonte de verdade); a despesa legada é só fallback.
-    const purchaseId = parcela.purchase_id ?? despesa?.purchase_id ?? null;
+    // A compra é a fonte de verdade da parcela — a despesa legada saiu do fluxo.
+    const purchaseId = parcela.purchase_id ?? null;
     const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
-    const tipo = (compra?.tipo_compra ?? despesa?.tipo_compra ?? "COMPRA_NORMAL") as string;
+    const tipo = (compra?.tipo_compra ?? "COMPRA_NORMAL") as string;
     linhas.push({
       id: parcela.id,
-      data: compra?.data_compra ?? despesa?.data_compra ?? parcela.data_vencimento,
-      estabelecimento: compra?.estabelecimento ?? despesa?.descricao ?? "Lançamento",
-      memberId: compra?.member_id ?? despesa?.member_id ?? null,
-      categoriaId: despesa?.categoria_id ?? null,
+      data: compra?.data_compra ?? parcela.data_vencimento,
+      estabelecimento: compra?.estabelecimento ?? "Lançamento",
+      memberId: compra?.member_id ?? parcela.member_id ?? null,
+      categoriaId: compra?.categoria_id ?? null,
       kind: kindOf(tipo),
       parcela:
         (parcela.total_parcelas || 1) > 1
@@ -220,7 +217,6 @@ export type ParcelamentoAtivo = {
 export function parcelamentosAtivos(input: {
   parcelas: ExpenseInstallment[];
   faturas: CardInvoice[];
-  despesaPorId: Map<string, Expense>;
   compraPorId: Map<string, Purchase>;
   hoje?: Date;
 }): ParcelamentoAtivo[] {
@@ -235,16 +231,19 @@ export function parcelamentosAtivos(input: {
     return !!fatura && fatura.status !== "PAGA" && fatura.data_fechamento > hojeIso;
   };
 
-  const porExpense = new Map<string, ExpenseInstallment[]>();
+  // Chave canônica do parcelamento: a compra. Linhas históricas sem compra
+  // continuam agrupadas pela despesa legada, apenas para leitura.
+  const porOrigem = new Map<string, ExpenseInstallment[]>();
   for (const p of doCartao) {
     if ((p.total_parcelas || 1) <= 1) continue;
-    const lista = porExpense.get(p.expense_id) ?? [];
+    const chave = p.purchase_id ?? p.expense_id ?? p.id;
+    const lista = porOrigem.get(chave) ?? [];
     lista.push(p);
-    porExpense.set(p.expense_id, lista);
+    porOrigem.set(chave, lista);
   }
 
   const resultado: ParcelamentoAtivo[] = [];
-  for (const [expenseId, lista] of porExpense) {
+  for (const [origemId, lista] of porOrigem) {
     const ordenadas = lista.slice().sort((a, b) => a.numero_parcela - b.numero_parcela);
     const pendentes = ordenadas.filter((p) => p.status === "PENDENTE");
     if (pendentes.length === 0) continue;
@@ -256,8 +255,7 @@ export function parcelamentosAtivos(input: {
     const atual = faturadas[faturadas.length - 1] ?? futuras[0] ?? pendentes[0]!;
     const proxima = futuras.find((p) => p.numero_parcela > atual.numero_parcela) ?? futuras[0] ?? null;
 
-    const despesa = input.despesaPorId.get(expenseId);
-    const purchaseId = lista[0]?.purchase_id ?? despesa?.purchase_id ?? null;
+    const purchaseId = lista[0]?.purchase_id ?? null;
     const compra = purchaseId ? input.compraPorId.get(purchaseId) : undefined;
     const faturaAtual = faturaPorId.get(atual.card_invoice_id ?? "");
     const statusAtual: StatusParcela =
@@ -272,9 +270,9 @@ export function parcelamentosAtivos(input: {
             : "PROJETADA";
 
     resultado.push({
-      id: expenseId,
+      id: origemId,
       purchaseId,
-      descricao: compra?.estabelecimento ?? despesa?.descricao ?? "Parcelamento",
+      descricao: compra?.estabelecimento ?? "Parcelamento",
       numeroAtual: atual.numero_parcela,
       total: atual.total_parcelas,
       pagas: ordenadas.filter((p) => p.status === "PAGO").length,

@@ -165,7 +165,8 @@ export async function refreshInvoiceTotal(invoiceId: string) {
  */
 export async function generateInstallments(input: {
   familyId: string;
-  expenseId: string;
+  /** Legado: novas parcelas nascem ligadas somente à compra. */
+  expenseId?: string | null;
   card: CreditCard;
   dataCompra: string;
   valorTotal: number;
@@ -193,7 +194,7 @@ export async function generateInstallments(input: {
     invoiceIds.push(invoice.id);
     rows.push({
       family_id: input.familyId,
-      expense_id: input.expenseId,
+      expense_id: input.expenseId ?? null,
       card_invoice_id: invoice.id,
       numero_parcela: inicial + i,
       total_parcelas: total,
@@ -210,24 +211,6 @@ export async function generateInstallments(input: {
   if (error) throw error;
 
   for (const id of [...new Set(invoiceIds)]) await refreshInvoiceTotal(id);
-}
-
-/** Remove as parcelas de uma despesa e atualiza as faturas afetadas. */
-export async function clearInstallments(expenseId: string) {
-  const { data, error } = await supabase
-    .from("expense_installments")
-    .select("card_invoice_id")
-    .eq("expense_id", expenseId);
-  if (error) throw error;
-  const invoiceIds = [...new Set((data ?? []).map((r) => r.card_invoice_id).filter(Boolean))];
-
-  const { error: delError } = await supabase
-    .from("expense_installments")
-    .delete()
-    .eq("expense_id", expenseId);
-  if (delError) throw delError;
-
-  for (const id of invoiceIds) await refreshInvoiceTotal(id as string);
 }
 
 // ---------- Agregações ----------
