@@ -59,6 +59,9 @@ type SaidaFatura = {
     issuer?: string | null;
     holder?: string | null;
     cardLast4?: string | null;
+    cardLast4s?: string[];
+    periodStart?: string | null;
+    periodEnd?: string | null;
     closingDate?: string | null;
     nextClosingDate?: string | null;
     dueDate?: string | null;
