@@ -50,3 +50,17 @@ export function institutionShortName(
   const found = institutions?.find((i) => i.id === id);
   return found ? (found.short_name ?? found.official_name) : null;
 }
+
+/** Linha secundária do cartão: emissor · bandeira · final (apresentação apenas). */
+export function cardSubtitle(card: {
+  banco: string;
+  bandeira?: string | null;
+  final_cartao?: string | null;
+}) {
+  const brand = card.bandeira
+    ? (CARD_BRAND_LABELS[card.bandeira as CardBrand] ?? card.bandeira)
+    : null;
+  return [card.banco, brand, card.final_cartao ? `•••• ${card.final_cartao}` : null]
+    .filter(Boolean)
+    .join(" · ");
+}
