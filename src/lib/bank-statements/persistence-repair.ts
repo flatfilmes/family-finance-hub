@@ -107,10 +107,45 @@ export type ImportMetadata = {
   acoes: string[];
 };
 
+/** Import equivalente preservado, porém fora de qualquer candidato financeiro. */
+export type OverlapImport = {
+  importId: string;
+  nomeArquivo: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  relacao: "SAME_PERIOD_OVERLAP";
+  papel: "NON_CANONICAL_SOURCE";
+  canonicalId: string | null;
+  linhas: number;
+  /** Snapshot repetido do mesmo extrato nunca move dinheiro. */
+  impactoFinanceiro: 0;
+  motivo: string;
+};
+
+/** Linha do documento que já existe no ledger por outro import equivalente. */
+export type AlreadyPresentLine = {
+  importId: string;
+  itemId: string;
+  sourceId: string;
+  data: string | null;
+  descricao: string;
+  valor: number;
+  direcao: "IN" | "OUT";
+  veredito: "ALREADY_PRESENT_VIA_OTHER_IMPORT";
+};
+
 export type PersistenceRepairPlan = {
   geradoEm: string;
   dryRun: true;
   accountId: string;
+  /** Eleição do extrato canônico — só ele gera candidatos financeiros. */
+  statements: {
+    encontrados: number;
+    canonicalIds: string[];
+    overlaps: OverlapImport[];
+    samePeriodOverlap: boolean;
+  };
+  jaPresentes: AlreadyPresentLine[];
   periodos: RepairPeriod[];
   metadados: ImportMetadata[];
   totais: {
@@ -122,7 +157,12 @@ export type PersistenceRepairPlan = {
     importsSemSnapshot: number;
     linhasSemIdentidade: number;
     checkpointsSemTipo: number;
+    statementsEncontrados: number;
+    statementsCanonicos: number;
+    overlapsPreservados: number;
+    jaPresentesEmOutroImport: number;
   };
+
 };
 
 const MOTIVO_DUPLICATA =
