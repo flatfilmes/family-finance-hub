@@ -205,6 +205,7 @@ export async function fetchBankBalanceCheckpoints(accountId: string) {
     rotulo: c.rotulo as string | null,
     tipo: (c.tipo as string | null) ?? null,
     importId: (c.import_id as string | null) ?? null,
+    sourceItemId: (c.source_item_id as string | null) ?? null,
   }));
 
 }
