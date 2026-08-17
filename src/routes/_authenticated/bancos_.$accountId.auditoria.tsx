@@ -306,6 +306,16 @@ function AuditoriaContaPage() {
         </div>
       </Card>
 
+      <PipelineIntegrity
+        accountId={accountId}
+        imports={imports ?? []}
+        items={statementItems ?? []}
+        transactions={transactions ?? []}
+        checkpoints={checkpoints ?? []}
+      />
+
+
+
       {/* ---------- linha do tempo ---------- */}
       <Card className="mb-5">
         <SectionTitle
