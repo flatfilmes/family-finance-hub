@@ -219,6 +219,12 @@ export type AuditMonth = {
   checkpointsPdf: number;
   /** Checkpoints persistidos que batem com o saldo calculado. */
   checkpointsConferem: number;
+  /** DAILY: lidos do PDF × persistidos × conferidos. */
+  daily: { pdf: number; persistidos: number; conferem: number };
+  /** CLOSING: lido do PDF × persistido × confere. */
+  closing: { pdf: number; persistido: number; confere: boolean | null };
+  /** OPENING é conceito próprio (saldo anterior), nunca um DAILY. */
+  opening: { date: string | null; amount: number | null; persistido: boolean };
   /** Primeiro dia com checkpoint em que calculado ≠ informado. */
   primeiraDivergencia: {
     date: string;
@@ -701,6 +707,19 @@ export function buildBankAudit(input: {
     const checkpointsConferem = days.filter((d) => d.confere === true).length;
     // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
     const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
+    // DAILY e CLOSING são métricas SEPARADAS: o fechamento nunca pode contar
+    // como um "saldo do dia faltando".
+    const dailyPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdfDaily ?? 0), 0);
+    const closingPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdfClosing ?? 0), 0);
+    const fimDoMes = importsDoMes[importsDoMes.length - 1]?.fim ?? null;
+    const closingPersistido = fimDoMes && checkpointPorDia.has(fimDoMes) ? 1 : 0;
+    const closingConfere =
+      closingPersistido && reported !== null
+        ? Math.abs((checkpointPorDia.get(fimDoMes!) ?? 0) - reported) <= CONFERE
+        : null;
+    const dailyPersistidos = Math.max((checkpointsDiariosPorMes.get(key) ?? 0) - closingPersistido, 0);
+    const openingImport = importsDoMes[0] ?? null;
+    const openingDate = openingImport?.openingDatePdf ?? null;
     const movimentosPdf = (itensPorMes.get(key) ?? []).length;
     const faltantes = faltantesPorMes.get(key) ?? [];
     const mismatches = mismatchPorMes.get(key) ?? [];
@@ -709,9 +728,14 @@ export function buildBankAudit(input: {
 
     // Fechar o mês NÃO valida o mês: só há validação completa quando todos os
     // "Saldo do dia" do documento foram processados e todos conferem.
+    // O extra pode ser o CLOSING: comparar DAILY com DAILY, nunca misturado.
+    const dailyConferem = Math.max(checkpointsConferem - (closingConfere === true ? 1 : 0), 0);
     const checkpointsCompletos =
-      checkpointsDoMes > 0 && (checkpointsPdf === 0 || checkpointsDoMes >= checkpointsPdf);
-    const todosConferem = checkpointsDoMes > 0 && checkpointsConferem >= checkpointsDoMes;
+      checkpointsDoMes > 0 && (dailyPdf === 0 || dailyPersistidos >= dailyPdf);
+    const todosConferem =
+      checkpointsDoMes > 0 &&
+      (dailyPersistidos === 0 || dailyConferem >= dailyPersistidos) &&
+      closingConfere !== false;
 
     // Ordem de diagnóstico: primeiro o que quebra o saldo, depois o que só
     // atrapalha a leitura. Categoria e associação nunca invalidam o mês.
@@ -759,6 +783,13 @@ export function buildBankAudit(input: {
       checkpoints: checkpointsDoMes,
       checkpointsPdf,
       checkpointsConferem,
+      daily: { pdf: dailyPdf, persistidos: dailyPersistidos, conferem: dailyConferem },
+      closing: { pdf: closingPdf, persistido: closingPersistido, confere: closingConfere },
+      opening: {
+        date: openingDate,
+        amount: openingImport?.saldoInicial ?? null,
+        persistido: !!openingDate && checkpointPorDia.has(openingDate),
+      },
       primeiraDivergencia,
     };
   });
