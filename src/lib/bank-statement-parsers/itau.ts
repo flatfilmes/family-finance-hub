@@ -110,42 +110,66 @@ export function classificarItau(descricao: string): {
 
 // ------------------------------------------------------------------ detecção
 
-/** Sinais textuais do extrato de conta Itaú (o logo pode não existir como texto). */
+/**
+ * Sinais ESPECÍFICOS do extrato de conta Itaú.
+ *
+ * Nada aqui pode ser genérico: "agência", "conta" e "saldo do dia" existem em
+ * praticamente todo extrato bancário e por isso NÃO entram nesta lista — elas
+ * são tratadas como sinal auxiliar (peso 0,5) no detector central.
+ */
 const SINAIS_ITAU: { id: string; peso: number; teste: (t: string) => boolean }[] = [
-  { id: "extrato conta / lançamentos", peso: 2, teste: (t) => t.includes("extrato conta") },
-  { id: "período de visualização", peso: 2, teste: (t) => t.includes("periodo de visualizacao") },
-  { id: "colunas valor (R$) / saldo (R$)", peso: 2, teste: (t) => t.includes("valor (r$)") && t.includes("saldo (r$)") },
-  { id: "Limite da Conta", peso: 1, teste: (t) => t.includes("limite da conta") },
-  { id: "FATURA PAGA ITAU", peso: 2, teste: (t) => t.includes("fatura paga itau") },
+  { id: "extrato conta / lançamentos", peso: 4, teste: (t) => t.includes("extrato conta") },
+  { id: "período de visualização", peso: 3, teste: (t) => t.includes("periodo de visualizacao") },
+  { id: "FATURA PAGA ITAU", peso: 4, teste: (t) => t.includes("fatura paga itau") },
+  { id: "itau.com.br", peso: 4, teste: (t) => t.includes("itau.com.br") },
+  { id: "Conta Universitária Itaú", peso: 4, teste: (t) => /conta universitaria itau/.test(t) },
+  { id: "Limite da Conta", peso: 2, teste: (t) => t.includes("limite da conta") },
+  {
+    id: "colunas valor (R$) / saldo (R$)",
+    peso: 2,
+    teste: (t) => t.includes("valor (r$)") && t.includes("saldo (r$)"),
+  },
+  { id: "REND PAGO APLIC AUT MAIS", peso: 2, teste: (t) => t.includes("rend pago aplic aut") },
   { id: "PIX TRANSF", peso: 1, teste: (t) => t.includes("pix transf") },
-  { id: "REND PAGO APLIC AUT MAIS", peso: 1, teste: (t) => t.includes("rend pago aplic aut") },
-  { id: "marca Itaú / banco 341", peso: 1, teste: (t) => t.includes("itau") || /\bbanco\s*341\b/.test(t) },
+  {
+    id: "marca Itaú / banco 341",
+    peso: 3,
+    teste: (t) => /\bitau\b/.test(t) || /\bbanco\s*341\b/.test(t),
+  },
 ];
 
 export type ItauDetection = {
   detectedBank: "ITAU" | "UNKNOWN";
   confidence: number;
+  score: number;
   matchedSignals: string[];
 };
 
+/** Pontuação Itaú: só sinais específicos do layout/marca contam. */
+export function scoreItauBankStatement(textos: string[]): {
+  score: number;
+  matchedSignals: string[];
+} {
+  const t = plano(textos.join(" "));
+  const matched = SINAIS_ITAU.filter((s) => s.teste(t));
+  return {
+    score: matched.reduce((a, s) => a + s.peso, 0),
+    matchedSignals: matched.map((s) => s.id),
+  };
+}
+
 /** Detecção por múltiplos sinais — nunca depende só da palavra "Itaú". */
 export function detectItauBankStatement(textos: string[]): ItauDetection {
-  const t = plano(textos.join(" "));
-  const saldoDoDia = textos.filter((l) => plano(l).includes("saldo do dia")).length;
-  const matched = SINAIS_ITAU.filter((s) => s.teste(t));
-  const matchedSignals = matched.map((s) => s.id);
-  let score = matched.reduce((a, s) => a + s.peso, 0);
-  if (saldoDoDia >= 2) {
-    score += 2;
-    matchedSignals.push(`SALDO DO DIA (${saldoDoDia}x)`);
-  }
-  const total = SINAIS_ITAU.reduce((a, s) => a + s.peso, 0) + 2;
+  const { score, matchedSignals } = scoreItauBankStatement(textos);
+  const total = SINAIS_ITAU.reduce((a, s) => a + s.peso, 0);
   return {
     detectedBank: score >= 4 ? "ITAU" : "UNKNOWN",
     confidence: Number(Math.min(1, score / total).toFixed(2)),
+    score,
     matchedSignals,
   };
 }
+
 
 /** Compatibilidade: roteamento booleano usado pelo leitor genérico. */
 export function isItauBankStatement(textos: string[]) {
