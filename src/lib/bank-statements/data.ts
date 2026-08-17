@@ -110,7 +110,16 @@ export async function createBankStatementImport(input: {
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    // Corrida entre duas requests do mesmo arquivo: uma vence, a outra recebe
+    // SAME_STATEMENT_ALREADY_IMPORTED com o import canônico, nunca um erro genérico.
+    if (isFingerprintConflict(error) && input.fingerprint) {
+      const canonico = await findExistingStatementImport(input.bankAccountId, input.fingerprint);
+      throw new SameStatementAlreadyImportedError(canonico?.id ?? null);
+    }
+    throw error;
+  }
+
 
   if (input.linhas.length) {
     // Ordinal da ocorrência: duas linhas idênticas no mesmo documento são dois
