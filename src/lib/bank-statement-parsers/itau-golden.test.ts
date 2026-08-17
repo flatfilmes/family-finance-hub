@@ -197,7 +197,8 @@ describe("Semântica de abertura e fechamento", () => {
     });
     expect(parsed.pipeline.validation.status).toBe("PASS");
   });
-}
+
+
 
   it("modelo canônico exporta lastHistoricalCheckpoint e o fechamento derivado", () => {
     const canonical = toCanonicalStatement(parsed, {
