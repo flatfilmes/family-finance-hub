@@ -38,7 +38,10 @@ import { buildRepairValidation, type RepairValidation } from "@/lib/bank-stateme
 import { RepairValidationPanel } from "@/components/bank/repair-validation-panel";
 import { buildRepairPrecondition } from "@/lib/bank-statements/repair-precondition";
 import { RepairPreconditionPanel } from "@/components/bank/repair-precondition-panel";
-import { buildFinancialRepairDryRun } from "@/lib/bank-statements/financial-repair";
+import {
+  buildFinancialRepairDryRun,
+  toFinancialRepairProof,
+} from "@/lib/bank-statements/financial-repair";
 import { formatCurrency } from "@/lib/finance";
 
 
@@ -141,6 +144,10 @@ function PlanoReparoPage() {
     [accountId, transactions, accounts, imports, checkpoints, items],
   );
 
+  /** Objeto autoritativo: a tela e o JSON exportado leem SÓ daqui. */
+  const provaFinanceira = useMemo(() => toFinancialRepairProof(financeiro), [financeiro]);
+
+
   /** Pré-condição por identidade — dry run, roda junto com a validação. */
   const precondicao = useMemo(() => {
     const candidato = validacao?.candidatos.find((c) => c.veredito === "SERIA_RESTAURADA");
@@ -227,7 +234,15 @@ function PlanoReparoPage() {
             </button>
             <button
               onClick={() =>
-                baixar(JSON.stringify(plan, null, 2), `${base}.json`, "application/json")
+                baixar(
+                  JSON.stringify(
+                    { financialRepairDryRun: provaFinanceira, persistenceRepairPlan: plan },
+                    null,
+                    2,
+                  ),
+                  `${base}.json`,
+                  "application/json",
+                )
               }
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
             >
@@ -249,17 +264,41 @@ function PlanoReparoPage() {
             value={`${plan.totais.statementsCanonicos} · ${plan.totais.overlapsPreservados}`}
           />
           <Metric label="Movimentos oficiais (canonical)" value={String(t.movimentosDocumento)} />
-          <Metric label="Movimentos no ledger" value={String(financeiro.ledger.antes)} />
+          <Metric
+            label="Movimentos no ledger"
+            value={String(provaFinanceira.ledgerBefore.transactionCount)}
+          />
           <Metric label="Missing transactions" value={String(t.linhasRestauradas)} />
-          <Metric label="Extra ledger transactions" value={String(financeiro.remocoes.length)} />
-          <Metric label="Wrong direction transactions" value={String(financeiro.inversoes.length)} />
-          <Metric label="Ledger simulado" value={String(financeiro.ledger.depois)} />
-          <Metric label="Saldo atual" value={formatCurrency(financeiro.saldo.antes)} />
-          <Metric label="Saldo simulado" value={formatCurrency(financeiro.saldo.depois)} />
-          <Metric label="Diferença residual" value={formatCurrency(financeiro.saldo.residual)} />
+          <Metric
+            label="Extra ledger transactions"
+            value={String(
+              provaFinanceira.corrections.filter(
+                (c) => c.type === "REMOVE_EXTRA_LEDGER_TRANSACTION",
+              ).length,
+            )}
+          />
+          <Metric
+            label="Wrong direction transactions"
+            value={String(
+              provaFinanceira.corrections.filter((c) => c.type === "CORRECT_DIRECTION").length,
+            )}
+          />
+          <Metric
+            label="Ledger simulado"
+            value={String(provaFinanceira.ledgerAfter.transactionCount)}
+          />
+          <Metric label="Saldo atual" value={formatCurrency(provaFinanceira.ledgerBefore.balance)} />
+          <Metric
+            label="Saldo simulado"
+            value={formatCurrency(provaFinanceira.ledgerAfter.balance)}
+          />
+          <Metric
+            label="Diferença residual"
+            value={formatCurrency(provaFinanceira.residualDifference)}
+          />
           <Metric
             label="Checkpoints"
-            value={`${financeiro.checkpointsResumo.conferem}/${financeiro.checkpointsResumo.total} ${financeiro.checkpointsResumo.ok ? "PASS" : "FAIL"}`}
+            value={`${provaFinanceira.checkpointsPass}/${provaFinanceira.checkpointsTotal} ${provaFinanceira.status === "PASS" && provaFinanceira.checkpointsPass === provaFinanceira.checkpointsTotal ? "PASS" : "FAIL"}`}
           />
         </div>
         {plan.statements.overlaps.length > 0 && (
