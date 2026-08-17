@@ -204,7 +204,7 @@ function PlanoReparoPage() {
           {validacao && (
             <>
               <StatusBadge tone="ok">
-                Dry run executado · {validacao.totais.seriamRestauradas} transação(ões) a criar ·
+                Dry run executado · {validacao.totais.restoreCount} transação(ões) a criar ·
                 efeito {formatCurrency(validacao.totais.efeitoSaldoFinal)}
               </StatusBadge>
               <button
