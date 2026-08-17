@@ -75,8 +75,13 @@ export function bankMovementsToCandidates(
     const direction = m.valor < 0 ? "OUT" : "IN";
     const kind = kindDoExtrato(String(m.tipo));
     return {
-      ...base(ctx, "BANK_STATEMENT_PDF", i + 1, m.sourceId ?? `${ctx.evidenceId}#${i + 1}`),
-      eventDate: m.data ?? null,
+      ...base(
+        ctx,
+        "BANK_STATEMENT_PDF",
+        i + 1,
+        `${ctx.evidenceId}#${String(i + 1).padStart(3, "0")}#${m.data ?? "s-data"}#${Math.abs(m.valor).toFixed(2)}`,
+      ),
+      eventDate: m.eventDate ?? m.data ?? null,
       postingDate: m.data ?? null,
       description: m.descricaoOriginal,
       amount: Math.abs(m.valor),
