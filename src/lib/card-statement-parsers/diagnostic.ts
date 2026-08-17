@@ -63,16 +63,23 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
         ],
   };
 
+  const cardLast4s = [
+    ...new Set(entries.map((e) => e.card_last4).filter((v): v is string => Boolean(v))),
+  ];
+
   const invoice = {
     issuer: parsed.emissor,
     holder: parsed.titular,
     cardLast4: parsed.final_cartao,
+    cardLast4s,
     // Fechamento da fatura ATUAL: só quando o PDF declara explicitamente.
     // A previsão do próximo fechamento nunca é copiada para cá.
     closingDate: parsed.data_fechamento,
     nextClosingDate: parsed.metadata?.next_closing_date ?? null,
     dueDate: parsed.data_vencimento,
     issueDate: parsed.metadata?.data_emissao ?? null,
+    periodStart: parsed.periodo_inicio ?? null,
+    periodEnd: parsed.periodo_fim ?? null,
     invoiceTotal: totalDeclarado,
     previousInvoiceTotal: parsed.metadata?.total_fatura_anterior ?? null,
     previousPayment: parsed.metadata?.previous_invoice_payment ?? null,
@@ -154,7 +161,9 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
       metadata: parsed.metadata ?? {},
       diagnosticStatus,
       parserFamily: "CARD_STATEMENT",
-      extractionStatus: parsed.extraction_status ?? "READY",
+      // Nunca READY com validação falha: extração bloqueada até difference = 0.
+      extractionStatus:
+        valida && parsed.extraction_status !== "REVIEW_REQUIRED" ? "READY" : "BLOCKED",
       persistenceAllowed: false,
       // Semântica de fatura: nenhum saldo/checkpoint bancário existe aqui.
       bankTransactions: 0,

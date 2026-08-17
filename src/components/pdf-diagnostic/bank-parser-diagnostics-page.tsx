@@ -59,6 +59,9 @@ type SaidaFatura = {
     issuer?: string | null;
     holder?: string | null;
     cardLast4?: string | null;
+    cardLast4s?: string[];
+    periodStart?: string | null;
+    periodEnd?: string | null;
     closingDate?: string | null;
     nextClosingDate?: string | null;
     dueDate?: string | null;
@@ -368,8 +371,21 @@ export function BankParserDiagnosticsPage({
                   ["VALIDATION", fatura?.validation?.status ?? "—"],
                   ["BANK TRANSACTIONS", "0"],
                   ["BANK CHECKPOINTS", "0"],
+                  [
+                    "PERÍODO",
+                    `${dataBr(fatura?.invoice?.periodStart ?? null)} → ${dataBr(
+                      fatura?.invoice?.periodEnd ?? null,
+                    )}`,
+                  ],
                   ["CURRENT CLOSING DATE", dataBr(fatura?.invoice?.closingDate ?? null)],
                   ["NEXT CLOSING DATE", dataBr(fatura?.invoice?.nextClosingDate ?? null)],
+                  ["VENCIMENTO", dataBr(fatura?.invoice?.dueDate ?? null)],
+                  ["PREVIOUS INVOICE", moeda(fatura?.invoice?.previousInvoiceTotal ?? null)],
+                  [
+                    "PREVIOUS PAYMENT",
+                    moeda(fatura?.invoice?.previousPayment?.valor ?? null),
+                  ],
+                  ["PERSISTENCE", "BLOCKED / DRY RUN"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex gap-2">
                     <dt className="font-semibold text-muted-foreground">{k}:</dt>
