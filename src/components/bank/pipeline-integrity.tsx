@@ -62,6 +62,8 @@ export function PipelineIntegrity({
     <>
     <RepairPlanPanel lineages={lineages} imports={imports} items={items} checkpoints={checkpoints} />
     <RepairImpactPanel lineages={lineages} />
+    <Card className="mb-5">
+
 
       <SectionTitle
         title="Integridade do pipeline"
