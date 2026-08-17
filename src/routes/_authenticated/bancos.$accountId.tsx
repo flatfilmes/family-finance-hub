@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { FileUp, MoreHorizontal, Plus, Receipt, Undo2 } from "lucide-react";
 import { FormDialog } from "@/components/form-dialog";
+import { EvidenceImageDialog } from "@/components/evidence/evidence-image-dialog";
 import { ConfirmDialog } from "@/components/record-actions";
 import { BankAccountForm } from "@/components/forms/bank-account-form";
 import { archiveBankAccount } from "@/lib/bank-accounts";
@@ -120,6 +121,7 @@ function ContaDetalhePage() {
 
   const perms = usePermissions();
   const [acao, setAcao] = useState<null | "SALDO" | "PDF" | "IMAGEM" | "DEPOSITO" | "RETIRADA" | "TRANSFERENCIA">(null);
+  const [evidencia, setEvidencia] = useState(false);
   const estornar = useReverseBankTransaction(family?.id);
   const queryClient = useQueryClient();
   const [editando, setEditando] = useState(false);
@@ -281,6 +283,9 @@ function ContaDetalhePage() {
                     <DropdownMenuItem onSelect={() => setAcao("IMAGEM")}>
                       Enviar print
                     </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setEvidencia(true)}>
+                      Enviar comprovante (evidência)
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
@@ -339,6 +344,15 @@ function ContaDetalhePage() {
           </div>
         }
       />
+
+      {evidencia && (
+        <EvidenceImageDialog
+          sourceType="RECEIPT_IMAGE"
+          bankAccountId={conta.id}
+          institutionId={conta.institution_id ?? null}
+          onClose={() => setEvidencia(false)}
+        />
+      )}
 
       {podeOperar && contaNuncaInicializada && (
         <Card className="mb-4 border-primary/30 bg-primary/5">

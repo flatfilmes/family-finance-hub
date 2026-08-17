@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, FileUp, MoreHorizontal, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileUp, ImageUp, MoreHorizontal, Receipt } from "lucide-react";
 
 import { StatementImportDialog } from "@/components/statement-import-dialog";
+import { EvidenceImageDialog } from "@/components/evidence/evidence-image-dialog";
 import { CardStatementImports } from "@/components/card-statement-imports";
 
 import { SearchInput, matchesSearch } from "@/components/search-input";
@@ -85,6 +86,7 @@ function CartaoDetalhePage() {
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
+  const [evidencia, setEvidencia] = useState(false);
   const [verHistorico, setVerHistorico] = useState(false);
   const [mesesFuturos, setMesesFuturos] = useState(9);
   const reguaRef = useRef<HTMLDivElement | null>(null);
@@ -257,6 +259,13 @@ function CartaoDetalhePage() {
           <>
             <button
               type="button"
+              onClick={() => setEvidencia(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-muted-foreground transition-colors hover:bg-muted"
+            >
+              <ImageUp className="size-3.5" /> Enviar print
+            </button>
+            <button
+              type="button"
               onClick={() => setImportando(true)}
               className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-soft transition-colors hover:bg-primary/90"
             >
@@ -310,6 +319,15 @@ function CartaoDetalhePage() {
           </>
         }
       />
+
+      {evidencia && (
+        <EvidenceImageDialog
+          sourceType="CARD_SCREENSHOT"
+          creditCardId={cartao.id}
+          institutionId={cartao.issuer_institution_id ?? null}
+          onClose={() => setEvidencia(false)}
+        />
+      )}
 
       {importando && (
         <StatementImportDialog
