@@ -84,6 +84,8 @@ export type Database = {
           origem: string
           rotulo: string | null
           saldo_informado: number
+          source_item_id: string | null
+          tipo: string
         }
         Insert: {
           bank_account_id: string
@@ -97,6 +99,8 @@ export type Database = {
           origem?: string
           rotulo?: string | null
           saldo_informado: number
+          source_item_id?: string | null
+          tipo?: string
         }
         Update: {
           bank_account_id?: string
@@ -110,6 +114,8 @@ export type Database = {
           origem?: string
           rotulo?: string | null
           saldo_informado?: number
+          source_item_id?: string | null
+          tipo?: string
         }
         Relationships: [
           {
@@ -311,11 +317,13 @@ export type Database = {
           incluir: boolean
           income_id_matched: string | null
           match_status: Database["public"]["Enums"]["bank_statement_match"]
+          occurrence_index: number
           ordem: number
           processado: boolean
           purchase_id_criada: string | null
           purchase_id_matched: string | null
           review_action: string
+          source_id: string | null
           tipo_sugerido: Database["public"]["Enums"]["bank_movement_kind"]
           transaction_id_criada: string | null
           transaction_id_matched: string | null
@@ -339,11 +347,13 @@ export type Database = {
           incluir?: boolean
           income_id_matched?: string | null
           match_status?: Database["public"]["Enums"]["bank_statement_match"]
+          occurrence_index?: number
           ordem?: number
           processado?: boolean
           purchase_id_criada?: string | null
           purchase_id_matched?: string | null
           review_action?: string
+          source_id?: string | null
           tipo_sugerido?: Database["public"]["Enums"]["bank_movement_kind"]
           transaction_id_criada?: string | null
           transaction_id_matched?: string | null
@@ -367,11 +377,13 @@ export type Database = {
           incluir?: boolean
           income_id_matched?: string | null
           match_status?: Database["public"]["Enums"]["bank_statement_match"]
+          occurrence_index?: number
           ordem?: number
           processado?: boolean
           purchase_id_criada?: string | null
           purchase_id_matched?: string | null
           review_action?: string
+          source_id?: string | null
           tipo_sugerido?: Database["public"]["Enums"]["bank_movement_kind"]
           transaction_id_criada?: string | null
           transaction_id_matched?: string | null
