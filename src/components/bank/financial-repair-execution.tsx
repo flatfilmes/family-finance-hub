@@ -146,7 +146,7 @@ export function FinancialRepairExecution({
           <Wrench className="size-3.5" /> {ocupado && confirmando ? "Aplicando reparo..." : "Aplicar reparo"}
         </button>
         {validacao && (
-          <StatusBadge tone={validacao.status === "PASS" ? "ok" : "danger"}>
+          <StatusBadge tone={semErroSql ? "ok" : "danger"}>
             REPAIR_EXECUTION_VALIDATION = {validacao.status}
           </StatusBadge>
         )}
