@@ -368,7 +368,7 @@ export function BankParserDiagnosticsPage({
                   ["VALIDATION", fatura?.validation?.status ?? "—"],
                   ["BANK TRANSACTIONS", "0"],
                   ["BANK CHECKPOINTS", "0"],
-                  ["CLOSING DATE", dataBr(fatura?.invoice?.closingDate ?? null)],
+                  ["CURRENT CLOSING DATE", dataBr(fatura?.invoice?.closingDate ?? null)],
                   ["NEXT CLOSING DATE", dataBr(fatura?.invoice?.nextClosingDate ?? null)],
                 ].map(([k, v]) => (
                   <div key={k} className="flex gap-2">
