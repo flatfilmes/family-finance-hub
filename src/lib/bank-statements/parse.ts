@@ -18,11 +18,11 @@ import {
 } from "@/lib/pdf-extract";
 import { lerData, normalizeDescricao, semAcento } from "@/lib/card-statement-parsers/generic";
 import {
-  isBancoDoBrasil,
+  scoreBancoDoBrasil,
   parseBancoDoBrasilLines,
 } from "@/lib/bank-statement-parsers/banco-do-brasil";
 import {
-  isItauBankStatement,
+  scoreItauBankStatement,
   parseItauBankStatementLayouts,
 } from "@/lib/bank-statement-parsers/itau";
 import type { BankMovementKind, ParsedBankMovement, ParsedBankStatement } from "./types";
