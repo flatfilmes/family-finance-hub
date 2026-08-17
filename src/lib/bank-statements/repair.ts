@@ -1,188 +1,229 @@
 /**
- * PLANO DE REPARO — SOMENTE DRY RUN.
+ * REPARO HISTÓRICO DO EXTRATO — operação auditável, sem ajustes financeiros.
  *
- * Este módulo NÃO grava, NÃO corrige e NÃO recria movimento algum. Ele apenas
- * compara o que o pipeline pós-parser deixou no banco com as regras novas
- * (identidade por sourceId, ocorrência ordinal, transferência com evidência
- * financeira, snapshot canônico e checkpoints tipados) e descreve, item a item,
- * o que precisaria ser feito.
+ * O que esta camada faz (e só isso):
+ *   1. relê a importação já existente (não cria outra);
+ *   2. recompõe o período do documento a partir dos lançamentos lidos;
+ *   3. DESFAZ associações feitas com movimentações de outro mês — o vínculo é
+ *      removido, a movimentação do outro mês continua intacta;
+ *   4. recria apenas o que falta, checando antes se a movimentação já existe
+ *      (mesma conta + data + valor + sentido) para nunca duplicar;
+ *   5. devolve um relatório por mês.
  *
- * Nada aqui reinterpreta a existência econômica: um lançamento válido do PDF
- * permanece válido, aconteça o que acontecer nas camadas seguintes.
+ * O que NUNCA acontece aqui: ajuste de saldo, exclusão de agosto, criação de
+ * checkpoint inventado. Saldo do dia só nasce do PDF reenviado.
  */
-import type { StatementLineage, LineageImportInput, LineageItemInput } from "./lineage";
+import { supabase } from "@/integrations/supabase/client";
 
-export type RepairActionKind =
-  | "BACKFILL_SNAPSHOT"
-  | "BACKFILL_SOURCE_ID"
-  | "BACKFILL_CHECKPOINT_TYPE"
-  | "REVIEW_LOST_MOVEMENT"
-  | "REVIEW_UNPROVEN_TRANSFER";
+/** Tolerância de data para conciliação automática (dias). */
+export const TOLERANCIA_MATCH_DIAS = 2;
 
-export const REPAIR_LABELS: Record<RepairActionKind, string> = {
-  BACKFILL_SNAPSHOT: "Regravar o retrato do documento",
-  BACKFILL_SOURCE_ID: "Atribuir identidade de linha",
-  BACKFILL_CHECKPOINT_TYPE: "Classificar tipo de saldo",
-  REVIEW_LOST_MOVEMENT: "Movimento perdido — precisa de decisão",
-  REVIEW_UNPROVEN_TRANSFER: "Transferência sem comprovação — precisa de decisão",
+export type ImportRepairStatus =
+  | "VALIDADO"
+  | "SOURCE_FILE_MISSING"
+  | "CHECKPOINTS_AUSENTES"
+  | "MOVIMENTOS_INCOMPLETOS"
+  | "INVALID_MATCHES"
+  | "DIVERGENCIA";
+
+export const REPAIR_STATUS_LABELS: Record<ImportRepairStatus, string> = {
+  VALIDADO: "Validado",
+  SOURCE_FILE_MISSING: "PDF de origem ausente",
+  CHECKPOINTS_AUSENTES: "Checkpoints ausentes",
+  MOVIMENTOS_INCOMPLETOS: "Movimentos incompletos",
+  INVALID_MATCHES: "Associações inválidas",
+  DIVERGENCIA: "Divergência de saldo",
 };
 
-export type RepairSeverity = "INFO" | "ATENCAO" | "CRITICO";
+export const REPAIR_STATUS_TONES: Record<
+  ImportRepairStatus,
+  "ok" | "danger" | "warn" | "info" | "muted"
+> = {
+  VALIDADO: "ok",
+  SOURCE_FILE_MISSING: "info",
+  CHECKPOINTS_AUSENTES: "info",
+  MOVIMENTOS_INCOMPLETOS: "danger",
+  INVALID_MATCHES: "warn",
+  DIVERGENCIA: "danger",
+};
 
-export type RepairAction = {
-  kind: RepairActionKind;
-  severity: RepairSeverity;
+/** Relatório de reprocessamento de uma importação (um mês, na prática). */
+export type ImportRepairReport = {
   importId: string;
-  nomeArquivo: string;
-  /** Alvos concretos (ids) que seriam tocados se o reparo fosse executado. */
-  targetIds: string[];
-  quantidade: number;
-  /** Impacto financeiro em reais; 0 quando o reparo é só de metadado. */
-  valorEnvolvido: number;
-  motivo: string;
-  /** O que exatamente mudaria — descrito para conferência humana. */
-  efeito: string;
-  /** Reparos financeiros nunca são automáticos. */
-  exigeConfirmacaoHumana: boolean;
+  arquivo: string;
+  mes: string | null;
+  periodoInicio: string | null;
+  periodoFim: string | null;
+  movimentosPdf: number;
+  ledgerAntes: number;
+  ledgerDepois: number;
+  associacoesInvalidasRemovidas: number;
+  itensReabertos: number;
+  criadas: number;
+  associadas: number;
+  ignoradas: number;
+  checkpoints: number;
+  saldoFinal: number | null;
+  status: ImportRepairStatus;
 };
 
-export type RepairPlan = {
-  geradoEm: string;
-  dryRun: true;
-  acoes: RepairAction[];
-  resumo: {
-    total: number;
-    metadados: number;
-    financeiros: number;
-    valorEnvolvido: number;
-  };
+type RawReport = {
+  import_id: string;
+  arquivo: string;
+  mes: string | null;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  movimentos_pdf: number;
+  ledger_antes: number;
+  ledger_depois: number;
+  associacoes_invalidas_removidas: number;
+  itens_reabertos: number;
+  criadas: number;
+  associadas: number;
+  ignoradas: number;
+  checkpoints: number;
+  saldo_final: number | string | null;
+  status: string;
 };
 
-/** Constrói o plano — função pura, sem I/O e sem efeito colateral. */
-export function buildRepairPlan(input: {
-  lineages: StatementLineage[];
-  imports: LineageImportInput[];
-  items: LineageItemInput[];
-  checkpoints: { id?: string | null; data: string; tipo?: string | null; importId?: string | null }[];
-}): RepairPlan {
-  const acoes: RepairAction[] = [];
-  const nomePorImport = new Map(input.imports.map((i) => [i.id, i.nome_arquivo ?? i.id]));
-
-  for (const imp of input.imports) {
-    const nomeArquivo = imp.nome_arquivo ?? imp.id;
-    const snapshot = imp.dados_brutos_json as { snapshotVersion?: number } | null;
-    if (!snapshot || snapshot.snapshotVersion !== 1) {
-      acoes.push({
-        kind: "BACKFILL_SNAPSHOT",
-        severity: "ATENCAO",
-        importId: imp.id,
-        nomeArquivo,
-        targetIds: [imp.id],
-        quantidade: 1,
-        valorEnvolvido: 0,
-        motivo:
-          "A importação não guardou o retrato canônico do documento, então a auditoria não consegue provar o que o PDF dizia.",
-        efeito:
-          "Reprocessar o PDF em memória e gravar o retrato (saldos, datas e linhas) sem tocar em nenhum movimento.",
-        exigeConfirmacaoHumana: false,
-      });
-    }
-  }
-
-  const itensSemIdentidade = input.items.filter((i) => !i.source_id);
-  const porImport = new Map<string, LineageItemInput[]>();
-  for (const it of itensSemIdentidade) {
-    porImport.set(it.import_id, [...(porImport.get(it.import_id) ?? []), it]);
-  }
-  for (const [importId, itens] of porImport) {
-    acoes.push({
-      kind: "BACKFILL_SOURCE_ID",
-      severity: "INFO",
-      importId,
-      nomeArquivo: nomePorImport.get(importId) ?? importId,
-      targetIds: itens.map((i) => i.id),
-      quantidade: itens.length,
-      valorEnvolvido: 0,
-      motivo:
-        "Linhas antigas foram gravadas antes da identidade por linha e só podem ser rastreadas por data + valor + descrição.",
-      efeito:
-        "Preencher a identidade e a ordem de ocorrência de cada linha. Valor, data e descrição continuam intactos.",
-      exigeConfirmacaoHumana: false,
-    });
-  }
-
-  const semTipo = input.checkpoints.filter((c) => !c.tipo);
-  if (semTipo.length) {
-    acoes.push({
-      kind: "BACKFILL_CHECKPOINT_TYPE",
-      severity: "INFO",
-      importId: semTipo[0]?.importId ?? "",
-      nomeArquivo: nomePorImport.get(semTipo[0]?.importId ?? "") ?? "Vários extratos",
-      targetIds: semTipo.map((c) => c.id ?? c.data),
-      quantidade: semTipo.length,
-      valorEnvolvido: 0,
-      motivo:
-        "Saldos conferidos não distinguem saldo do dia, fechamento e saldo anterior, o que gera pendência falsa na auditoria.",
-      efeito: "Classificar cada saldo pelo tipo. Nenhum valor de saldo é alterado.",
-      exigeConfirmacaoHumana: false,
-    });
-  }
-
-  for (const lin of input.lineages) {
-    // Duplicata sem alvo concreto = movimento legítimo descartado pela regra antiga.
-    const perdidos = lin.rows.filter(
-      (r) => r.finalStatus === "SKIPPED_DUPLICATE" && !r.matchedAgainst,
-    );
-    const ausentes = lin.missingFromLedger.filter((r) => r.finalStatus !== "SKIPPED_DUPLICATE");
-    const alvo = [...perdidos, ...ausentes];
-    if (alvo.length) {
-      acoes.push({
-        kind: "REVIEW_LOST_MOVEMENT",
-        severity: "CRITICO",
-        importId: lin.importId,
-        nomeArquivo: lin.nomeArquivo,
-        targetIds: alvo.map((r) => r.itemId),
-        quantidade: alvo.length,
-        valorEnvolvido: alvo.reduce((acc, r) => acc + Math.abs(r.amount), 0),
-        motivo:
-          "O documento traz estes lançamentos, mas eles não têm movimento correspondente no extrato do sistema.",
-        efeito:
-          "Registrar novamente cada lançamento com a data e o valor originais do documento, após conferência de quem opera.",
-        exigeConfirmacaoHumana: true,
-      });
-    }
-
-    const transferenciasFracas = lin.rows.filter(
-      (r) => r.reviewAction === "MATCH_TRANSFER" && r.reconciliationStatus === "POSSIBLE_MATCH",
-    );
-    if (transferenciasFracas.length) {
-      acoes.push({
-        kind: "REVIEW_UNPROVEN_TRANSFER",
-        severity: "ATENCAO",
-        importId: lin.importId,
-        nomeArquivo: lin.nomeArquivo,
-        targetIds: transferenciasFracas.map((r) => r.itemId),
-        quantidade: transferenciasFracas.length,
-        valorEnvolvido: transferenciasFracas.reduce((acc, r) => acc + Math.abs(r.amount), 0),
-        motivo:
-          "Estes lançamentos viraram transferência a partir de uma sugestão, sem movimento oposto comprovado em outra conta.",
-        efeito:
-          "Rever cada caso: manter como movimento da conta ou confirmar a transferência apontando a conta de destino real.",
-        exigeConfirmacaoHumana: true,
-      });
-    }
-  }
-
-  const financeiros = acoes.filter((a) => a.exigeConfirmacaoHumana);
+function normalizar(raw: RawReport): ImportRepairReport {
+  const status = (
+    ["VALIDADO", "SOURCE_FILE_MISSING", "MOVIMENTOS_INCOMPLETOS"].includes(raw.status)
+      ? raw.status
+      : "DIVERGENCIA"
+  ) as ImportRepairStatus;
   return {
-    geradoEm: new Date().toISOString(),
-    dryRun: true,
-    acoes,
-    resumo: {
-      total: acoes.length,
-      metadados: acoes.length - financeiros.length,
-      financeiros: financeiros.length,
-      valorEnvolvido: financeiros.reduce((acc, a) => acc + a.valorEnvolvido, 0),
-    },
+    importId: raw.import_id,
+    arquivo: raw.arquivo,
+    mes: raw.mes,
+    periodoInicio: raw.periodo_inicio,
+    periodoFim: raw.periodo_fim,
+    movimentosPdf: Number(raw.movimentos_pdf ?? 0),
+    ledgerAntes: Number(raw.ledger_antes ?? 0),
+    ledgerDepois: Number(raw.ledger_depois ?? 0),
+    associacoesInvalidasRemovidas: Number(raw.associacoes_invalidas_removidas ?? 0),
+    itensReabertos: Number(raw.itens_reabertos ?? 0),
+    criadas: Number(raw.criadas ?? 0),
+    associadas: Number(raw.associadas ?? 0),
+    ignoradas: Number(raw.ignoradas ?? 0),
+    checkpoints: Number(raw.checkpoints ?? 0),
+    saldoFinal: raw.saldo_final === null ? null : Number(raw.saldo_final),
+    status,
   };
+}
+
+/** Reprocessa uma importação já existente. Idempotente: rodar de novo não duplica. */
+export async function reprocessBankStatementImport(
+  importId: string,
+  tolerancia = TOLERANCIA_MATCH_DIAS,
+): Promise<ImportRepairReport> {
+  const { data, error } = await supabase.rpc("reprocess_bank_statement_import", {
+    _import_id: importId,
+    _tolerancia: tolerancia,
+  });
+  if (error) throw error;
+  return normalizar(data as unknown as RawReport);
+}
+
+/** Reprocessa o histórico inteiro da conta, do mês mais antigo para o mais novo. */
+export async function reprocessAccountHistory(input: {
+  imports: { id: string; periodo_inicio: string | null; created_at: string }[];
+  tolerancia?: number;
+  onProgress?: (feito: number, total: number) => void;
+}): Promise<ImportRepairReport[]> {
+  const ordenados = [...input.imports].sort((a, b) =>
+    String(a.periodo_inicio ?? a.created_at).localeCompare(String(b.periodo_inicio ?? b.created_at)),
+  );
+  const saidas: ImportRepairReport[] = [];
+  for (let i = 0; i < ordenados.length; i++) {
+    saidas.push(
+      await reprocessBankStatementImport(ordenados[i]!.id, input.tolerancia ?? TOLERANCIA_MATCH_DIAS),
+    );
+    input.onProgress?.(i + 1, ordenados.length);
+  }
+  return saidas;
+}
+
+/**
+ * Saldos de abertura repetidos: cada importação antiga criou um "saldo anterior"
+ * próprio e todos se somaram. Mantém apenas o primeiro e cancela os demais —
+ * nenhum ajuste é criado, o saldo passa a nascer só das movimentações.
+ */
+export async function normalizeOpeningBalances(accountId: string) {
+  const { data, error } = await supabase.rpc("normalize_bank_opening_balances", {
+    _account_id: accountId,
+  });
+  if (error) throw error;
+  const raw = data as unknown as { canceladas: number; saldo: number | string };
+  return { canceladas: Number(raw.canceladas ?? 0), saldo: Number(raw.saldo ?? 0) };
+}
+
+/**
+ * METADADOS + CHECKPOINTS, SEM TOCAR NO LEDGER.
+ *
+ * Relê somente a informação de conferência já extraída do documento
+ * (período, saldo de abertura e saldo final) e regrava os checkpoints
+ * derivados dele. Nenhuma transaction é criada, alterada ou apagada.
+ */
+export type CheckpointsOnlyReport = {
+  importId: string;
+  arquivo: string;
+  periodoInicio: string | null;
+  periodoFim: string | null;
+  saldoInicial: number | null;
+  saldoFinal: number | null;
+  checkpointsCriados: number;
+  checkpointsDiariosPdf: number;
+  checkpointsTotal: number;
+  movimentosDocumento: number;
+  status: "VALIDADO" | "CHECKPOINTS_AUSENTES";
+};
+
+type RawCheckpointsOnly = {
+  import_id: string;
+  arquivo: string;
+  periodo_inicio: string | null;
+  periodo_fim: string | null;
+  saldo_inicial: number | string | null;
+  saldo_final: number | string | null;
+  checkpoints_criados: number;
+  checkpoints_diarios_pdf: number;
+  checkpoints_total: number;
+  movimentos_documento: number;
+  status: string;
+};
+
+function normalizarCheckpoints(raw: RawCheckpointsOnly): CheckpointsOnlyReport {
+  return {
+    importId: raw.import_id,
+    arquivo: raw.arquivo,
+    periodoInicio: raw.periodo_inicio,
+    periodoFim: raw.periodo_fim,
+    saldoInicial: raw.saldo_inicial === null ? null : Number(raw.saldo_inicial),
+    saldoFinal: raw.saldo_final === null ? null : Number(raw.saldo_final),
+    checkpointsCriados: Number(raw.checkpoints_criados ?? 0),
+    checkpointsDiariosPdf: Number(raw.checkpoints_diarios_pdf ?? 0),
+    checkpointsTotal: Number(raw.checkpoints_total ?? 0),
+    movimentosDocumento: Number(raw.movimentos_documento ?? 0),
+    status: raw.status === "VALIDADO" ? "VALIDADO" : "CHECKPOINTS_AUSENTES",
+  };
+}
+
+/** Reprocessa metadados e checkpoints de uma importação. */
+export async function reprocessCheckpointsOnly(importId: string) {
+  const { data, error } = await supabase.rpc("reprocess_bank_statement_checkpoints_only", {
+    _import_id: importId,
+  });
+  if (error) throw error;
+  return normalizarCheckpoints(data as unknown as RawCheckpointsOnly);
+}
+
+/** Roda a conferência em todos os extratos da conta, do mais antigo ao mais novo. */
+export async function reprocessAccountCheckpointsOnly(accountId: string) {
+  const { data, error } = await supabase.rpc("reprocess_account_checkpoints_only", {
+    _account_id: accountId,
+  });
+  if (error) throw error;
+  const raw = data as unknown as { relatorios: RawCheckpointsOnly[] };
+  return (raw.relatorios ?? []).map(normalizarCheckpoints);
 }
