@@ -38,6 +38,7 @@ import { buildRepairValidation, type RepairValidation } from "@/lib/bank-stateme
 import { RepairValidationPanel } from "@/components/bank/repair-validation-panel";
 import { buildRepairPrecondition } from "@/lib/bank-statements/repair-precondition";
 import { RepairPreconditionPanel } from "@/components/bank/repair-precondition-panel";
+import { buildFinancialRepairDryRun } from "@/lib/bank-statements/financial-repair";
 import { formatCurrency } from "@/lib/finance";
 
 
@@ -123,6 +124,23 @@ function PlanoReparoPage() {
     return { plan: p, proof: buildRepairProof({ lineages, plan: p }) };
   }, [accountId, imports, items, transactions, checkpoints]);
 
+  /**
+   * Dry run financeiro do ledger — categoria SEPARADA da restauração de linhas
+   * perdidas. Movimento extra e sentido invertido não são "linha ausente".
+   */
+  const financeiro = useMemo(
+    () =>
+      buildFinancialRepairDryRun({
+        accountId,
+        transactions: transactions ?? [],
+        accounts: accounts ?? [],
+        imports: imports ?? [],
+        checkpoints: checkpoints ?? [],
+        statementItems: (items ?? []) as never,
+      }),
+    [accountId, transactions, accounts, imports, checkpoints, items],
+  );
+
   /** Pré-condição por identidade — dry run, roda junto com a validação. */
   const precondicao = useMemo(() => {
     const candidato = validacao?.candidatos.find((c) => c.veredito === "SERIA_RESTAURADA");
@@ -192,6 +210,11 @@ function PlanoReparoPage() {
                 ? `${t.linhasRestauradas} movimento(s) a restaurar`
                 : "Nenhum movimento perdido"}
             </StatusBadge>
+            {plan.statements.samePeriodOverlap && (
+              <StatusBadge tone="info">
+                {plan.totais.overlapsPreservados} snapshot(s) do mesmo extrato preservado(s)
+              </StatusBadge>
+            )}
           </>
         }
         actions={
@@ -213,6 +236,59 @@ function PlanoReparoPage() {
           </div>
         }
       />
+
+      <Card className="mb-5">
+        <SectionTitle
+          title="Plano de reparo — dry run"
+          hint="Categorias separadas. Reimportar o mesmo extrato não cria movimento econômico: só o extrato canônico entra na contagem, nos checkpoints e nos candidatos."
+        />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Metric label="Statements encontrados" value={String(plan.totais.statementsEncontrados)} />
+          <Metric
+            label="Canonical · overlaps preservados"
+            value={`${plan.totais.statementsCanonicos} · ${plan.totais.overlapsPreservados}`}
+          />
+          <Metric label="Movimentos oficiais (canonical)" value={String(t.movimentosDocumento)} />
+          <Metric label="Movimentos no ledger" value={String(financeiro.ledger.antes)} />
+          <Metric label="Missing transactions" value={String(t.linhasRestauradas)} />
+          <Metric label="Extra ledger transactions" value={String(financeiro.remocoes.length)} />
+          <Metric label="Wrong direction transactions" value={String(financeiro.inversoes.length)} />
+          <Metric label="Ledger simulado" value={String(financeiro.ledger.depois)} />
+          <Metric label="Saldo atual" value={formatCurrency(financeiro.saldo.antes)} />
+          <Metric label="Saldo simulado" value={formatCurrency(financeiro.saldo.depois)} />
+          <Metric label="Diferença residual" value={formatCurrency(financeiro.saldo.residual)} />
+          <Metric
+            label="Checkpoints"
+            value={`${financeiro.checkpointsResumo.conferem}/${financeiro.checkpointsResumo.total} ${financeiro.checkpointsResumo.ok ? "PASS" : "FAIL"}`}
+          />
+        </div>
+        {plan.statements.overlaps.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {plan.statements.overlaps.map((o) => (
+              <div key={o.importId} className="rounded-2xl border border-border px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold">{o.nomeArquivo}</p>
+                  <div className="flex gap-2">
+                    <StatusBadge tone="info">{o.relacao}</StatusBadge>
+                    <StatusBadge tone="muted">{o.papel}</StatusBadge>
+                  </div>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {o.importId} · {o.linhas} linha(s) · impacto financeiro {formatCurrency(0)}
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">{o.motivo}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {plan.jaPresentes.length > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {plan.jaPresentes.length} linha(s) marcada(s) como
+            ALREADY_PRESENT_VIA_OTHER_IMPORT — o fato econômico já existe no ledger e não será
+            restaurado.
+          </p>
+        )}
+      </Card>
 
       <Card className="mb-5">
         <SectionTitle
