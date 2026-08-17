@@ -131,7 +131,22 @@ describe("E2E_CROSS_FAMILY_ISOLATION", () => {
     for (const t of tabelas) {
       expect(sql).toContain(`ALTER TABLE PUBLIC.${t} ENABLE ROW LEVEL SECURITY`);
     }
-    // Nenhuma política econômica pode ser aberta a qualquer usuário autenticado.
-    expect(sql).not.toContain("USING (TRUE)");
+    // Nenhuma política dessas tabelas pode ser aberta a qualquer autenticado:
+    // toda política econômica precisa citar o escopo de família/membro.
+    const politicas = sql.split("CREATE POLICY").slice(1);
+    for (const t of tabelas) {
+      const daTabela = politicas.filter((p) => p.includes(`PUBLIC.${t}`));
+      expect(daTabela.length).toBeGreaterThan(0);
+      for (const politica of daTabela) {
+        const corpo = politica.split(";")[0] ?? "";
+        expect(corpo).not.toContain("USING (TRUE)");
+        expect(
+          corpo.includes("IS_FAMILY_MEMBER") ||
+            corpo.includes("CAN_VIEW_MEMBER_RECORD") ||
+            corpo.includes("CAN_EDIT_MEMBER_RECORD") ||
+            corpo.includes("FAMILY_ID"),
+        ).toBe(true);
+      }
+    }
   });
 });
