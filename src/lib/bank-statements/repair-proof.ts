@@ -133,23 +133,19 @@ export function buildPropagation(plan: PersistenceRepairPlan): {
   linhas: PropagationRow[];
   saldoInicialSeguinte: number | null;
 } {
-  let acumulado = 0;
-  const linhas: PropagationRow[] = plan.periodos.map((p) => {
-    acumulado = round(acumulado + p.deltaPeriodo);
-    const documento = p.saldoDocumento;
-    // O sistema está acima do banco exatamente pelo que deixou de sair.
-    const antes = documento === null ? null : round(documento - acumulado);
-    return {
-      rotulo: p.rotulo,
-      periodEnd: p.periodEnd,
-      saldoDocumento: documento,
-      saldoSistemaAntes: antes,
-      saldoSistemaDepois: documento,
-      diferencaAntes: documento === null || antes === null ? null : round(antes - documento),
-      diferencaDepois: documento === null ? null : 0,
-      origemDaDiferenca: p.restauradas.length > 0,
-    };
-  });
+  // Leitura ENCADEADA: o fechamento calculado de um mês abre o mês seguinte.
+  // É a única forma de enxergar a diferença viajando no tempo.
+  const chained = buildChainedValidation(plan);
+  const linhas: PropagationRow[] = chained.periodos.map((p) => ({
+    rotulo: p.rotulo,
+    periodEnd: p.periodEnd,
+    saldoDocumento: p.saldoDocumento,
+    saldoSistemaAntes: p.saldoAntesRepair,
+    saldoSistemaDepois: p.saldoDepoisRepair,
+    diferencaAntes: p.differenceBefore,
+    diferencaDepois: p.differenceAfter,
+    origemDaDiferenca: p.origemDaDiferenca,
+  }));
 
   const ultimo = linhas[linhas.length - 1];
   return { linhas, saldoInicialSeguinte: ultimo?.saldoSistemaDepois ?? null };
