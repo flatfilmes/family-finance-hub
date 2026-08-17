@@ -20,6 +20,7 @@ import {
 } from "@/lib/bank-statements/lineage";
 import type { Transaction } from "@/lib/transactions";
 import { formatCurrency } from "@/lib/finance";
+import { RepairPlanPanel } from "@/components/bank/repair-plan-panel";
 
 export function PipelineIntegrity({
   accountId,
@@ -50,6 +51,8 @@ export function PipelineIntegrity({
   if (!lineages.length) return null;
 
   return (
+    <>
+    <RepairPlanPanel lineages={lineages} imports={imports} items={items} checkpoints={checkpoints} />
     <Card className="mb-5">
       <SectionTitle
         title="Integridade do pipeline"
@@ -66,6 +69,7 @@ export function PipelineIntegrity({
         ))}
       </div>
     </Card>
+    </>
   );
 }
 

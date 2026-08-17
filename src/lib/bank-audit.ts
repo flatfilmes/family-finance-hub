@@ -21,6 +21,7 @@
  */
 import type { Transaction } from "@/lib/transactions";
 import { movementEffect } from "@/lib/bank-ledger";
+import { readStatementSnapshot } from "@/lib/bank-statements/canonical";
 import {
   groupCheckpointsByImport,
   resolveStatementPeriod,
@@ -123,6 +124,12 @@ export type StatementPeriod = {
   quantidade: number;
   /** "Saldo do dia" encontrados no PDF (0 quando o documento não foi relido). */
   checkpointsPdf: number;
+  /** Saldos diários do PDF, separados do fechamento. */
+  checkpointsPdfDaily: number;
+  /** Fechamento ("S A L D O") declarado pelo PDF. */
+  checkpointsPdfClosing: number;
+  /** Data do saldo anterior conforme o snapshot canônico do documento. */
+  openingDatePdf: string | null;
   status: string;
 };
 
@@ -212,6 +219,12 @@ export type AuditMonth = {
   checkpointsPdf: number;
   /** Checkpoints persistidos que batem com o saldo calculado. */
   checkpointsConferem: number;
+  /** DAILY: lidos do PDF × persistidos × conferidos. */
+  daily: { pdf: number; persistidos: number; conferem: number };
+  /** CLOSING: lido do PDF × persistido × confere. */
+  closing: { pdf: number; persistido: number; confere: boolean | null };
+  /** OPENING é conceito próprio (saldo anterior), nunca um DAILY. */
+  opening: { date: string | null; amount: number | null; persistido: boolean };
   /** Primeiro dia com checkpoint em que calculado ≠ informado. */
   primeiraDivergencia: {
     date: string;
@@ -256,6 +269,10 @@ export type StatementItemInput = {
   /** Compras criadas/associadas pelo extrato: o ledger nasce delas por gatilho. */
   purchase_id_criada?: string | null;
   purchase_id_matched?: string | null;
+  /** Transferência entre contas: o vínculo é o grupo, não o transaction_id. */
+  transfer_group_id?: string | null;
+  source_id?: string | null;
+  occurrence_index?: number | null;
 };
 export type CardPaymentPending = {
   transaction: Transaction;
@@ -410,6 +427,8 @@ export function buildBankAudit(input: {
       // documento (ou, para importações antigas, os saldos do dia).
       const periodo = resolveStatementPeriod(i, checkpointsPorImport.get(i.id) ?? []);
       periodoPorImport.set(i.id, periodo);
+      // Snapshot canônico persistido: fonte de verdade do que o PDF dizia.
+      const snap = readStatementSnapshot(i.dados_brutos_json);
       return {
         id: i.id,
         nomeArquivo: i.nome_arquivo,
@@ -422,11 +441,10 @@ export function buildBankAudit(input: {
         saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
         saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
         quantidade: i.quantidade_lancamentos ?? 0,
-        checkpointsPdf: Array.isArray(
-          (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
-        )
-          ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
-          : 0,
+        checkpointsPdf: snap?.checkpoints.length ?? 0,
+        checkpointsPdfDaily: snap?.checkpoints.filter((c) => c.type === "DAILY").length ?? 0,
+        checkpointsPdfClosing: snap?.checkpoints.filter((c) => c.type === "CLOSING").length ?? 0,
+        openingDatePdf: snap?.openingBalance?.date ?? null,
         status: i.status,
       };
     })
@@ -443,6 +461,13 @@ export function buildBankAudit(input: {
   // Compra vira ledger por gatilho: o vínculo do item pode ser pela compra.
   const porCompra = new Map<string, Transaction>();
   for (const t of daConta) if (t.purchase_id && !porCompra.has(t.purchase_id)) porCompra.set(t.purchase_id, t);
+  // Transferência entre contas: o item aponta para o GRUPO, não para o id da
+  // transação. Ignorar isso gera falso "movimento faltante".
+  const porGrupo = new Map<string, Transaction>();
+  for (const t of daConta) {
+    const grupo = (t as { transfer_group_id?: string | null }).transfer_group_id;
+    if (grupo && !porGrupo.has(grupo)) porGrupo.set(grupo, t);
+  }
 
   const periodoInicio = extratos.find((e) => e.inicio)?.inicio ?? daConta[0]?.data_movimento ?? null;
   const periodoFim =
@@ -512,9 +537,11 @@ export function buildBankAudit(input: {
     const valor = Number(it.valor) || 0;
     const compra = it.purchase_id_criada ?? it.purchase_id_matched ?? null;
     const ligada = it.transaction_id_criada ?? it.transaction_id_matched ?? null;
+    const grupo = it.transfer_group_id ?? null;
     const tx =
       (ligada ? porId.get(ligada) : undefined) ??
       (compra ? porCompra.get(compra) : undefined) ??
+      (grupo ? porGrupo.get(grupo) : undefined) ??
       null;
 
     if (!tx) {
@@ -526,7 +553,7 @@ export function buildBankAudit(input: {
           descricao: it.descricao_original,
           valor,
           motivo:
-            ligada || compra
+            ligada || compra || grupo
               ? "Vinculado a um registro que não existe mais no ledger desta conta."
               : "Lido no PDF, mas sem movimentação correspondente no ledger.",
         },
@@ -680,6 +707,19 @@ export function buildBankAudit(input: {
     const checkpointsConferem = days.filter((d) => d.confere === true).length;
     // Quantos "Saldo do dia" o próprio documento traz — evidência do PDF.
     const checkpointsPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdf ?? 0), 0);
+    // DAILY e CLOSING são métricas SEPARADAS: o fechamento nunca pode contar
+    // como um "saldo do dia faltando".
+    const dailyPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdfDaily ?? 0), 0);
+    const closingPdf = importsDoMes.reduce((acc, e) => acc + (e.checkpointsPdfClosing ?? 0), 0);
+    const fimDoMes = importsDoMes[importsDoMes.length - 1]?.fim ?? null;
+    const closingPersistido = fimDoMes && checkpointPorDia.has(fimDoMes) ? 1 : 0;
+    const closingConfere =
+      closingPersistido && reported !== null
+        ? Math.abs((checkpointPorDia.get(fimDoMes!) ?? 0) - reported) <= CONFERE
+        : null;
+    const dailyPersistidos = Math.max((checkpointsDiariosPorMes.get(key) ?? 0) - closingPersistido, 0);
+    const openingImport = importsDoMes[0] ?? null;
+    const openingDate = openingImport?.openingDatePdf ?? null;
     const movimentosPdf = (itensPorMes.get(key) ?? []).length;
     const faltantes = faltantesPorMes.get(key) ?? [];
     const mismatches = mismatchPorMes.get(key) ?? [];
@@ -688,9 +728,14 @@ export function buildBankAudit(input: {
 
     // Fechar o mês NÃO valida o mês: só há validação completa quando todos os
     // "Saldo do dia" do documento foram processados e todos conferem.
+    // O extra pode ser o CLOSING: comparar DAILY com DAILY, nunca misturado.
+    const dailyConferem = Math.max(checkpointsConferem - (closingConfere === true ? 1 : 0), 0);
     const checkpointsCompletos =
-      checkpointsDoMes > 0 && (checkpointsPdf === 0 || checkpointsDoMes >= checkpointsPdf);
-    const todosConferem = checkpointsDoMes > 0 && checkpointsConferem >= checkpointsDoMes;
+      checkpointsDoMes > 0 && (dailyPdf === 0 || dailyPersistidos >= dailyPdf);
+    const todosConferem =
+      checkpointsDoMes > 0 &&
+      (dailyPersistidos === 0 || dailyConferem >= dailyPersistidos) &&
+      closingConfere !== false;
 
     // Ordem de diagnóstico: primeiro o que quebra o saldo, depois o que só
     // atrapalha a leitura. Categoria e associação nunca invalidam o mês.
@@ -738,6 +783,13 @@ export function buildBankAudit(input: {
       checkpoints: checkpointsDoMes,
       checkpointsPdf,
       checkpointsConferem,
+      daily: { pdf: dailyPdf, persistidos: dailyPersistidos, conferem: dailyConferem },
+      closing: { pdf: closingPdf, persistido: closingPersistido, confere: closingConfere },
+      opening: {
+        date: openingDate,
+        amount: openingImport?.saldoInicial ?? null,
+        persistido: !!openingDate && checkpointPorDia.has(openingDate),
+      },
       primeiraDivergencia,
     };
   });

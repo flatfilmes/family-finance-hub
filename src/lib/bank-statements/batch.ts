@@ -11,7 +11,7 @@
  * arquivos do mesmo lote e o resumo do lote. Nada aqui altera parser algum.
  */
 import type { ParsedBalanceCheckpoint, ParsedBankStatement } from "./types";
-import { movementKey } from "./dedupe";
+import { movementKey, type ExistingIndex } from "./dedupe";
 
 export type BatchFileStatus = "PENDENTE" | "LENDO" | "OK" | "ERRO";
 
@@ -98,21 +98,39 @@ export function detectPeriodOverlaps(files: BatchFile[]): BatchOverlap[] {
  */
 export function markDuplicatesAcrossBatch(
   filesOrdenados: BatchFile[],
-  jaNoSistema: Set<string> = new Set(),
+  jaNoSistema: ExistingIndex | Set<string> = new Set<string>(),
 ): Record<string, boolean[]> {
-  const vistos = new Set<string>();
+  const index: ExistingIndex =
+    jaNoSistema instanceof Set
+      ? {
+          porOcorrencia: new Map([...jaNoSistema].map((k) => [`${k}#0`, k])),
+          porSourceId: new Map(),
+        }
+      : jaNoSistema;
+  // Ordinal de ocorrência: dois lançamentos idênticos no mesmo dia, no MESMO
+  // documento, são dois eventos. Já a repetição entre arquivos sobrepostos é
+  // releitura do mesmo evento.
+  const jaVistos = new Map<string, number>();
   const mapa: Record<string, boolean[]> = {};
   for (const f of filesOrdenados) {
+    const local = new Map<string, number>();
     const marcas: boolean[] = [];
     for (const m of f.parsed?.movimentos ?? []) {
       const chave = movementKey({
         data: m.data,
         valor: m.valor,
         descricao: m.descricaoOriginal,
+        documentNumber: m.documentNumber ?? null,
+        lot: m.lot ?? null,
       });
-      marcas.push(jaNoSistema.has(chave) || vistos.has(chave));
-      vistos.add(chave);
+      const anteriores = jaVistos.get(chave) ?? 0;
+      const occLocal = local.get(chave) ?? 0;
+      local.set(chave, occLocal + 1);
+      marcas.push(
+        occLocal < anteriores || index.porOcorrencia.has(`${chave}#${anteriores + occLocal}`),
+      );
     }
+    for (const [k, n] of local) jaVistos.set(k, Math.max(jaVistos.get(k) ?? 0, n));
     mapa[f.id] = marcas;
   }
   return mapa;
