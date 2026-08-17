@@ -111,7 +111,40 @@ export async function runBankStatementDryRun(input: {
   const dump = await rawPdfDump(input.file, input.file.name);
   const visualRows = rawVisualLines(dump.items);
 
-  const dryRun = defaultDryRunForSource(source);
+  // ETAPA 1 — TIPO ECONÔMICO DO DOCUMENTO (antes da detecção de banco).
+  const textos = [
+    ...visualRows.map((r) => r.items.map((i) => i.text).join(" ")),
+    ...dump.items.map((i) => i.text),
+  ];
+  const documentType = detectDocumentType(textos);
+
+  // ETAPA 2 — ROTEAMENTO POR TIPO, nunca só pela marca do banco.
+  const familia =
+    documentType.type === "CREDIT_CARD_STATEMENT"
+      ? "CARD_STATEMENT"
+      : documentType.type === "RECEIPT"
+        ? "PURCHASE_RECEIPT"
+        : documentType.type === "BANK_STATEMENT"
+          ? "BANK_STATEMENT"
+          : "NONE";
+
+  const sourceEfetiva: DiagnosticSource =
+    familia === "NONE" ? source : (familia as DiagnosticSource);
+
+  const routing: BankStatementDryRunResult["routing"] = {
+    requestedSource: source,
+    documentType: documentType.type,
+    parserFamily: familia,
+    status:
+      familia === "NONE"
+        ? "DOCUMENT_TYPE_UNKNOWN"
+        : source === "BANK_STATEMENT" && familia !== "BANK_STATEMENT"
+          ? "WRONG_DOCUMENT_TYPE_FOR_BANK_STATEMENT"
+          : "OK",
+    reason: documentType.reason,
+  };
+
+  const dryRun = defaultDryRunForSource(sourceEfetiva);
   let parser: ParserDryRunResult | null = null;
   let error: string | null = null;
 
@@ -128,12 +161,21 @@ export async function runBankStatementDryRun(input: {
   }
 
   const pacote = buildDiagnosticPackage({
-    source,
+    source: sourceEfetiva,
     dump,
     visualRows,
     parser,
     page: input.page ?? null,
   });
 
-  return { fileName: dump.fileName, dump, visualRows, parser, package: pacote, error };
+  return {
+    fileName: dump.fileName,
+    dump,
+    visualRows,
+    documentType,
+    routing,
+    parser,
+    package: { ...pacote, documentType, routing },
+    error,
+  };
 }
