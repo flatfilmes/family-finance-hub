@@ -337,7 +337,7 @@ function AuditoriaContaPage() {
         checkpoints={checkpoints ?? []}
       />
 
-      <FalseTransferPanel plano={falseTransfer} />
+      <FinancialRepairPanel plano={financialRepair} />
 
 
 
