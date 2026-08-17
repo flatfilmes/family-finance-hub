@@ -33,6 +33,7 @@ import { Route as AuthenticatedHistoricoIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedMembroMemberIdRouteImport } from './routes/_authenticated/membro.$memberId'
 import { Route as AuthenticatedBancosAccountIdAuditoriaRouteImport } from './routes/_authenticated/bancos_.$accountId.auditoria'
 import { Route as AuthenticatedBancosAccountIdDiagnosticoParserRouteImport } from './routes/_authenticated/bancos_.$accountId.diagnostico-parser'
+import { Route as AuthenticatedBancosAccountIdPlanoReparoRouteImport } from './routes/_authenticated/bancos_.$accountId.plano-reparo'
 import { Route as AuthenticatedCartoesFaturasImportIdRouteImport } from './routes/_authenticated/cartoes.faturas.$importId'
 import { Route as AuthenticatedCartoesCardIdProjecaoRouteImport } from './routes/_authenticated/cartoes_.$cardId.projecao'
 import { Route as AuthenticatedComprasCategoriasPendentesRouteImport } from './routes/_authenticated/compras_.categorias.pendentes'
@@ -175,6 +176,12 @@ const AuthenticatedBancosAccountIdDiagnosticoParserRoute =
     path: '/bancos/$accountId/diagnostico-parser',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBancosAccountIdPlanoReparoRoute =
+  AuthenticatedBancosAccountIdPlanoReparoRouteImport.update({
+    id: '/bancos_/$accountId/plano-reparo',
+    path: '/bancos/$accountId/plano-reparo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCartoesFaturasImportIdRoute =
   AuthenticatedCartoesFaturasImportIdRouteImport.update({
     id: '/cartoes/faturas/$importId',
@@ -242,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/bancos/$accountId/auditoria': typeof AuthenticatedBancosAccountIdAuditoriaRoute
   '/bancos/$accountId/diagnostico-parser': typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
+  '/bancos/$accountId/plano-reparo': typeof AuthenticatedBancosAccountIdPlanoReparoRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/cartoes/$cardId/projecao': typeof AuthenticatedCartoesCardIdProjecaoRoute
   '/compras/categorias/pendentes': typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -274,6 +282,7 @@ export interface FileRoutesByTo {
   '/historico': typeof AuthenticatedHistoricoIndexRoute
   '/bancos/$accountId/auditoria': typeof AuthenticatedBancosAccountIdAuditoriaRoute
   '/bancos/$accountId/diagnostico-parser': typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
+  '/bancos/$accountId/plano-reparo': typeof AuthenticatedBancosAccountIdPlanoReparoRoute
   '/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/cartoes/$cardId/projecao': typeof AuthenticatedCartoesCardIdProjecaoRoute
   '/compras/categorias/pendentes': typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -308,6 +317,7 @@ export interface FileRoutesById {
   '/_authenticated/historico/': typeof AuthenticatedHistoricoIndexRoute
   '/_authenticated/bancos_/$accountId/auditoria': typeof AuthenticatedBancosAccountIdAuditoriaRoute
   '/_authenticated/bancos_/$accountId/diagnostico-parser': typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
+  '/_authenticated/bancos_/$accountId/plano-reparo': typeof AuthenticatedBancosAccountIdPlanoReparoRoute
   '/_authenticated/cartoes/faturas/$importId': typeof AuthenticatedCartoesFaturasImportIdRoute
   '/_authenticated/cartoes_/$cardId/projecao': typeof AuthenticatedCartoesCardIdProjecaoRoute
   '/_authenticated/compras_/categorias/pendentes': typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
     | '/historico/'
     | '/bancos/$accountId/auditoria'
     | '/bancos/$accountId/diagnostico-parser'
+    | '/bancos/$accountId/plano-reparo'
     | '/cartoes/faturas/$importId'
     | '/cartoes/$cardId/projecao'
     | '/compras/categorias/pendentes'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/historico'
     | '/bancos/$accountId/auditoria'
     | '/bancos/$accountId/diagnostico-parser'
+    | '/bancos/$accountId/plano-reparo'
     | '/cartoes/faturas/$importId'
     | '/cartoes/$cardId/projecao'
     | '/compras/categorias/pendentes'
@@ -407,6 +419,7 @@ export interface FileRouteTypes {
     | '/_authenticated/historico/'
     | '/_authenticated/bancos_/$accountId/auditoria'
     | '/_authenticated/bancos_/$accountId/diagnostico-parser'
+    | '/_authenticated/bancos_/$accountId/plano-reparo'
     | '/_authenticated/cartoes/faturas/$importId'
     | '/_authenticated/cartoes_/$cardId/projecao'
     | '/_authenticated/compras_/categorias/pendentes'
@@ -593,6 +606,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBancosAccountIdDiagnosticoParserRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/bancos_/$accountId/plano-reparo': {
+      id: '/_authenticated/bancos_/$accountId/plano-reparo'
+      path: '/bancos/$accountId/plano-reparo'
+      fullPath: '/bancos/$accountId/plano-reparo'
+      preLoaderRoute: typeof AuthenticatedBancosAccountIdPlanoReparoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/cartoes/faturas/$importId': {
       id: '/_authenticated/cartoes/faturas/$importId'
       path: '/cartoes/faturas/$importId'
@@ -666,6 +686,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHistoricoIndexRoute: typeof AuthenticatedHistoricoIndexRoute
   AuthenticatedBancosAccountIdAuditoriaRoute: typeof AuthenticatedBancosAccountIdAuditoriaRoute
   AuthenticatedBancosAccountIdDiagnosticoParserRoute: typeof AuthenticatedBancosAccountIdDiagnosticoParserRoute
+  AuthenticatedBancosAccountIdPlanoReparoRoute: typeof AuthenticatedBancosAccountIdPlanoReparoRoute
   AuthenticatedCartoesFaturasImportIdRoute: typeof AuthenticatedCartoesFaturasImportIdRoute
   AuthenticatedCartoesCardIdProjecaoRoute: typeof AuthenticatedCartoesCardIdProjecaoRoute
   AuthenticatedComprasCategoriasPendentesRoute: typeof AuthenticatedComprasCategoriasPendentesRoute
@@ -700,6 +721,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedBancosAccountIdAuditoriaRoute,
   AuthenticatedBancosAccountIdDiagnosticoParserRoute:
     AuthenticatedBancosAccountIdDiagnosticoParserRoute,
+  AuthenticatedBancosAccountIdPlanoReparoRoute:
+    AuthenticatedBancosAccountIdPlanoReparoRoute,
   AuthenticatedCartoesFaturasImportIdRoute:
     AuthenticatedCartoesFaturasImportIdRoute,
   AuthenticatedCartoesCardIdProjecaoRoute:
