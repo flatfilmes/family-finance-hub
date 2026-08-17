@@ -326,11 +326,15 @@ export async function fetchPurchaseItems(purchaseId: string) {
 }
 
 /**
- * Cria a compra, seus itens e todo o impacto financeiro decorrente:
+ * Cria a compra, seus itens e todo o impacto financeiro decorrente numa ÚNICA
+ * transação PostgreSQL (`create_purchase_complete`): tudo persiste ou nada persiste.
  * - PIX/débito/transferência: a movimentação de saída e o débito na conta vêm das triggers do banco;
  * - dinheiro: apenas movimentação de saída de caixa (nenhuma conta é afetada);
  * - crédito: gera a despesa vinculada, as parcelas e as faturas do cartão;
  * - recorrente: registra a cobrança recorrente com a próxima competência.
+ *
+ * `clientRequestId` protege retry de rede: a mesma requisição repetida devolve a
+ * compra já criada (garantia de banco, não apenas do botão React).
  */
 export async function createPurchase(input: {
   purchase: Omit<PurchaseInsert, "valor_total">;
@@ -342,102 +346,35 @@ export async function createPurchase(input: {
   valorParcela?: number;
   periodicidade?: ExpenseRecurrence;
   cards?: CreditCard[];
-}) {
+  /** Chave de idempotência da requisição (UUID). */
+  clientRequestId?: string;
+}): Promise<Purchase> {
+  const items = input.items.map((i) => ({
+    product_id: i.product_id || null,
+    descricao_produto: i.descricao_produto.trim(),
+    quantidade: Number(i.quantidade) || 0,
+    unidade: i.unidade,
+    valor_unitario: Number(i.valor_unitario) || 0,
+    valor_total: itemTotal(i),
+    categoria_id: i.categoria_id || null,
+    categoria_sugerida: i.categoria_sugerida || null,
+  }));
 
-  const valorTotal = purchaseTotal(input.items);
-  const { data: purchase, error } = await supabase
-    .from("purchases")
-    .insert({ ...input.purchase, valor_total: valorTotal })
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("create_purchase_complete", {
+    p_purchase: input.purchase as unknown as Record<string, unknown>,
+    p_items: items,
+    p_parcelas: Math.max(1, input.parcelas || 1),
+    p_parcela_inicial: Math.max(1, input.parcelaInicial || 1),
+    ...(input.valorParcela != null ? { p_valor_parcela: input.valorParcela } : {}),
+    p_periodicidade: input.periodicidade ?? "MENSAL",
+    ...(input.clientRequestId ? { p_client_request_id: input.clientRequestId } : {}),
+  } as never);
   if (error) throw error;
 
-  if (input.items.length > 0) {
-    const rows: PurchaseItemInsert[] = input.items.map((i) => {
-      // A categoria escolhida na revisão é definitiva; a sugestão só entra se nada foi escolhido.
-      const categoriaFinal = i.categoria_id || i.categoria_sugerida || null;
-      return {
-        purchase_id: purchase.id,
-        product_id: i.product_id || null,
-        descricao_produto: i.descricao_produto.trim(),
-        quantidade: Number(i.quantidade) || 0,
-        unidade: i.unidade,
-        valor_unitario: Number(i.valor_unitario) || 0,
-        valor_total: itemTotal(i),
-        categoria_id: categoriaFinal,
-        categoria_sugerida: i.categoria_sugerida || null,
-        categoria_ajustada: !!i.categoria_sugerida && i.categoria_sugerida !== categoriaFinal,
-      };
-    });
-
-    const { error: itemsError } = await supabase.from("purchase_items").insert(rows);
-    if (itemsError) throw itemsError;
-  }
-
-  const parcelas =
-    purchase.tipo_compra === "COMPRA_PARCELADA" ? Math.max(1, input.parcelas || 1) : 1;
-  const parcelaInicial = Math.min(Math.max(1, input.parcelaInicial || 1), parcelas);
-
-  // Cartão de crédito: nada sai da conta; vira compromisso na fatura.
-  if (purchase.forma_pagamento === "CREDITO" && purchase.credit_card_id) {
-    const card = (input.cards ?? []).find((c) => c.id === purchase.credit_card_id);
-    if (card) {
-      const { data: expense, error: expenseError } = await supabase
-        .from("expenses")
-        .insert({
-          family_id: purchase.family_id,
-          member_id: purchase.member_id,
-          created_by: purchase.created_by,
-          purchase_id: purchase.id,
-          descricao: purchase.estabelecimento,
-          valor: valorTotal,
-          data_compra: purchase.data_compra,
-          forma_pagamento: "CREDITO",
-          tipo_compra: parcelas > 1 ? "PARCELADO" : "CARTAO_CREDITO",
-          cartao_id: card.id,
-          parcelas_total: parcelas,
-          parcela_atual: parcelaInicial,
-        })
-        .select()
-        .single();
-      if (expenseError) throw expenseError;
-
-      await generateInstallments({
-        familyId: purchase.family_id,
-        expenseId: expense.id,
-        card,
-        dataCompra: purchase.data_compra,
-        valorTotal,
-        parcelas,
-        parcelaInicial,
-        ...(input.valorParcela != null ? { valorParcela: input.valorParcela } : {}),
-        memberId: purchase.member_id,
-        purchaseId: purchase.id,
-      });
-    }
-  }
-
-
-  // Compra ou conta recorrente: gera o compromisso mensal (não é parcela).
-  if (isRecorrente(purchase.tipo_compra)) {
-    const { error: recError } = await supabase.from("recurring_expenses").insert({
-      family_id: purchase.family_id,
-      member_id: purchase.member_id,
-      purchase_id: purchase.id,
-      credit_card_id: purchase.credit_card_id,
-      bank_account_id: purchase.bank_account_id,
-      created_by: purchase.created_by,
-      nome: purchase.estabelecimento,
-      valor: valorTotal,
-      periodicidade: input.periodicidade ?? "MENSAL",
-      data_inicio: purchase.data_compra,
-      proxima_cobranca: nextChargeDate(purchase.data_compra, input.periodicidade ?? "MENSAL"),
-    });
-    if (recError) throw recError;
-  }
-
-  return purchase;
+  const result = data as unknown as { status: string; purchase: Purchase };
+  return result.purchase;
 }
+
 
 /** Relatório de impacto antes de excluir uma compra. */
 export type PurchaseDeletionReport = {

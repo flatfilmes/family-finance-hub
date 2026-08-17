@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { SearchInput, matchesSearch } from "@/components/search-input";
 import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/empty-state";
@@ -243,9 +243,14 @@ function Compras() {
     }
   };
 
+  // Chave de idempotência: sobrevive a retry de rede e duplo clique. Só é
+  // renovada quando a compra realmente entra.
+  const requestIdRef = useRef<string | null>(null);
+
   const create = useMutation({
-    mutationFn: () =>
-      createPurchase({
+    mutationFn: () => {
+      requestIdRef.current ??= crypto.randomUUID();
+      return createPurchase({
         purchase: {
           family_id: family!.id,
           member_id: membroResponsavel || null,
@@ -264,8 +269,11 @@ function Compras() {
         parcelas: Number(parcelas) || 1,
         periodicidade,
         cards: cards ?? [],
-      }),
+        clientRequestId: requestIdRef.current,
+      });
+    },
     onSuccess: () => {
+      requestIdRef.current = null;
       toast.success("Compra registrada.");
       reset();
       setShowForm(false);
@@ -273,6 +281,7 @@ function Compras() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   const [excluindo, setExcluindo] = useState<Purchase | null>(null);
 

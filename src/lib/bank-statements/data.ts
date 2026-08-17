@@ -31,11 +31,34 @@ export async function findExistingStatementImport(accountId: string, fingerprint
     .select("*")
     .eq("bank_account_id", accountId)
     .eq("fingerprint", fingerprint)
+    .is("duplicate_of_import_id", null)
     .order("created_at", { ascending: false })
     .limit(1);
   if (error) throw error;
   return data?.[0] ?? null;
 }
+
+/**
+ * Erro de corrida: duas requisições tentaram criar o mesmo extrato ao mesmo tempo
+ * (duplo clique, duas abas, retry de rede). Uma vence; a outra recebe isto.
+ */
+export class SameStatementAlreadyImportedError extends Error {
+  readonly code = "SAME_STATEMENT_ALREADY_IMPORTED";
+  constructor(readonly canonicalImportId: string | null) {
+    super("Este extrato já foi importado nesta conta.");
+    this.name = "SameStatementAlreadyImportedError";
+  }
+}
+
+/** O banco recusou a gravação por já existir um import canônico com o mesmo fingerprint. */
+export function isFingerprintConflict(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return (
+    error.code === "23505" &&
+    /bank_statement_imports_canonical_fingerprint_uidx/.test(error.message ?? "")
+  );
+}
+
 
 /** Grava a importação e os lançamentos revisados. Nada vira movimentação aqui. */
 export async function createBankStatementImport(input: {
@@ -87,7 +110,16 @@ export async function createBankStatementImport(input: {
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    // Corrida entre duas requests do mesmo arquivo: uma vence, a outra recebe
+    // SAME_STATEMENT_ALREADY_IMPORTED com o import canônico, nunca um erro genérico.
+    if (isFingerprintConflict(error) && input.fingerprint) {
+      const canonico = await findExistingStatementImport(input.bankAccountId, input.fingerprint);
+      throw new SameStatementAlreadyImportedError(canonico?.id ?? null);
+    }
+    throw error;
+  }
+
 
   if (input.linhas.length) {
     // Ordinal da ocorrência: duas linhas idênticas no mesmo documento são dois
@@ -211,14 +243,31 @@ export async function fetchBankBalanceCheckpoints(accountId: string) {
 }
 
 
-/** Executa as ações revisadas. Idempotente: confirmar de novo não duplica nada. */
+export type ConfirmImportResult = {
+  status: "CONFIRMED" | "ALREADY_CONFIRMED";
+  criadas: number;
+  associadas: number;
+  ignoradas: number;
+};
+
+/**
+ * Executa as ações revisadas. Idempotente em dois níveis: o import já confirmado
+ * devolve ALREADY_CONFIRMED sem reprocessar, e cada item tem seu próprio guard.
+ */
 export async function confirmBankStatementImport(importId: string) {
   const { data, error } = await supabase.rpc("confirm_bank_statement_import", {
     _import_id: importId,
   });
   if (error) throw error;
-  return data as unknown as { criadas: number; associadas: number; ignoradas: number };
+  const bruto = (data ?? {}) as Record<string, unknown>;
+  return {
+    status: bruto["status"] === "ALREADY_CONFIRMED" ? "ALREADY_CONFIRMED" : "CONFIRMED",
+    criadas: Number(bruto["criadas"] ?? 0),
+    associadas: Number(bruto["associadas"] ?? 0),
+    ignoradas: Number(bruto["ignoradas"] ?? 0),
+  } satisfies ConfirmImportResult;
 }
+
 
 export async function fetchBankStatementImports(accountId: string) {
   const { data, error } = await supabase
