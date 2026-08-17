@@ -19,8 +19,8 @@ import { RepairPostingDatesDialog } from "@/components/bank/repair-posting-dates
 import { CheckpointsOnlyButton } from "@/components/bank/checkpoints-only-button";
 import { ImportResetDialog } from "@/components/bank/import-reset-dialog";
 import { PipelineIntegrity } from "@/components/bank/pipeline-integrity";
-import { FalseTransferPanel } from "@/components/bank/false-transfer-panel";
-import { buildFalseTransferDryRun } from "@/lib/bank-statements/false-transfer-repair";
+import { FinancialRepairPanel } from "@/components/bank/financial-repair-panel";
+import { buildFinancialRepairDryRun } from "@/lib/bank-statements/financial-repair";
 import {
   auditToCsv,
   buildBankAudit,
