@@ -1,0 +1,194 @@
+{
+  "report": "PRE_FIX_EVIDENCE_REPORT",
+  "phase": "FASE_0_PROVAS_FINAIS_PRE_CORRECAO",
+  "generated_at": "2026-08-17T14:19:00Z",
+  "mode": "READ_ONLY",
+  "mutations_executed": {
+    "migrations": 0,
+    "code_changes": 0,
+    "rls_changes": 0,
+    "inserts": 0,
+    "updates": 0,
+    "deletes": 0
+  },
+  "SEC-001": {
+    "status": "PASS",
+    "rls_enabled": true,
+    "force_rls": false,
+    "policies": [
+      {
+        "policyname": "transactions_select",
+        "cmd": "SELECT",
+        "roles": ["authenticated"],
+        "qual": "can_view_member_record(family_id, member_id, auth.uid())",
+        "with_check": null
+      }
+    ],
+    "relacl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=rDxtm/postgres,service_role=arwdDxtm/postgres}",
+    "grants": {
+      "anon": { "select": true, "insert": true, "update": true, "delete": true },
+      "authenticated": { "select": true, "insert": false, "update": false, "delete": false },
+      "service_role": { "select": true, "insert": true, "update": true, "delete": true }
+    },
+    "TRANSACTIONS_RLS_WRITE_STATUS": {
+      "DIRECT_INSERT_AUTHENTICATED": "BLOCKED",
+      "DIRECT_UPDATE_AUTHENTICATED": "BLOCKED",
+      "DIRECT_DELETE_AUTHENTICATED": "BLOCKED"
+    },
+    "blocking_layers": ["missing GRANT a/w/d for authenticated", "no INSERT/UPDATE/DELETE policy under enabled RLS"],
+    "hygiene_note": "anon possui GRANTs de escrita sem qualquer policy; bloqueio depende só da RLS. REVOKE recomendado (nao aplicado).",
+    "legit_writers": [
+      { "name": "adjust_bank_account_balance", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "apply_bank_persistence_repair", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "apply_financial_ledger_repair", "kind": "RPC", "security": "DEFINER", "ops": ["UPDATE", "DELETE"] },
+      { "name": "confirm_bank_statement_import", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "merge_duplicate_purchase", "kind": "RPC", "security": "DEFINER", "ops": ["UPDATE"] },
+      { "name": "normalize_bank_opening_balances", "kind": "RPC", "security": "DEFINER", "ops": ["UPDATE"] },
+      { "name": "pay_card_invoice", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "purchase_transaction_sync", "kind": "TRIGGER", "security": "DEFINER", "table": "purchases", "ops": ["INSERT", "DELETE"] },
+      { "name": "purge_family_records", "kind": "RPC", "security": "DEFINER", "ops": ["DELETE"] },
+      { "name": "register_bank_movement", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "repair_bank_transaction_posting_dates", "kind": "RPC", "security": "DEFINER", "ops": ["UPDATE"] },
+      { "name": "reset_bank_account_imports", "kind": "RPC", "security": "DEFINER", "ops": ["UPDATE", "DELETE"] },
+      { "name": "reset_family_purchases_and_cards", "kind": "RPC", "security": "DEFINER", "ops": ["UPDATE"] },
+      { "name": "reverse_bank_transaction", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "revert_bank_persistence_repair", "kind": "RPC", "security": "DEFINER", "ops": ["DELETE"] },
+      { "name": "set_bank_account_balance", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] },
+      { "name": "transfer_between_accounts", "kind": "RPC", "security": "DEFINER", "ops": ["INSERT"] }
+    ],
+    "security_invoker_writers": 0
+  },
+  "TRF-001": {
+    "status": "PASS",
+    "db_function": "public.transfer_between_accounts(uuid,uuid,numeric,date,text)",
+    "db_migration_file": "supabase/migrations/20260816075729_f42c5620-c7cc-48f7-8b87-d1692367f13c.sql",
+    "language": "plpgsql",
+    "security": "DEFINER",
+    "client_file": "src/lib/transactions.ts",
+    "client_function": "transferBetweenAccounts",
+    "client_lines": "65-81",
+    "hook": "src/hooks/useTransactions.ts:31-41",
+    "answers": {
+      "cria_transaction_saida_origem": "YES",
+      "cria_transaction_entrada_destino": "YES",
+      "mesmo_transfer_group_id": "YES",
+      "atualiza_saldo_das_duas_contas": "YES",
+      "atomica": "YES",
+      "via_rpc": "YES"
+    },
+    "guards": [
+      "auth.uid() obrigatorio",
+      "origem <> destino",
+      "valor > 0",
+      "mesma family_id",
+      "can_manage_member_record nas duas contas"
+    ],
+    "simulation_in_memory": {
+      "executed_against_database": false,
+      "before": { "conta_a": 1000.0, "conta_b": 500.0, "patrimonio": 1500.0 },
+      "transfer": 200.0,
+      "after": { "conta_a": 800.0, "conta_b": 700.0, "patrimonio": 1500.0 },
+      "expected_match": true,
+      "ledger_effect": "2 transactions TRANSFERENCIA (SAIDA/ENTRADA) mesmo transfer_group_id, efeito liquido 0"
+    }
+  },
+  "IMP-003": {
+    "status": "FALSE_POSITIVE",
+    "total_rows_null_bank_account": 107,
+    "breakdown": {
+      "CREDITO": 107,
+      "PIX": 0,
+      "DEBITO": 0,
+      "DINHEIRO": 0,
+      "TRANSFERENCIA": 0,
+      "OUTROS": 0
+    },
+    "detail": [
+      { "forma_pagamento": "CREDITO", "tipo": "SAIDA", "has_credit_card_id": true, "count": 107 }
+    ],
+    "rows_without_purchase": 0,
+    "anomalous_ids": []
+  },
+  "ARC-003": {
+    "status": "SAFE_TO_REMOVE",
+    "buildExistingMovementKeys_occurrences": [
+      { "file": "src/lib/bank-statements/dedupe.ts", "line": 104, "type": "DEPRECATION_COMMENT" },
+      { "file": "src/lib/bank-statements/dedupe.ts", "line": 105, "type": "DEFINITION" },
+      { "file": "src/lib/bank-statement-parsers/itau-bank.test.ts", "line": 3, "type": "IMPORT_TEST" },
+      { "file": "src/lib/bank-statement-parsers/itau-bank.test.ts", "line": 168, "type": "CALL_TEST" }
+    ],
+    "production_call_sites": 0,
+    "replacement": [
+      { "symbol": "movementKey", "file": "src/lib/bank-statements/dedupe.ts", "line": 40 },
+      { "symbol": "occurrenceKey", "file": "src/lib/bank-statements/dedupe.ts", "line": 62 },
+      { "symbol": "buildExistingMovementIndex", "file": "src/lib/bank-statements/dedupe.ts", "line": 84 },
+      { "symbol": "classificarDuplicados", "file": "src/lib/bank-statements/dedupe.ts", "line": 130 }
+    ],
+    "active_consumers": [
+      "src/routes/_authenticated/bancos_.$accountId.extratos.revisar.tsx:40,167",
+      "src/routes/_authenticated/bancos_.$accountId.extratos.lote.tsx:30,114"
+    ],
+    "removal_blocker": "itau-bank.test.ts precisa migrar para buildExistingMovementIndex + classificarDuplicados"
+  },
+  "IMP-001": {
+    "column_actual_name": "fingerprint",
+    "database_unique": "ABSENT",
+    "indexes": [
+      { "name": "bank_statement_imports_pkey", "columns": ["id"], "unique": true },
+      { "name": "bank_statement_imports_account_idx", "columns": ["bank_account_id", "created_at DESC"], "unique": false },
+      { "name": "bank_statement_imports_fingerprint_idx", "columns": ["bank_account_id", "fingerprint"], "unique": false }
+    ],
+    "constraints": [
+      "bank_statement_imports_pkey PRIMARY KEY (id)",
+      "FK bank_account_id -> bank_accounts(id) ON DELETE CASCADE",
+      "FK created_by -> auth.users(id) ON DELETE SET NULL",
+      "FK family_id -> families(id) ON DELETE CASCADE",
+      "FK member_id -> family_members(id) ON DELETE SET NULL"
+    ],
+    "application_level_guard": "findExistingStatementImport (src/lib/bank-statements/data.ts)",
+    "card_equivalent_guard": "trigger block_duplicate_confirmed_statement em card_statement_imports (existe apenas para cartoes)",
+    "duplicate_groups": 1,
+    "groups": [
+      {
+        "bank_account_id": "def1d8cc-1b37-4346-bb3f-ad3b0cc3f7fc",
+        "fingerprint": "f7dacaa7ae84d7d1bf0807d56290cf9d3268469a52b1def1e058cb19ef6e7528",
+        "count": 3,
+        "periodo": { "inicio": "2026-01-01", "fim": "2026-06-30" },
+        "imports": [
+          { "id": "6a6a8cdf-f4f4-48ef-bb21-9716c9e98f2b", "created_at": "2026-08-17T02:17:03.005Z", "status": "CONFIRMED", "items": 17, "items_processed": 17, "transactions_created": 12, "role": "CANONICAL" },
+          { "id": "9e6606cf-e6e5-4df0-bc79-9f86b92f0d67", "created_at": "2026-08-17T02:35:10.648Z", "status": "CONFIRMED", "items": 17, "items_processed": 17, "transactions_created": 0, "role": "SAME_PERIOD_OVERLAP" },
+          { "id": "549c345a-b903-43b7-9d3a-a565beec90af", "created_at": "2026-08-17T02:58:46.187Z", "status": "CONFIRMED", "items": 17, "items_processed": 17, "transactions_created": 0, "role": "SAME_PERIOD_OVERLAP" }
+        ],
+        "ledger_duplication": false,
+        "impact": "metadado/contagem, sem impacto financeiro"
+      }
+    ],
+    "deletions_performed": 0
+  },
+  "CONFIRM_BANK_IMPORT_IDEMPOTENCY": {
+    "function": "public.confirm_bank_statement_import(uuid)",
+    "security": "DEFINER",
+    "already_processed_guard_at_import_level": "NO",
+    "already_processed_guard_at_item_level": "YES",
+    "item_guard_expression": "IF it.processado OR it.transaction_id_criada IS NOT NULL OR it.purchase_id_criada IS NOT NULL THEN CONTINUE",
+    "idempotent_key": "PARTIAL",
+    "idempotent_key_detail": "flag por item + dedupe por equivalencia (bank_account_id, data_movimento, round(abs(valor),2), sentido, transaction ainda nao vinculada) -> transaction_id_matched. Nao existe chave unica de banco nem uso de source_id.",
+    "rerun_same_import_id_recreates_transactions": "NO",
+    "rerun_same_file_new_import_recreates_transactions": "NOT_PROVEN",
+    "empirical_evidence": "imports 9e6606cf e 549c345a (mesmo arquivo, novos import_id) criaram 0 transactions — absorvidos pelo dedupe por equivalencia",
+    "residual_risks": [
+      "ABERTURA_SALDO inserido com base em ausencia generica de transaction anterior a v_inicio",
+      "classificacao economica por regex de descricao dentro do caminho de escrita"
+    ],
+    "rpc_called": false
+  },
+  "SUMMARY": {
+    "SEC-001": "PASS",
+    "TRF-001": "PASS",
+    "IMP-003": "PASS",
+    "ARC-003": "PASS",
+    "IMP-001_DATABASE_UNIQUE": "ABSENT",
+    "IMP-001_DUPLICATE_GROUPS": 1,
+    "CONFIRM_IMPORT_IDEMPOTENT": "YES_SAME_IMPORT_ID / NOT_PROVEN_SAME_FILE_NEW_IMPORT"
+  }
+}
