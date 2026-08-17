@@ -138,7 +138,7 @@ export function buildStatementSelection(input: {
       nomeArquivo: i.nome_arquivo ?? "extrato",
       periodStart: i.periodo_inicio,
       periodEnd: i.periodo_fim,
-      openingDate: opening ? snapshotOpening : snapshotOpening ? null : null,
+      openingDate: snapshotOpening,
       openingBalance: num(i.saldo_inicial),
       closingBalance: num(i.saldo_final),
       parser: i.parser ?? null,
