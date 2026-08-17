@@ -5,9 +5,9 @@
  * hoje no extrato do sistema, quais linhas exatas voltariam (com sourceId) e
  * qual saldo final o período passaria a ter. Nenhuma gravação acontece aqui.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileJson } from "lucide-react";
+import { Download, FileJson, ShieldCheck } from "lucide-react";
 
 import { Card } from "@/components/page-header";
 import { DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
@@ -24,7 +24,10 @@ import {
   repairPlanToCsv,
   type RepairPeriod,
 } from "@/lib/bank-statements/persistence-repair";
+import { buildRepairProof } from "@/lib/bank-statements/repair-proof";
+import { RepairProofPanel } from "@/components/bank/repair-proof-panel";
 import { formatCurrency } from "@/lib/finance";
+
 
 export const Route = createFileRoute("/_authenticated/bancos_/$accountId/plano-reparo")({
   head: () => ({
@@ -58,14 +61,16 @@ function PlanoReparoPage() {
 
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
 
-  const plan = useMemo(() => {
+  const [validado, setValidado] = useState(false);
+
+  const { plan, proof } = useMemo(() => {
     const lineages = buildAccountLineage({
       imports: imports ?? [],
       items: items ?? [],
       transactions: (transactions ?? []).filter((t) => t.bank_account_id === accountId),
       checkpoints: checkpoints ?? [],
     });
-    return buildPersistenceRepairPlan({
+    const p = buildPersistenceRepairPlan({
       accountId,
       lineages,
       imports: imports ?? [],
@@ -74,7 +79,9 @@ function PlanoReparoPage() {
       allTransactions: transactions ?? [],
       checkpoints: checkpoints ?? [],
     });
+    return { plan: p, proof: buildRepairProof({ lineages, plan: p }) };
   }, [accountId, imports, items, transactions, checkpoints]);
+
 
   if (!family) return <NoFamily />;
   if (!conta) {
@@ -160,6 +167,42 @@ function PlanoReparoPage() {
           />
         </div>
       </Card>
+
+      <RepairProofPanel proof={proof} />
+
+      <Card className="mb-5 border-primary/30 bg-primary/5">
+        <SectionTitle
+          title="Validação do reparo"
+          hint="Validar apenas confere a prova acima: cada linha ausente tem documento identificado e efeito de saldo conhecido. Nenhum dado financeiro é alterado nesta etapa."
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setValidado(true)}
+            className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            <ShieldCheck className="size-3.5" /> Validar reparo
+          </button>
+          <button
+            disabled
+            title="Ainda não disponível — o reparo só será executado em uma etapa própria."
+            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground opacity-60"
+          >
+            Aplicar reparo
+          </button>
+          {validado && (
+            <StatusBadge tone="ok">
+              Prova validada · {proof.grupos.reduce((a, g) => a + g.ausentes, 0)} movimento(s)
+              ausente(s) identificado(s) · efeito {formatCurrency(plan.totais.deltaSaldoAtual)}
+            </StatusBadge>
+          )}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Nada foi executado. "Aplicar reparo" permanece desligado até que a restauração seja
+          liberada explicitamente.
+        </p>
+      </Card>
+
+
 
       <Card className="mb-5">
         <SectionTitle
