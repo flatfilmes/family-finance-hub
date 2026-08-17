@@ -84,16 +84,17 @@ export function FinancialRepairExecution({
   }
 
   async function aplicar() {
-    setConfirmando(false);
+    if (ocupado || resultado) return; // trava contra duplo clique
     setOcupado(true);
     setErro(null);
     try {
       const r = await applyFinancialLedgerRepair();
       setResultado(r);
       setValidacao(null);
+      setConfirmando(false);
       onApplied?.();
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Não foi possível aplicar o reparo.");
+      setErro(mensagemDeErro(e));
     } finally {
       setOcupado(false);
     }
