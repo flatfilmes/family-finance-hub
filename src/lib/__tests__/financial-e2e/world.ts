@@ -172,6 +172,7 @@ export function candidate(over: Partial<FinancialCandidateEvent> = {}): Financia
     postingDate: "2026-08-12",
     description: "MERCADO XYZ",
     amount: 84.9,
+    rawAmount: 84.9,
     direction: "OUT",
     economicKind: "PURCHASE",
     cardLast4: "9982",

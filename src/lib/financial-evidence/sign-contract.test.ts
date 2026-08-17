@@ -63,12 +63,13 @@ describe("contrato canônico de sinal", () => {
       [{ date: "2026-08-10", description: "MERCADO SAO JOSE", amount: 84.9 }],
       ctx,
     );
-    const movimento: ParsedBankMovement = {
+    const movimento = {
       data: "2026-08-10",
       descricaoOriginal: "MERCADO SAO JOSE",
+      descricaoNormalizada: "MERCADO SAO JOSE",
       valor: -84.9,
       tipo: "COMPRA",
-    } as ParsedBankMovement;
+    } as unknown as ParsedBankMovement;
     const [extrato] = bankMovementsToCandidates([movimento], ctx);
 
     for (const c of [print, fatura, extrato]) {
