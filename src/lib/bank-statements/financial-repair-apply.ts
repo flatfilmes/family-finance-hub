@@ -14,7 +14,9 @@
  * Nada é executado por conta própria: só a partir de um clique humano.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { fetchBankBalanceCheckpoints } from "./data";
 import type { FinancialRepairProof } from "./financial-repair";
+
 
 export const REPAIR_TYPE = "ITAU_LEDGER_REPAIR_2026_01_06";
 
