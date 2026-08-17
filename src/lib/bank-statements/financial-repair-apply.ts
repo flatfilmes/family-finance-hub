@@ -213,10 +213,12 @@ export async function validateRepairExecution(
 
     grupo = alvo?.transfer_group_id ?? null;
     if (grupo) {
-      const { data: pares } = await supabase
+      const { data: pares, error: erroPares } = await supabase
         .from("transactions")
         .select("id, bank_account_id, data_movimento, valor, tipo, transfer_role, status")
         .eq("transfer_group_id", grupo);
+      if (erroPares) sqlErrors.push(erroPares.message);
+
       const perna = (pares ?? []).find(
         (p) => p.id !== a.remove.transactionId && p.bank_account_id !== a.accountId && p.status !== "CANCELADA",
       );
