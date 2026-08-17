@@ -19,6 +19,7 @@
 import { movementEffect } from "@/lib/bank-ledger";
 import type { Transaction } from "@/lib/transactions";
 import { movementKey } from "./dedupe";
+import { readStatementSnapshot } from "./canonical";
 
 export type LineageFinalStatus =
   | "PERSISTED_NEW"
@@ -155,6 +156,10 @@ export type LineageItemInput = {
   purchase_id_criada?: string | null;
   purchase_id_matched?: string | null;
   transfer_group_id?: string | null;
+  /** Identidade primária da linha do documento (parser). */
+  source_id?: string | null;
+  /** Ordinal da ocorrência quando data+valor+descrição se repetem. */
+  occurrence_index?: number | null;
 };
 
 const arredonda = (v: number) => Math.round(v * 100) / 100;
@@ -194,13 +199,17 @@ export function compareParsedStatementToLedger(input: {
     if (t.transfer_group_id && !porGrupo.has(t.transfer_group_id)) porGrupo.set(t.transfer_group_id, t);
 
   // Duplicatas dentro do próprio extrato: quem foi a primeira ocorrência.
-  const primeiraOcorrencia = new Map<string, LineageItemInput>();
-  for (const it of items) {
-    const key = movementKey({
+  // IDENTIDADE: sourceId quando existir; senão chave composta + ordinal.
+  const identidade = (it: LineageItemInput) =>
+    it.source_id ??
+    `${movementKey({
       data: it.data_movimento,
       valor: it.valor,
       descricao: it.descricao_original,
-    });
+    })}#${it.occurrence_index ?? 0}`;
+  const primeiraOcorrencia = new Map<string, LineageItemInput>();
+  for (const it of items) {
+    const key = identidade(it);
     if (!primeiraOcorrencia.has(key)) primeiraOcorrencia.set(key, it);
   }
 
@@ -225,12 +234,7 @@ export function compareParsedStatementToLedger(input: {
     let persistAction = "—";
     let matchedAgainst: LineageRow["matchedAgainst"] = null;
 
-    const chave = movementKey({
-      data: it.data_movimento,
-      valor: it.valor,
-      descricao: it.descricao_original,
-    });
-    const origem = primeiraOcorrencia.get(chave);
+    const origem = primeiraOcorrencia.get(identidade(it));
 
     if (acao === "IGNORE") {
       stage = "RECONCILIATION";
@@ -256,8 +260,8 @@ export function compareParsedStatementToLedger(input: {
               descricao: origem.descricao_original,
             };
         reason =
-          "Chave de deduplicação (conta + data + valor + descrição) idêntica a outra linha do mesmo PDF.";
-        rule = "dedupe.movementKey — a repetição legítima do mesmo valor no mesmo dia é indistinguível desta chave.";
+          "Mesma identidade de linha (sourceId ou chave composta + ordinal) de outra linha já resolvida.";
+        rule = "dedupe.classificarDuplicados — só é duplicata com alvo concreto comprovado.";
       } else {
         finalStatus = "REJECTED";
         reason = "Item marcado como ignorar na revisão, sem alvo de duplicidade registrado.";
@@ -384,8 +388,15 @@ export function compareParsedStatementToLedger(input: {
   const closing = dentro.filter((c) => !!fim && c.data === fim);
   const daily = dentro.filter((c) => !fim || c.data !== fim);
 
-  const brutos = (imp.dados_brutos_json as { checkpoints?: unknown[] } | null) ?? null;
-  const pdfTotal = Array.isArray(brutos?.checkpoints) ? brutos.checkpoints.length : null;
+  // FONTE DE VERDADE do que o PDF dizia: snapshot canônico persistido.
+  const snapshot = readStatementSnapshot(imp.dados_brutos_json);
+  const pdfCheckpoints = snapshot?.checkpoints ?? null;
+  const pdfTotal = pdfCheckpoints ? pdfCheckpoints.length : null;
+  const pdfDaily = pdfCheckpoints ? pdfCheckpoints.filter((c) => c.type === "DAILY").length : null;
+  const pdfClosing = pdfCheckpoints
+    ? pdfCheckpoints.filter((c) => c.type === "CLOSING").length
+    : null;
+  const pdfOpening = snapshot?.openingBalance?.date ? 1 : pdfCheckpoints ? 0 : null;
 
   // Saldo calculado dia a dia dentro do período, para conferir os DAILY.
   const saldoPorDia = new Map<string, number>();
@@ -431,17 +442,17 @@ export function compareParsedStatementToLedger(input: {
     rows,
     checkpoints: {
       pdfTotal,
-      daily: { pdf: null, persistidos: daily.length },
-      closing: { pdf: null, persistidos: closing.length },
-      opening: { pdf: null, persistidos: opening.length },
+      daily: { pdf: pdfDaily, persistidos: daily.length },
+      closing: { pdf: pdfClosing, persistidos: closing.length },
+      opening: { pdf: pdfOpening, persistidos: opening.length },
       dailyConferem,
       closingConfere,
     },
     openingDate: {
-      parsed: null,
+      parsed: snapshot?.openingBalance?.date ?? null,
       persisted: opening[opening.length - 1]?.data ?? null,
-      // O parser conhece openingBalance.date, mas o import não tem coluna para ela.
-      perdida: true,
+      // Só é perda quando o documento tinha a data e ela não sobreviveu.
+      perdida: !!snapshot?.openingBalance?.date && !opening.length,
     },
   };
 }
