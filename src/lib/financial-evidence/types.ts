@@ -69,9 +69,16 @@ export type FinancialCandidateEvent = {
   postingDate: string | null;
 
   description: string;
+  /**
+   * Magnitude positiva. O sentido do dinheiro está SEMPRE em `direction` —
+   * o domínio nunca infere sentido a partir do sinal (ver sign-contract.ts).
+   */
   amount: number;
+  /** Valor exatamente como a fonte escreveu (auditoria). */
+  rawAmount: number;
   direction: CandidateDirection;
   economicKind: EconomicKind;
+
 
   cardLast4: string | null;
   installmentCurrent: number | null;
