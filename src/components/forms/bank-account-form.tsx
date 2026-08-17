@@ -15,6 +15,7 @@ import {
   type BankAccountType,
 } from "@/lib/bank-accounts";
 import { formatCurrency } from "@/lib/finance";
+import { useInstitutions } from "@/hooks/useInstitutions";
 
 /** Cadastro e edição de conta bancária dentro do perfil financeiro de um membro. */
 export function BankAccountForm({
@@ -36,7 +37,9 @@ export function BankAccountForm({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const { data: members } = useMembers(familyId);
-  const [banco, setBanco] = useState(account?.banco ?? "");
+  const { data: institutions } = useInstitutions();
+  const contasSuportadas = (institutions ?? []).filter((i) => i.supports_bank_account);
+  const [institutionId, setInstitutionId] = useState(account?.institution_id ?? "");
   const [nomeConta, setNomeConta] = useState(account?.nome_conta ?? "");
   const [tipo, setTipo] = useState<BankAccountType>(account?.tipo_conta ?? "CORRENTE");
   const [titular, setTitular] = useState(account?.member_id ?? memberId);
@@ -44,19 +47,25 @@ export function BankAccountForm({
   const save = useMutation({
     mutationFn: async () => {
       if (account) {
+        const inst = contasSuportadas.find((i) => i.id === institutionId);
         await updateBankAccount(account.id, {
-          banco: banco.trim(),
+          institution_id: institutionId,
+          institution_mapping_required: false,
+          // Campo legado mantido apenas para leitura de histórico — nunca decide parser.
+          banco: inst?.short_name ?? inst?.official_name ?? account.banco,
           nome_conta: nomeConta.trim(),
           tipo_conta: tipo,
           member_id: titular || null,
         });
         return;
       }
+      const nova = contasSuportadas.find((i) => i.id === institutionId);
       await createBankAccount({
         family_id: familyId,
+        institution_id: institutionId,
         created_by: user?.id ?? null,
         member_id: titular || memberId,
-        banco: banco.trim(),
+        banco: nova?.short_name ?? nova?.official_name ?? "",
         nome_conta: nomeConta.trim(),
         tipo_conta: tipo,
         // O cadastro é estrutural: a posição financeira nasce em Bancos,
@@ -66,7 +75,6 @@ export function BankAccountForm({
     },
     onSuccess: () => {
       if (!account) {
-        setBanco("");
         setNomeConta("");
       }
       toast.success(account ? "Conta atualizada." : "Conta bancária cadastrada.");
@@ -81,27 +89,33 @@ export function BankAccountForm({
       className="grid gap-4 sm:grid-cols-2"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!banco.trim() || !nomeConta.trim()) {
-          toast.error("Informe o banco e o nome da conta.");
+        if (!institutionId || !nomeConta.trim()) {
+          toast.error("Selecione a instituição financeira e informe o nome da conta.");
           return;
         }
         save.mutate();
       }}
     >
-      <Field label="Banco">
-        <input
+      <Field label="Instituição financeira">
+        <select
           className={inputClass}
-          value={banco}
-          onChange={(e) => setBanco(e.target.value)}
-          placeholder="Nubank, Itaú, Santander..."
-        />
+          value={institutionId}
+          onChange={(e) => setInstitutionId(e.target.value)}
+        >
+          <option value="">Selecione a instituição</option>
+          {contasSuportadas.map((i) => (
+            <option key={i.id} value={i.id}>
+              {i.short_name ?? i.official_name}
+            </option>
+          ))}
+        </select>
       </Field>
       <Field label="Nome da conta">
         <input
           className={inputClass}
           value={nomeConta}
           onChange={(e) => setNomeConta(e.target.value)}
-          placeholder="Conta principal"
+          placeholder="Conta principal, Salário, Conta João"
         />
       </Field>
       <Field label="Tipo de conta">
