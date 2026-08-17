@@ -21,6 +21,7 @@
  */
 import type { Transaction } from "@/lib/transactions";
 import { movementEffect } from "@/lib/bank-ledger";
+import { readStatementSnapshot } from "@/lib/bank-statements/canonical";
 import {
   groupCheckpointsByImport,
   resolveStatementPeriod,
@@ -123,6 +124,12 @@ export type StatementPeriod = {
   quantidade: number;
   /** "Saldo do dia" encontrados no PDF (0 quando o documento não foi relido). */
   checkpointsPdf: number;
+  /** Saldos diários do PDF, separados do fechamento. */
+  checkpointsPdfDaily: number;
+  /** Fechamento ("S A L D O") declarado pelo PDF. */
+  checkpointsPdfClosing: number;
+  /** Data do saldo anterior conforme o snapshot canônico do documento. */
+  openingDatePdf: string | null;
   status: string;
 };
 
@@ -256,6 +263,10 @@ export type StatementItemInput = {
   /** Compras criadas/associadas pelo extrato: o ledger nasce delas por gatilho. */
   purchase_id_criada?: string | null;
   purchase_id_matched?: string | null;
+  /** Transferência entre contas: o vínculo é o grupo, não o transaction_id. */
+  transfer_group_id?: string | null;
+  source_id?: string | null;
+  occurrence_index?: number | null;
 };
 export type CardPaymentPending = {
   transaction: Transaction;
@@ -410,6 +421,8 @@ export function buildBankAudit(input: {
       // documento (ou, para importações antigas, os saldos do dia).
       const periodo = resolveStatementPeriod(i, checkpointsPorImport.get(i.id) ?? []);
       periodoPorImport.set(i.id, periodo);
+      // Snapshot canônico persistido: fonte de verdade do que o PDF dizia.
+      const snap = readStatementSnapshot(i.dados_brutos_json);
       return {
         id: i.id,
         nomeArquivo: i.nome_arquivo,
@@ -422,11 +435,10 @@ export function buildBankAudit(input: {
         saldoInicial: i.saldo_inicial === null ? null : Number(i.saldo_inicial),
         saldoFinal: i.saldo_final === null ? null : Number(i.saldo_final),
         quantidade: i.quantidade_lancamentos ?? 0,
-        checkpointsPdf: Array.isArray(
-          (i.dados_brutos_json as { checkpoints?: unknown[] } | null)?.checkpoints,
-        )
-          ? (i.dados_brutos_json as { checkpoints: unknown[] }).checkpoints.length
-          : 0,
+        checkpointsPdf: snap?.checkpoints.length ?? 0,
+        checkpointsPdfDaily: snap?.checkpoints.filter((c) => c.type === "DAILY").length ?? 0,
+        checkpointsPdfClosing: snap?.checkpoints.filter((c) => c.type === "CLOSING").length ?? 0,
+        openingDatePdf: snap?.openingBalance?.date ?? null,
         status: i.status,
       };
     })
@@ -443,6 +455,13 @@ export function buildBankAudit(input: {
   // Compra vira ledger por gatilho: o vínculo do item pode ser pela compra.
   const porCompra = new Map<string, Transaction>();
   for (const t of daConta) if (t.purchase_id && !porCompra.has(t.purchase_id)) porCompra.set(t.purchase_id, t);
+  // Transferência entre contas: o item aponta para o GRUPO, não para o id da
+  // transação. Ignorar isso gera falso "movimento faltante".
+  const porGrupo = new Map<string, Transaction>();
+  for (const t of daConta) {
+    const grupo = (t as { transfer_group_id?: string | null }).transfer_group_id;
+    if (grupo && !porGrupo.has(grupo)) porGrupo.set(grupo, t);
+  }
 
   const periodoInicio = extratos.find((e) => e.inicio)?.inicio ?? daConta[0]?.data_movimento ?? null;
   const periodoFim =
@@ -512,9 +531,11 @@ export function buildBankAudit(input: {
     const valor = Number(it.valor) || 0;
     const compra = it.purchase_id_criada ?? it.purchase_id_matched ?? null;
     const ligada = it.transaction_id_criada ?? it.transaction_id_matched ?? null;
+    const grupo = it.transfer_group_id ?? null;
     const tx =
       (ligada ? porId.get(ligada) : undefined) ??
       (compra ? porCompra.get(compra) : undefined) ??
+      (grupo ? porGrupo.get(grupo) : undefined) ??
       null;
 
     if (!tx) {
@@ -526,7 +547,7 @@ export function buildBankAudit(input: {
           descricao: it.descricao_original,
           valor,
           motivo:
-            ligada || compra
+            ligada || compra || grupo
               ? "Vinculado a um registro que não existe mais no ledger desta conta."
               : "Lido no PDF, mas sem movimentação correspondente no ledger.",
         },
