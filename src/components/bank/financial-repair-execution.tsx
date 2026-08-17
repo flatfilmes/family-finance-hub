@@ -8,6 +8,13 @@
 import { useState } from "react";
 import { ShieldCheck, Wrench } from "lucide-react";
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Card } from "@/components/page-header";
 import { SectionTitle, Metric } from "@/components/detail-page";
 import { StatusBadge } from "@/components/status-badge";
