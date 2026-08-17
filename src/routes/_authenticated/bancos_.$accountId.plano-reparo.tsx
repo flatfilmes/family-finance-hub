@@ -7,7 +7,15 @@
  */
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileJson, ShieldCheck } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Download, FileJson, ShieldCheck, Wrench } from "lucide-react";
+import {
+  applyPersistenceRepair,
+  evaluateRepairGate,
+  type RepairOutcome,
+} from "@/lib/bank-statements/repair-apply";
+import { RepairResultPanel } from "@/components/bank/repair-result-panel";
+
 
 import { Card } from "@/components/page-header";
 import { DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
