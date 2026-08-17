@@ -107,11 +107,13 @@ export function markDuplicatesAcrossBatch(
           porSourceId: new Map(),
         }
       : jaNoSistema;
-  // Ordinal de ocorrência: dois lançamentos idênticos no mesmo dia são dois
-  // eventos. Só é duplicata quando existe uma ocorrência ANTERIOR concreta.
-  const contagem = new Map<string, number>();
+  // Ordinal de ocorrência: dois lançamentos idênticos no mesmo dia, no MESMO
+  // documento, são dois eventos. Já a repetição entre arquivos sobrepostos é
+  // releitura do mesmo evento.
+  const jaVistos = new Map<string, number>();
   const mapa: Record<string, boolean[]> = {};
   for (const f of filesOrdenados) {
+    const local = new Map<string, number>();
     const marcas: boolean[] = [];
     for (const m of f.parsed?.movimentos ?? []) {
       const chave = movementKey({
@@ -121,10 +123,14 @@ export function markDuplicatesAcrossBatch(
         documentNumber: m.documentNumber ?? null,
         lot: m.lot ?? null,
       });
-      const occ = contagem.get(chave) ?? 0;
-      contagem.set(chave, occ + 1);
-      marcas.push(index.porOcorrencia.has(`${chave}#${occ}`));
+      const anteriores = jaVistos.get(chave) ?? 0;
+      const occLocal = local.get(chave) ?? 0;
+      local.set(chave, occLocal + 1);
+      marcas.push(
+        occLocal < anteriores || index.porOcorrencia.has(`${chave}#${anteriores + occLocal}`),
+      );
     }
+    for (const [k, n] of local) jaVistos.set(k, Math.max(jaVistos.get(k) ?? 0, n));
     mapa[f.id] = marcas;
   }
   return mapa;
