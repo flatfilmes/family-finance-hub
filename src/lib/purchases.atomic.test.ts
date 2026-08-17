@@ -33,9 +33,24 @@ const purchaseBase = {
 };
 
 const items = [
-  { descricao_produto: "Arroz", quantidade: 2, unidade: "UN", valor_unitario: 10 },
-  { descricao_produto: "Feijão", quantidade: 1, unidade: "UN", valor_unitario: 8.5 },
+  {
+    product_id: null,
+    categoria_id: null,
+    descricao_produto: "Arroz",
+    quantidade: 2,
+    unidade: "UN",
+    valor_unitario: 10,
+  },
+  {
+    product_id: null,
+    categoria_id: null,
+    descricao_produto: "Feijão",
+    quantidade: 1,
+    unidade: "UN",
+    valor_unitario: 8.5,
+  },
 ];
+
 
 describe("ATOMIC_PURCHASE_FAILURE_TEST", () => {
   beforeEach(() => {
