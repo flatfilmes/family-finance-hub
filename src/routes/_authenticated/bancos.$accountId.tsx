@@ -318,6 +318,15 @@ function ContaDetalhePage() {
                     Auditoria da conta
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/bancos/$accountId/plano-reparo"
+                    params={{ accountId: conta.id }}
+                  >
+                    Plano de reparo
+                  </Link>
+                </DropdownMenuItem>
+
                 {conta.member_id && (
                   <DropdownMenuItem asChild>
                     <Link to="/membro/$memberId" params={{ memberId: conta.member_id }}>
