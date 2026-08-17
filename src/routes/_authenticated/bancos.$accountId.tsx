@@ -331,6 +331,14 @@ function ContaDetalhePage() {
                     Plano de reparo
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    to="/bancos/$accountId/diagnostico-parser"
+                    params={{ accountId: conta.id }}
+                  >
+                    Diagnóstico de importação
+                  </Link>
+                </DropdownMenuItem>
 
                 {conta.member_id && (
                   <DropdownMenuItem asChild>
