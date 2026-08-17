@@ -200,18 +200,37 @@ export function compareParsedStatementToLedger(input: {
 
   // Duplicatas dentro do próprio extrato: quem foi a primeira ocorrência.
   // IDENTIDADE: sourceId quando existir; senão chave composta + ordinal.
-  const identidade = (it: LineageItemInput) =>
-    it.source_id ??
-    `${movementKey({
+  //
+  // Linhas antigas foram gravadas antes da identidade por linha: todas têm
+  // source_id nulo e occurrence_index = 0. Confiar nesse zero faria duas
+  // repetições legítimas colidirem e uma delas parecer duplicata "com alvo".
+  // Por isso, na ausência de sourceId, o ordinal é RECONTADO aqui, na ordem do
+  // documento — sem alterar nenhum dado gravado.
+  const ordinalLegado = new Map<string, number>();
+  const identidade = (it: LineageItemInput) => {
+    if (it.source_id) return it.source_id;
+    const base = movementKey({
       data: it.data_movimento,
       valor: it.valor,
       descricao: it.descricao_original,
-    })}#${it.occurrence_index ?? 0}`;
+    });
+    if (!identidadeCache.has(it.id)) {
+      const occ = ordinalLegado.get(base) ?? 0;
+      ordinalLegado.set(base, occ + 1);
+      identidadeCache.set(it.id, `${base}#${occ}`);
+    }
+    return identidadeCache.get(it.id)!;
+  };
+  const identidadeCache = new Map<string, string>();
+  // Materializa a identidade na ordem do documento antes de qualquer consulta.
+  for (const it of items) identidade(it);
+
   const primeiraOcorrencia = new Map<string, LineageItemInput>();
   for (const it of items) {
     const key = identidade(it);
     if (!primeiraOcorrencia.has(key)) primeiraOcorrencia.set(key, it);
   }
+
 
   const usadas = new Set<string>();
   const rows: LineageRow[] = items.map((it) => {
