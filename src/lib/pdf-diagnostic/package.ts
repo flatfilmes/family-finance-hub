@@ -107,7 +107,9 @@ export function buildDiagnosticPackage(input: {
   const filtro = input.page ?? null;
   const pages = filtro ? input.dump.pages.filter((p) => p.page === filtro) : input.dump.pages;
 
-  const ehExtrato = input.source === "BANK_STATEMENT" || input.source === "GENERIC_PDF";
+  const ehCartao = input.parser?.family === "CARD_STATEMENT";
+  const ehExtrato =
+    !ehCartao && (input.source === "BANK_STATEMENT" || input.source === "GENERIC_PDF");
   const textos = montarTextos(input.dump, input.visualRows);
   const rawText = textos.join("\n");
   const bankDetectionInput = {
@@ -133,7 +135,9 @@ export function buildDiagnosticPackage(input: {
     selecaoLocal ??
     { status: "NOT_FOUND" as const, requestedBank: input.parser?.bank ?? null, name: null };
 
-  const statusDeteccao: DiagnosticDetectionStatus = dryRunDetection
+  const statusDeteccao: DiagnosticDetectionStatus = ehCartao
+    ? "NOT_APPLICABLE"
+    : dryRunDetection
     ? (dryRunDetection.status === "PASS" ? "DETECTED" : (input.parser?.status ?? "PARSER_NOT_SELECTED"))
     : !local
       ? "DETECTION_NOT_EXECUTED"
@@ -201,7 +205,7 @@ export function buildDiagnosticPackage(input: {
     parser: parserInfo,
     bankDetectionInput,
     detection: {
-      bank,
+      bank: ehCartao ? null : bank,
       parser: input.parser?.parser ?? parserInfo.name,
       version: input.parser?.version ?? null,
       status: statusDeteccao,
@@ -212,7 +216,9 @@ export function buildDiagnosticPackage(input: {
       matchedSignals,
       missingSignals,
       score: matchedSignals.length,
-      reason,
+      reason: ehCartao
+        ? "Documento é fatura de cartão: a detecção bancária não se aplica."
+        : reason,
     },
     parserOutput: input.parser?.output ?? null,
     parserExecutionInput: input.parser?.parserExecutionInput ?? parserExecutionInputFallback,
