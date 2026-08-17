@@ -60,6 +60,7 @@ type SaidaFatura = {
     holder?: string | null;
     cardLast4?: string | null;
     closingDate?: string | null;
+    nextClosingDate?: string | null;
     dueDate?: string | null;
     issueDate?: string | null;
     invoiceTotal?: number | null;
@@ -74,6 +75,7 @@ type SaidaFatura = {
     difference?: number | null;
     problems?: string[];
   };
+  diagnosticStatus?: string;
   itemCounts?: Record<string, number>;
   items?: Array<{
     category: string;
@@ -103,6 +105,12 @@ type Aba = (typeof ABAS)[number][0];
 
 /** Abas válidas para FATURA: extrato bancário não se aplica a este documento. */
 const ABAS_FATURA: Aba[] = ["RESUMO", "FATURA", "LINHAS", "RAW", "ERROS", "JSON"] as Aba[];
+
+const dataBr = (iso: string | null | undefined) => {
+  if (!iso) return "—";
+  const [a, m, d] = iso.split("-");
+  return a && m && d ? `${d}/${m}/${a}` : iso;
+};
 
 const moeda = (v: number | null | undefined) =>
   v === null || v === undefined
@@ -343,6 +351,35 @@ export function BankParserDiagnosticsPage({
             </p>
           )}
 
+          {ehFatura && (
+            <section className="mt-6 rounded-2xl border border-primary/40 bg-accent/30 p-5">
+              <h2 className="text-[15px] font-extrabold">
+                DIAGNÓSTICO: {fatura?.diagnosticStatus ?? "—"}
+              </h2>
+              <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  ["DOCUMENT TYPE", resultado.documentType.type],
+                  ["ISSUER", fatura?.invoice?.issuer ?? "—"],
+                  ["PARSER", parser?.parser ?? "—"],
+                  ["ITEMS", String(itensFatura.length)],
+                  ["INVOICE TOTAL", moeda(fatura?.validation?.declaredInvoiceTotal ?? null)],
+                  ["ITEMS TOTAL", moeda(fatura?.validation?.chargedItemsTotal ?? null)],
+                  ["DIFFERENCE", moeda(fatura?.validation?.difference ?? 0)],
+                  ["VALIDATION", fatura?.validation?.status ?? "—"],
+                  ["BANK TRANSACTIONS", "0"],
+                  ["BANK CHECKPOINTS", "0"],
+                  ["CLOSING DATE", dataBr(fatura?.invoice?.closingDate ?? null)],
+                  ["NEXT CLOSING DATE", dataBr(fatura?.invoice?.nextClosingDate ?? null)],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex gap-2">
+                    <dt className="font-semibold text-muted-foreground">{k}:</dt>
+                    <dd className="font-bold">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+
           {/* RESUMO DO PIPELINE — 3 colunas no desktop */}
           <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Cartao label="PDF.JS" valor={`${resultado.dump.items.length} items`} detalhe={`${resultado.dump.numPages} página(s)`} />
@@ -554,28 +591,43 @@ export function BankParserDiagnosticsPage({
                   const interna = (parser?.parserInternalStages ?? []).filter(
                     (i) => i.stage === s.stage,
                   );
+                  const naoAplicavel =
+                    s.status === "NOT_APPLICABLE" || s.status === "SKIPPED";
                   return (
                     <li
                       key={s.stage}
                       className={`rounded-2xl border p-4 ${
                         s.status === "PASS"
                           ? "border-primary/40 bg-accent/30"
-                          : "border-destructive/40 bg-destructive/5"
+                          : naoAplicavel
+                            ? "border-border bg-muted/40"
+                            : "border-destructive/40 bg-destructive/5"
                       }`}
                     >
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-[15px] font-extrabold">{s.stage}</span>
                         <span
                           className={`text-[13px] font-bold ${
-                            s.status === "PASS" ? "text-primary" : "text-destructive"
+                            s.status === "PASS"
+                              ? "text-primary"
+                              : naoAplicavel
+                                ? "text-muted-foreground"
+                                : "text-destructive"
                           }`}
                         >
-                          {s.status === "PASS" ? "✓ PASS" : "✕ FAIL"}
+                          {s.status === "PASS"
+                            ? "✓ PASS"
+                            : naoAplicavel
+                              ? "— NOT_APPLICABLE"
+                              : "✕ FAIL"}
                         </span>
                         {s.count !== undefined && (
                           <span className="text-[13px] text-muted-foreground">
                             {s.count} item(ns)
                           </span>
+                        )}
+                        {s.detail && (
+                          <span className="text-[13px] text-muted-foreground">{s.detail}</span>
                         )}
                       </div>
                       {s.status === "FAIL" && (

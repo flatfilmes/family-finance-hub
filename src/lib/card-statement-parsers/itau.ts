@@ -461,8 +461,20 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
   // ---------- cabeçalho e metadados
   const vencimento = acharDataRotulada(textos, ["vencimento", "vence em", "pagar ate"]);
   const emissao = acharDataRotulada(textos, ["emissao", "emitida em", "data de emissao"]);
+  // Fechamento da fatura ATUAL × previsão do PRÓXIMO fechamento são fatos
+  // distintos: a previsão nunca pode virar o fechamento desta fatura.
+  const ehPrevisaoDeFechamento = (l: string) => {
+    const p = plano(l);
+    return p.includes("prox") || p.includes("previsao");
+  };
+  const linhasFechamento = textos.filter((l) => plano(l).includes("fechamento"));
+  const proximoFechamento =
+    acharDataRotulada(linhasFechamento.filter(ehPrevisaoDeFechamento), ["fechamento"]) ?? null;
   const fechamento =
-    acharDataRotulada(textos, ["proximo fechamento", "fechamento"]) ?? null;
+    acharDataRotulada(
+      linhasFechamento.filter((l) => !ehPrevisaoDeFechamento(l)),
+      ["fechamento"],
+    ) ?? null;
 
   const totalAnterior = acharValorRotulado(textos, ["total da fatura anterior", "fatura anterior"]);
   const pagamentoAnterior = acharValorRotulado(textos, ["pagamento efetuado", "pagamentos efetuados"]);
@@ -491,6 +503,7 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     limite_credito: acharValorRotulado(textos, ["limite total de credito", "limite de credito"]),
     limite_disponivel: acharValorRotulado(textos, ["limite disponivel"]),
     limite_utilizado: acharValorRotulado(textos, ["limite utilizado"]),
+    next_closing_date: proximoFechamento,
     next_invoice_amount: acharValorRotulado(textos, ["proxima fatura"]),
     future_invoices_amount: acharValorRotulado(textos, ["demais faturas"]),
     future_commitments_total: acharValorRotulado(textos, ["total para proximas faturas"]),

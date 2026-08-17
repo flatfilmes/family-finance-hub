@@ -1,5 +1,10 @@
 /** Montagem do pacote de diagnóstico exportável (somente memória). */
-import type { ParserDryRunResult, DiagnosticSource } from "@/lib/pdf-diagnostic/diagnostic-types";
+import type {
+  ParserDryRunResult,
+  DiagnosticSource,
+  ParserFamily,
+  ParserStageStatus,
+} from "@/lib/pdf-diagnostic/diagnostic-types";
 import type { RawPdfDump, RawTextItem } from "@/lib/pdf-diagnostic/raw-dump";
 import type { RawVisualLine } from "@/lib/pdf-diagnostic/visual-rows";
 import { detectBankStatement, selectBankStatementParser } from "@/lib/bank-statements/parse";
@@ -27,7 +32,21 @@ export type DiagnosticPackage = {
     status: "FOUND" | "NOT_FOUND";
     requestedBank: string | null;
     name: string | null;
+    family?: ParserFamily;
+    requestedIssuer?: string | null;
   };
+  /** Status global coerente do diagnóstico. */
+  diagnosticStatus?: "PASS" | "FAIL";
+  /** Dry run: nunca permite gravação. */
+  persistenceAllowed?: boolean;
+  /** Detecção de emissor de cartão (só existe em faturas). */
+  cardDetection?: {
+    status: "DETECTED" | "NOT_DETECTED" | "NOT_APPLICABLE";
+    issuer?: string | null;
+    parser?: string | null;
+  };
+  /** Detecção bancária — NOT_APPLICABLE fora de extratos. */
+  bankDetection?: { status: "DETECTED" | "NOT_DETECTED" | "NOT_APPLICABLE" };
   /** Entrada exata que a detecção recebeu (prova de que não veio vazia). */
   bankDetectionInput: {
     rawTextLength: number;
@@ -59,7 +78,12 @@ export type DiagnosticPackage = {
   accepted: unknown[];
   rejected: unknown[];
   metadata: unknown[];
-  pipelineStages: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
+  pipelineStages: Array<{
+    stage: string;
+    status: ParserStageStatus;
+    count?: number;
+    detail?: string;
+  }>;
   errors: Array<{ name: string; message: string; stage: string; stack?: string; cause?: string }>;
 };
 
@@ -83,7 +107,9 @@ export function buildDiagnosticPackage(input: {
   const filtro = input.page ?? null;
   const pages = filtro ? input.dump.pages.filter((p) => p.page === filtro) : input.dump.pages;
 
-  const ehExtrato = input.source === "BANK_STATEMENT" || input.source === "GENERIC_PDF";
+  const ehCartao = input.parser?.family === "CARD_STATEMENT";
+  const ehExtrato =
+    !ehCartao && (input.source === "BANK_STATEMENT" || input.source === "GENERIC_PDF");
   const textos = montarTextos(input.dump, input.visualRows);
   const rawText = textos.join("\n");
   const bankDetectionInput = {
@@ -109,7 +135,9 @@ export function buildDiagnosticPackage(input: {
     selecaoLocal ??
     { status: "NOT_FOUND" as const, requestedBank: input.parser?.bank ?? null, name: null };
 
-  const statusDeteccao: DiagnosticDetectionStatus = dryRunDetection
+  const statusDeteccao: DiagnosticDetectionStatus = ehCartao
+    ? "NOT_APPLICABLE"
+    : dryRunDetection
     ? (dryRunDetection.status === "PASS" ? "DETECTED" : (input.parser?.status ?? "PARSER_NOT_SELECTED"))
     : !local
       ? "DETECTION_NOT_EXECUTED"
@@ -177,7 +205,7 @@ export function buildDiagnosticPackage(input: {
     parser: parserInfo,
     bankDetectionInput,
     detection: {
-      bank,
+      bank: ehCartao ? null : bank,
       parser: input.parser?.parser ?? parserInfo.name,
       version: input.parser?.version ?? null,
       status: statusDeteccao,
@@ -188,7 +216,9 @@ export function buildDiagnosticPackage(input: {
       matchedSignals,
       missingSignals,
       score: matchedSignals.length,
-      reason,
+      reason: ehCartao
+        ? "Documento é fatura de cartão: a detecção bancária não se aplica."
+        : reason,
     },
     parserOutput: input.parser?.output ?? null,
     parserExecutionInput: input.parser?.parserExecutionInput ?? parserExecutionInputFallback,
@@ -198,6 +228,10 @@ export function buildDiagnosticPackage(input: {
     rejected: input.parser?.debug?.rejected ?? [],
     metadata: input.parser?.debug?.metadata ?? [],
     pipelineStages: input.parser?.pipelineStages ?? stagesFallback,
+    ...(input.parser?.diagnosticStatus ? { diagnosticStatus: input.parser.diagnosticStatus } : {}),
+    persistenceAllowed: false,
+    ...(input.parser?.cardDetection ? { cardDetection: input.parser.cardDetection } : {}),
+    ...(input.parser?.bankDetection ? { bankDetection: input.parser.bankDetection } : {}),
     errors: input.parser?.errors?.length ? input.parser.errors : errosDerivados,
   };
 }
