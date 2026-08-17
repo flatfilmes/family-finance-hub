@@ -59,7 +59,31 @@ export type ParserCheckpointTrace = {
   reason: string;
 };
 
+/**
+ * Status de uma etapa do pipeline.
+ * FAIL = etapa obrigatória do pipeline escolhido falhou.
+ * NOT_APPLICABLE/SKIPPED = etapa pertence a outra família de parser.
+ */
+export type ParserStageStatus = "PASS" | "FAIL" | "SKIPPED" | "NOT_APPLICABLE";
+
+/** Família de parser efetivamente executada. */
+export type ParserFamily = "BANK_STATEMENT" | "CARD_STATEMENT" | "PURCHASE_RECEIPT" | "NONE";
+
 export type ParserDryRunResult = {
+  /** Família do pipeline executado (define quais etapas são obrigatórias). */
+  family?: ParserFamily;
+  /** Status global coerente do diagnóstico. */
+  diagnosticStatus?: "PASS" | "FAIL";
+  /** Dry run: gravação nunca é permitida nesta camada. */
+  persistenceAllowed?: boolean;
+  /** Detecção de emissor do cartão (exclusiva de faturas). */
+  cardDetection?: {
+    status: "DETECTED" | "NOT_DETECTED" | "NOT_APPLICABLE";
+    issuer?: string | null;
+    parser?: string | null;
+  };
+  /** Detecção bancária — NOT_APPLICABLE quando o documento não é extrato. */
+  bankDetection?: { status: "DETECTED" | "NOT_DETECTED" | "NOT_APPLICABLE" };
   /** Identificação do parser usado (ex.: ITAU_PDF, NOTA_FISCAL). */
   parser: string;
   /** Banco/emissor detectado, quando aplicável. */
