@@ -14,6 +14,10 @@ export type DiagnosticDetectionStatus =
 
 export type DiagnosticPackage = {
   source: DiagnosticSource;
+  /** Tipo econômico detectado antes de qualquer parser (quando disponível). */
+  documentType?: unknown;
+  /** Roteamento aplicado: tipo × família de parser executada. */
+  routing?: unknown;
   fileName: string;
   generatedAt: string;
   pages: RawPdfDump["pages"];

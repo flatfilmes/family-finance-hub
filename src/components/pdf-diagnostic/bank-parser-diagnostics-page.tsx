@@ -53,17 +53,56 @@ type SaidaExtrato = {
   validation?: { status?: string; problems?: string[]; math?: Record<string, unknown> };
 };
 
+type SaidaFatura = {
+  documentType?: string;
+  invoice?: {
+    issuer?: string | null;
+    holder?: string | null;
+    cardLast4?: string | null;
+    closingDate?: string | null;
+    dueDate?: string | null;
+    issueDate?: string | null;
+    invoiceTotal?: number | null;
+    previousInvoiceTotal?: number | null;
+    previousPayment?: { data: string | null; valor: number } | null;
+    creditLimit?: number | null;
+  };
+  validation?: {
+    status?: string;
+    declaredInvoiceTotal?: number | null;
+    chargedItemsTotal?: number | null;
+    difference?: number | null;
+    problems?: string[];
+  };
+  itemCounts?: Record<string, number>;
+  items?: Array<{
+    category: string;
+    date: string | null;
+    description: string;
+    amount: number;
+    installmentCurrent: number | null;
+    installmentTotal: number | null;
+    cardLast4: string | null;
+  }>;
+  bankTransactions?: number;
+  bankCheckpoints?: number;
+};
+
 const ABAS = [
   ["RESUMO", "Resumo"],
   ["PIPELINE", "Pipeline"],
   ["TRANSACOES", "Transações"],
   ["CHECKPOINTS", "Checkpoints"],
+  ["FATURA", "Fatura"],
   ["LINHAS", "Linhas"],
   ["RAW", "Raw PDF"],
   ["ERROS", "Erros"],
   ["JSON", "JSON"],
 ] as const;
 type Aba = (typeof ABAS)[number][0];
+
+/** Abas válidas para FATURA: extrato bancário não se aplica a este documento. */
+const ABAS_FATURA: Aba[] = ["RESUMO", "FATURA", "LINHAS", "RAW", "ERROS", "JSON"] as Aba[];
 
 const moeda = (v: number | null | undefined) =>
   v === null || v === undefined
@@ -152,6 +191,9 @@ export function BankParserDiagnosticsPage({
   }, []);
 
   const parser: ParserDryRunResult | null = resultado?.parser ?? null;
+  const ehFatura = resultado?.routing.parserFamily === "CARD_STATEMENT";
+  const fatura = (ehFatura ? (parser?.output as SaidaFatura) : null) ?? null;
+  const itensFatura = fatura?.items ?? [];
   const executou = parser?.parserExecutionInput?.["executed"] === true && !!parser?.output;
   const saida = (executou ? (parser?.output as SaidaExtrato) : null) ?? null;
   const transacoes = saida?.transactions ?? [];
@@ -293,10 +335,24 @@ export function BankParserDiagnosticsPage({
 
       {resultado && (
         <>
+          {ehFatura && (
+            <p className="mt-6 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-[13px] font-semibold text-amber-800 dark:text-amber-300">
+              WRONG_DOCUMENT_TYPE_FOR_BANK_STATEMENT — este PDF é uma fatura de cartão, não um
+              extrato de conta. O parser de extrato foi ignorado e o diagnóstico rodou com o
+              parser real de fatura. Nenhuma transação bancária foi produzida.
+            </p>
+          )}
+
           {/* RESUMO DO PIPELINE — 3 colunas no desktop */}
           <section className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Cartao label="PDF.JS" valor={`${resultado.dump.items.length} items`} detalhe={`${resultado.dump.numPages} página(s)`} />
             <Cartao label="Rows" valor={`${resultado.visualRows.length} rows`} />
+            <Cartao
+              label="Document type"
+              valor={resultado.documentType.type}
+              detalhe={resultado.documentType.matchedSignals.slice(0, 3).join(" · ") || undefined}
+              tom={resultado.documentType.status === "PASS" ? "ok" : "falha"}
+            />
             <Cartao
               label="Bank detection"
               valor={parser?.bank ?? "não detectado"}
@@ -305,25 +361,62 @@ export function BankParserDiagnosticsPage({
             />
             <Cartao
               label="Parser"
-              valor={resultado.package.parser.name ?? "não selecionado"}
-              tom={resultado.package.parser.status === "FOUND" ? "ok" : "falha"}
+              valor={(ehFatura ? parser?.parser : resultado.package.parser.name) ?? "não selecionado"}
+              detalhe={ehFatura ? "parser real de fatura de cartão" : undefined}
+              tom={ehFatura || resultado.package.parser.status === "FOUND" ? "ok" : "falha"}
             />
-            <Cartao
-              label="Output"
-              valor={executou ? `${transacoes.length} transações` : "Parser não executado"}
-              detalhe={executou ? `${checkpoints.length} checkpoints` : undefined}
-              tom={executou ? "ok" : "falha"}
-            />
-            <Cartao
-              label="Validation"
-              valor={validacao}
-              tom={validacao === "PASS" || validacao === "VALID" ? "ok" : "falha"}
-            />
+            {ehFatura ? (
+              <>
+                <Cartao
+                  label="Invoice total"
+                  valor={moeda(fatura?.invoice?.invoiceTotal ?? null)}
+                  detalhe={`vencimento ${fatura?.invoice?.dueDate ?? "—"}`}
+                />
+                <Cartao
+                  label="Card"
+                  valor={fatura?.invoice?.cardLast4 ? `final ${fatura.invoice.cardLast4}` : "—"}
+                  detalhe={fatura?.invoice?.holder ?? undefined}
+                />
+                <Cartao
+                  label="Card statement items"
+                  valor={`${itensFatura.length} lançamentos`}
+                  detalhe={`bank transactions 0 · bank checkpoints 0`}
+                  tom="ok"
+                />
+                <Cartao
+                  label="Validation"
+                  valor={fatura?.validation?.status ?? "—"}
+                  detalhe={
+                    fatura?.validation?.difference !== null &&
+                    fatura?.validation?.difference !== undefined
+                      ? `diferença ${moeda(fatura.validation.difference)}`
+                      : undefined
+                  }
+                  tom={fatura?.validation?.status === "CARD_STATEMENT_VALID" ? "ok" : "falha"}
+                />
+              </>
+            ) : (
+              <>
+                <Cartao
+                  label="Output"
+                  valor={executou ? `${transacoes.length} transações` : "Parser não executado"}
+                  detalhe={executou ? `${checkpoints.length} checkpoints` : undefined}
+                  tom={executou ? "ok" : "falha"}
+                />
+                <Cartao
+                  label="Validation"
+                  valor={validacao}
+                  tom={validacao === "PASS" || validacao === "VALID" ? "ok" : "falha"}
+                />
+              </>
+            )}
           </section>
 
           {/* TABS */}
           <nav className="mt-8 flex flex-wrap gap-2">
-            {ABAS.map(([id, label]) => (
+            {ABAS.filter(([id]) =>
+              ehFatura ? ABAS_FATURA.includes(id) : id !== "FATURA",
+            ).map(([id, label]) => (
               <button
                 key={id}
                 type="button"
@@ -341,7 +434,89 @@ export function BankParserDiagnosticsPage({
           </nav>
 
           <section className="mt-6">
-            {aba === "RESUMO" && (
+            {aba === "RESUMO" && ehFatura && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Cartao label="Document type" valor="CREDIT_CARD_STATEMENT" tom="ok" />
+                <Cartao label="Emissor" valor={fatura?.invoice?.issuer ?? "—"} />
+                <Cartao label="Titular" valor={fatura?.invoice?.holder ?? "—"} />
+                <Cartao
+                  label="Total desta fatura"
+                  valor={moeda(fatura?.invoice?.invoiceTotal ?? null)}
+                />
+                <Cartao label="Vencimento" valor={fatura?.invoice?.dueDate ?? "—"} />
+                <Cartao label="Emissão" valor={fatura?.invoice?.issueDate ?? "—"} />
+                <Cartao
+                  label="Fatura anterior"
+                  valor={moeda(fatura?.invoice?.previousInvoiceTotal ?? null)}
+                  detalhe={
+                    fatura?.invoice?.previousPayment
+                      ? `pagamento ${fatura.invoice.previousPayment.data ?? "—"} · ${moeda(
+                          fatura.invoice.previousPayment.valor,
+                        )}`
+                      : undefined
+                  }
+                />
+                <Cartao
+                  label="Limite total de crédito"
+                  valor={moeda(fatura?.invoice?.creditLimit ?? null)}
+                />
+                <Cartao label="Bank transactions" valor="0" tom="ok" detalhe="fatura não gera movimentação bancária" />
+                <Cartao label="Bank checkpoints" valor="0" tom="ok" detalhe="fatura não possui saldo diário" />
+                <Cartao
+                  label="Card statement items"
+                  valor={String(itensFatura.length)}
+                  detalhe={Object.entries(fatura?.itemCounts ?? {})
+                    .map(([k, v]) => `${k}: ${v}`)
+                    .join(" · ")}
+                />
+                <Cartao
+                  label="Validation"
+                  valor={fatura?.validation?.status ?? "—"}
+                  detalhe={`itens cobrados ${moeda(fatura?.validation?.chargedItemsTotal ?? null)}`}
+                  tom={fatura?.validation?.status === "CARD_STATEMENT_VALID" ? "ok" : "falha"}
+                />
+              </div>
+            )}
+
+            {aba === "FATURA" && (
+              <div className="w-full overflow-x-auto rounded-2xl border border-border">
+                <table className="w-full text-[13px]">
+                  <thead className="bg-accent/40">
+                    <tr>
+                      <Th>Data</Th>
+                      <Th largo>Estabelecimento</Th>
+                      <Th>Categoria</Th>
+                      <Th>Parcela</Th>
+                      <Th>Cartão</Th>
+                      <Th>Valor</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {itensFatura.map((i, idx) => (
+                      <tr key={`${i.description}-${idx}`} className="border-t border-border/60 align-top">
+                        <td className="px-3 py-2 font-mono whitespace-nowrap">{i.date ?? "—"}</td>
+                        <td className={`px-3 py-2 ${quebra}`}>{i.description}</td>
+                        <td className="px-3 py-2 font-bold">{i.category}</td>
+                        <td className="px-3 py-2">
+                          {i.installmentTotal ? `${i.installmentCurrent}/${i.installmentTotal}` : "—"}
+                        </td>
+                        <td className="px-3 py-2">{i.cardLast4 ?? "—"}</td>
+                        <td className="px-3 py-2 font-mono whitespace-nowrap">{moeda(i.amount)}</td>
+                      </tr>
+                    ))}
+                    {!itensFatura.length && (
+                      <tr>
+                        <td className="px-3 py-4 text-muted-foreground" colSpan={6}>
+                          Nenhum lançamento devolvido pelo parser de fatura.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {aba === "RESUMO" && !ehFatura && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <Cartao
                   label="Período"

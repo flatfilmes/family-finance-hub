@@ -20,11 +20,26 @@ import {
   type RawVisualLine,
 } from "@/lib/pdf-diagnostic";
 import { defaultDryRunForSource } from "@/lib/pdf-diagnostic/default-dry-runs";
+import {
+  detectDocumentType,
+  type DocumentType,
+  type DocumentTypeDetection,
+} from "@/lib/pdf-diagnostic/document-type";
 
 export type BankStatementDryRunResult = {
   fileName: string;
   dump: RawPdfDump;
   visualRows: RawVisualLine[];
+  /** Tipo econômico do documento, detectado ANTES de qualquer parser. */
+  documentType: DocumentTypeDetection;
+  /** Origem informada pela tela (rótulo) × tipo realmente detectado. */
+  routing: {
+    requestedSource: DiagnosticSource;
+    documentType: DocumentType;
+    parserFamily: "BANK_STATEMENT" | "CARD_STATEMENT" | "PURCHASE_RECEIPT" | "NONE";
+    status: "OK" | "WRONG_DOCUMENT_TYPE_FOR_BANK_STATEMENT" | "DOCUMENT_TYPE_UNKNOWN";
+    reason: string;
+  };
   /** Saída real do parser. `null` somente quando ele não pôde ser executado. */
   parser: ParserDryRunResult | null;
   package: DiagnosticPackage;
@@ -96,7 +111,40 @@ export async function runBankStatementDryRun(input: {
   const dump = await rawPdfDump(input.file, input.file.name);
   const visualRows = rawVisualLines(dump.items);
 
-  const dryRun = defaultDryRunForSource(source);
+  // ETAPA 1 — TIPO ECONÔMICO DO DOCUMENTO (antes da detecção de banco).
+  const textos = [
+    ...visualRows.map((r) => r.items.map((i) => i.text).join(" ")),
+    ...dump.items.map((i) => i.text),
+  ];
+  const documentType = detectDocumentType(textos);
+
+  // ETAPA 2 — ROTEAMENTO POR TIPO, nunca só pela marca do banco.
+  const familia =
+    documentType.type === "CREDIT_CARD_STATEMENT"
+      ? "CARD_STATEMENT"
+      : documentType.type === "RECEIPT"
+        ? "PURCHASE_RECEIPT"
+        : documentType.type === "BANK_STATEMENT"
+          ? "BANK_STATEMENT"
+          : "NONE";
+
+  const sourceEfetiva: DiagnosticSource =
+    familia === "NONE" ? source : (familia as DiagnosticSource);
+
+  const routing: BankStatementDryRunResult["routing"] = {
+    requestedSource: source,
+    documentType: documentType.type,
+    parserFamily: familia,
+    status:
+      familia === "NONE"
+        ? "DOCUMENT_TYPE_UNKNOWN"
+        : source === "BANK_STATEMENT" && familia !== "BANK_STATEMENT"
+          ? "WRONG_DOCUMENT_TYPE_FOR_BANK_STATEMENT"
+          : "OK",
+    reason: documentType.reason,
+  };
+
+  const dryRun = defaultDryRunForSource(sourceEfetiva);
   let parser: ParserDryRunResult | null = null;
   let error: string | null = null;
 
@@ -113,12 +161,21 @@ export async function runBankStatementDryRun(input: {
   }
 
   const pacote = buildDiagnosticPackage({
-    source,
+    source: sourceEfetiva,
     dump,
     visualRows,
     parser,
     page: input.page ?? null,
   });
 
-  return { fileName: dump.fileName, dump, visualRows, parser, package: pacote, error };
+  return {
+    fileName: dump.fileName,
+    dump,
+    visualRows,
+    documentType,
+    routing,
+    parser,
+    package: { ...pacote, documentType, routing },
+    error,
+  };
 }
