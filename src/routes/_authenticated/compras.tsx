@@ -65,6 +65,7 @@ import {
 } from "@/lib/recurring-expenses";
 import { isRecorrente } from "@/lib/purchases";
 import { NovaCompraOptions } from "@/components/purchase-capture";
+import { EvidenceImageDialog } from "@/components/evidence/evidence-image-dialog";
 import { PurchaseDetail } from "@/components/purchase-detail";
 import { VisaoConsumo } from "@/components/purchase-consumption";
 import { DeletePurchaseDialog } from "@/components/purchase-delete";
@@ -284,6 +285,7 @@ function Compras() {
 
 
   const [excluindo, setExcluindo] = useState<Purchase | null>(null);
+  const [evidencia, setEvidencia] = useState(false);
 
 
   if (!family) {
@@ -318,7 +320,20 @@ function Compras() {
           {showOptions || showForm ? "Fechar" : "+ Nova compra"}
         </button>
         )}
+        {view.podeLancar && (
+          <button
+            type="button"
+            onClick={() => setEvidencia(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+          >
+            Enviar evidência
+          </button>
+        )}
       </div>
+
+      {evidencia && (
+        <EvidenceImageDialog sourceType="PURCHASE_IMAGE" onClose={() => setEvidencia(false)} />
+      )}
 
       {showOptions && view.podeLancar && (
         <NovaCompraOptions

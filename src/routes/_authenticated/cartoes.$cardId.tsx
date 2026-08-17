@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, FileUp, MoreHorizontal, Receipt } from "lucide-react";
+import { ChevronLeft, ChevronRight, FileUp, ImageUp, MoreHorizontal, Receipt } from "lucide-react";
 
 import { StatementImportDialog } from "@/components/statement-import-dialog";
 import { EvidenceImageDialog } from "@/components/evidence/evidence-image-dialog";
@@ -86,6 +86,7 @@ function CartaoDetalhePage() {
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().slice(0, 10));
   const [erro, setErro] = useState("");
   const [importando, setImportando] = useState(false);
+  const [evidencia, setEvidencia] = useState(false);
   const [verHistorico, setVerHistorico] = useState(false);
   const [mesesFuturos, setMesesFuturos] = useState(9);
   const reguaRef = useRef<HTMLDivElement | null>(null);
