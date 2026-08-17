@@ -14,15 +14,10 @@
  */
 import { extractPdfPageLayouts, layoutPageLines, type PdfLine } from "@/lib/pdf-extract";
 import {
-  isBancoDoBrasil,
-  parseBancoDoBrasilLines,
-} from "@/lib/bank-statement-parsers/banco-do-brasil";
-import {
-  detectItauBankStatement,
-  parseItauBankStatementLayouts,
   type ItauDetection,
   type ItauPipelineDiagnostics,
 } from "@/lib/bank-statement-parsers/itau";
+
 import {
   describeParserError,
   inspectParsedStatement,
