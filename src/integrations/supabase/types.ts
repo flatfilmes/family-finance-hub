@@ -1824,6 +1824,250 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_evidence_imports: {
+        Row: {
+          bank_account_id: string | null
+          created_at: string
+          created_by: string
+          credit_card_id: string | null
+          extraction_provider: string | null
+          extraction_version: string | null
+          family_id: string
+          file_hash: string
+          file_name: string | null
+          id: string
+          institution_id: string | null
+          member_id: string | null
+          mime_type: string
+          observacao: string | null
+          raw_text: string | null
+          source_type: Database["public"]["Enums"]["evidence_source_type"]
+          status: Database["public"]["Enums"]["evidence_import_status"]
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string
+          credit_card_id?: string | null
+          extraction_provider?: string | null
+          extraction_version?: string | null
+          family_id: string
+          file_hash: string
+          file_name?: string | null
+          id?: string
+          institution_id?: string | null
+          member_id?: string | null
+          mime_type: string
+          observacao?: string | null
+          raw_text?: string | null
+          source_type: Database["public"]["Enums"]["evidence_source_type"]
+          status?: Database["public"]["Enums"]["evidence_import_status"]
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          bank_account_id?: string | null
+          created_at?: string
+          created_by?: string
+          credit_card_id?: string | null
+          extraction_provider?: string | null
+          extraction_version?: string | null
+          family_id?: string
+          file_hash?: string
+          file_name?: string | null
+          id?: string
+          institution_id?: string | null
+          member_id?: string | null
+          mime_type?: string
+          observacao?: string | null
+          raw_text?: string | null
+          source_type?: Database["public"]["Enums"]["evidence_source_type"]
+          status?: Database["public"]["Enums"]["evidence_import_status"]
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_evidence_imports_bank_account_id_fkey"
+            columns: ["bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_imports_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_imports_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_imports_institution_id_fkey"
+            columns: ["institution_id"]
+            isOneToOne: false
+            referencedRelation: "financial_institutions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_imports_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "family_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financial_evidence_items: {
+        Row: {
+          amount: number
+          card_last4: string | null
+          created_at: string
+          description: string
+          direction: string | null
+          economic_kind: string | null
+          event_date: string | null
+          evidence_import_id: string
+          extraction_confidence: number
+          family_id: string
+          id: string
+          installment_current: number | null
+          installment_total: number | null
+          match_reason: string | null
+          match_score: number
+          match_status: Database["public"]["Enums"]["evidence_match_status"]
+          matched_bank_statement_item_id: string | null
+          matched_card_statement_item_id: string | null
+          matched_purchase_id: string | null
+          matched_transaction_id: string | null
+          normalized_description: string
+          ordem: number
+          posting_date: string | null
+          raw_text: string | null
+          review_action: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_confidence: string
+          source_item_key: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          card_last4?: string | null
+          created_at?: string
+          description: string
+          direction?: string | null
+          economic_kind?: string | null
+          event_date?: string | null
+          evidence_import_id: string
+          extraction_confidence?: number
+          family_id: string
+          id?: string
+          installment_current?: number | null
+          installment_total?: number | null
+          match_reason?: string | null
+          match_score?: number
+          match_status?: Database["public"]["Enums"]["evidence_match_status"]
+          matched_bank_statement_item_id?: string | null
+          matched_card_statement_item_id?: string | null
+          matched_purchase_id?: string | null
+          matched_transaction_id?: string | null
+          normalized_description: string
+          ordem?: number
+          posting_date?: string | null
+          raw_text?: string | null
+          review_action?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_confidence?: string
+          source_item_key: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          card_last4?: string | null
+          created_at?: string
+          description?: string
+          direction?: string | null
+          economic_kind?: string | null
+          event_date?: string | null
+          evidence_import_id?: string
+          extraction_confidence?: number
+          family_id?: string
+          id?: string
+          installment_current?: number | null
+          installment_total?: number | null
+          match_reason?: string | null
+          match_score?: number
+          match_status?: Database["public"]["Enums"]["evidence_match_status"]
+          matched_bank_statement_item_id?: string | null
+          matched_card_statement_item_id?: string | null
+          matched_purchase_id?: string | null
+          matched_transaction_id?: string | null
+          normalized_description?: string
+          ordem?: number
+          posting_date?: string | null
+          raw_text?: string | null
+          review_action?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_confidence?: string
+          source_item_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financial_evidence_items_evidence_import_id_fkey"
+            columns: ["evidence_import_id"]
+            isOneToOne: false
+            referencedRelation: "financial_evidence_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_items_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_items_matched_bank_statement_item_id_fkey"
+            columns: ["matched_bank_statement_item_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_items_matched_card_statement_item_id_fkey"
+            columns: ["matched_card_statement_item_id"]
+            isOneToOne: false
+            referencedRelation: "card_statement_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_items_matched_purchase_id_fkey"
+            columns: ["matched_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financial_evidence_items_matched_transaction_id_fkey"
+            columns: ["matched_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_institutions: {
         Row: {
           active: boolean
@@ -2358,6 +2602,91 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      purchase_evidence_links: {
+        Row: {
+          bank_statement_item_id: string | null
+          card_statement_item_id: string | null
+          created_at: string
+          created_by: string
+          document_id: string | null
+          evidence_item_id: string | null
+          family_id: string
+          id: string
+          observacao: string | null
+          purchase_id: string
+          source_type: Database["public"]["Enums"]["evidence_source_type"]
+        }
+        Insert: {
+          bank_statement_item_id?: string | null
+          card_statement_item_id?: string | null
+          created_at?: string
+          created_by?: string
+          document_id?: string | null
+          evidence_item_id?: string | null
+          family_id: string
+          id?: string
+          observacao?: string | null
+          purchase_id: string
+          source_type: Database["public"]["Enums"]["evidence_source_type"]
+        }
+        Update: {
+          bank_statement_item_id?: string | null
+          card_statement_item_id?: string | null
+          created_at?: string
+          created_by?: string
+          document_id?: string | null
+          evidence_item_id?: string | null
+          family_id?: string
+          id?: string
+          observacao?: string | null
+          purchase_id?: string
+          source_type?: Database["public"]["Enums"]["evidence_source_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_evidence_links_bank_statement_item_id_fkey"
+            columns: ["bank_statement_item_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_evidence_links_card_statement_item_id_fkey"
+            columns: ["card_statement_item_id"]
+            isOneToOne: false
+            referencedRelation: "card_statement_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_evidence_links_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_evidence_links_evidence_item_id_fkey"
+            columns: ["evidence_item_id"]
+            isOneToOne: false
+            referencedRelation: "financial_evidence_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_evidence_links_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_evidence_links_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       purchase_import_items: {
         Row: {
@@ -3411,6 +3740,29 @@ export type Database = {
         | "PDF_FATURA"
         | "COMPROVANTE"
         | "OUTRO"
+      evidence_import_status:
+        | "UPLOADED"
+        | "EXTRACTING"
+        | "EXTRACTED"
+        | "REVIEWED"
+        | "CONFIRMED"
+        | "FAILED"
+        | "PROVIDER_NOT_CONFIGURED"
+      evidence_match_status:
+        | "EXACT_MATCH"
+        | "STRONG_MATCH"
+        | "POSSIBLE_MATCH"
+        | "NEW_ITEM"
+        | "NEW_IN_OVERLAP"
+        | "CONFLICT"
+        | "IGNORED"
+      evidence_source_type:
+        | "BANK_STATEMENT_PDF"
+        | "CREDIT_CARD_STATEMENT_PDF"
+        | "BANK_SCREENSHOT"
+        | "CARD_SCREENSHOT"
+        | "RECEIPT_IMAGE"
+        | "PURCHASE_IMAGE"
       expense_category:
         | "ENERGIA"
         | "AGUA"
@@ -3698,6 +4050,32 @@ export const Constants = {
         "PDF_FATURA",
         "COMPROVANTE",
         "OUTRO",
+      ],
+      evidence_import_status: [
+        "UPLOADED",
+        "EXTRACTING",
+        "EXTRACTED",
+        "REVIEWED",
+        "CONFIRMED",
+        "FAILED",
+        "PROVIDER_NOT_CONFIGURED",
+      ],
+      evidence_match_status: [
+        "EXACT_MATCH",
+        "STRONG_MATCH",
+        "POSSIBLE_MATCH",
+        "NEW_ITEM",
+        "NEW_IN_OVERLAP",
+        "CONFLICT",
+        "IGNORED",
+      ],
+      evidence_source_type: [
+        "BANK_STATEMENT_PDF",
+        "CREDIT_CARD_STATEMENT_PDF",
+        "BANK_SCREENSHOT",
+        "CARD_SCREENSHOT",
+        "RECEIPT_IMAGE",
+        "PURCHASE_IMAGE",
       ],
       expense_category: [
         "ENERGIA",
