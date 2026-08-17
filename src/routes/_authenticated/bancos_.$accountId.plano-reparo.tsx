@@ -348,6 +348,16 @@ function PlanoReparoPage() {
         </div>
       </Card>
 
+      <FinancialRepairExecution
+        proof={provaFinanceira}
+        onApplied={() => {
+          for (const key of ["transactions", "bank-accounts", "bank-statement-items"]) {
+            void queryClient.invalidateQueries({ queryKey: [key] });
+          }
+          void queryClient.invalidateQueries({ queryKey: ["bank-balance-checkpoints", accountId] });
+        }}
+      />
+
       <RepairProofPanel proof={proof} />
 
       <Card className="mb-5 border-primary/30 bg-primary/5">
