@@ -31,11 +31,34 @@ export async function findExistingStatementImport(accountId: string, fingerprint
     .select("*")
     .eq("bank_account_id", accountId)
     .eq("fingerprint", fingerprint)
+    .is("duplicate_of_import_id", null)
     .order("created_at", { ascending: false })
     .limit(1);
   if (error) throw error;
   return data?.[0] ?? null;
 }
+
+/**
+ * Erro de corrida: duas requisições tentaram criar o mesmo extrato ao mesmo tempo
+ * (duplo clique, duas abas, retry de rede). Uma vence; a outra recebe isto.
+ */
+export class SameStatementAlreadyImportedError extends Error {
+  readonly code = "SAME_STATEMENT_ALREADY_IMPORTED";
+  constructor(readonly canonicalImportId: string | null) {
+    super("Este extrato já foi importado nesta conta.");
+    this.name = "SameStatementAlreadyImportedError";
+  }
+}
+
+/** O banco recusou a gravação por já existir um import canônico com o mesmo fingerprint. */
+export function isFingerprintConflict(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  return (
+    error.code === "23505" &&
+    /bank_statement_imports_canonical_fingerprint_uidx/.test(error.message ?? "")
+  );
+}
+
 
 /** Grava a importação e os lançamentos revisados. Nada vira movimentação aqui. */
 export async function createBankStatementImport(input: {
