@@ -27,7 +27,7 @@ import { formatCurrency } from "@/lib/finance";
 import { formatDate } from "@/lib/expenses";
 import {
   ACOES_SEM_EFEITO,
-  buildExistingMovementKeys,
+  buildExistingMovementIndex,
   confirmBankStatementImport,
   createBankStatementImport,
   reconcileMovement,
@@ -111,7 +111,7 @@ function RevisarLote() {
   const comErro = arquivos.filter((f) => f.status !== "OK");
 
   const chavesExistentes = useMemo(
-    () => buildExistingMovementKeys(itensExistentes ?? []),
+    () => buildExistingMovementIndex(itensExistentes ?? []),
     [itensExistentes],
   );
   const duplicados = useMemo(

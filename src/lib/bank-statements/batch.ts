@@ -11,7 +11,7 @@
  * arquivos do mesmo lote e o resumo do lote. Nada aqui altera parser algum.
  */
 import type { ParsedBalanceCheckpoint, ParsedBankStatement } from "./types";
-import { movementKey } from "./dedupe";
+import { movementKey, type ExistingIndex } from "./dedupe";
 
 export type BatchFileStatus = "PENDENTE" | "LENDO" | "OK" | "ERRO";
 
