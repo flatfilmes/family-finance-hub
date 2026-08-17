@@ -518,6 +518,10 @@ function interpretar(
     parsedTransactions: realizados.length,
     parsedCheckpoints: checkpoints.length,
     openingBalance: { amount: abertura?.saldo ?? null, date: abertura?.data ?? null },
+    lastHistoricalCheckpoint: ultimoCheckpointHistorico
+      ? { amount: ultimoCheckpointHistorico.saldo, date: ultimoCheckpointHistorico.data }
+      : { amount: null, date: null },
+    closingBalance: { amount: saldoFinal, date: saldoFinalData, derived: saldoFinalDerivado },
     referenceBalance: { amount: referencia?.saldo ?? null, date: referencia?.data ?? null },
     validation: { status: erros.length ? "FAIL" : "PASS", errors: erros },
     rows,
@@ -529,7 +533,11 @@ function interpretar(
     periodoInicio,
     periodoFim,
     saldoInicial: abertura?.saldo ?? null,
+    saldoInicialData: abertura?.data ?? null,
     saldoFinal,
+    saldoFinalData,
+    saldoFinalDerivado,
+    ultimoCheckpointHistorico,
     saldoReferenciaAtual: referencia ? { data: referencia.data, saldo: referencia.saldo } : null,
     movimentos: realizados,
     checkpoints,
