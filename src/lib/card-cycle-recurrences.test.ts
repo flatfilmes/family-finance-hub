@@ -196,7 +196,6 @@ describe("próxima parcela de um parcelamento", () => {
   const ativos = parcelamentosAtivos({
     parcelas,
     faturas,
-    despesaPorId: new Map(),
     compraPorId: new Map(),
     hoje: HOJE,
   });
