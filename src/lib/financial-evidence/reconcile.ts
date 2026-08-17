@@ -234,9 +234,7 @@ export function reconcileFinancialCandidates(input: {
 
     let status = statusPorScore(melhor.p.score);
     // Fonte de baixa confiança (foto/print solto) nunca fecha sozinha.
-    if (status === "EXACT_MATCH" && c.sourceConfidence === "LOW") status = "STRONG_MATCH";
-    if (status === "EXACT_MATCH" && c.sourceConfidence === "MEDIUM" && melhor.p.score < 11)
-      status = "STRONG_MATCH";
+    if (status === "EXACT_MATCH" && c.sourceConfidence !== "HIGH") status = "STRONG_MATCH";
 
     if (status === "NEW_ITEM") {
       const data = c.eventDate ?? c.postingDate;
