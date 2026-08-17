@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AlertTriangle, Check, ChevronDown, Download } from "lucide-react";
 
 import { Card } from "@/components/page-header";
@@ -143,6 +143,13 @@ function AuditoriaContaPage() {
         badges={<StatusBadge tone="muted">Somente leitura — nada é alterado</StatusBadge>}
         actions={
           <div className="flex flex-wrap gap-2">
+            <Link
+              to="/bancos/$accountId/plano-reparo"
+              params={{ accountId }}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted"
+            >
+              Plano de reparo
+            </Link>
             <RepairHistoryDialog accountId={accountId} imports={imports ?? []} />
             <RepairPostingDatesDialog accountId={accountId} />
             <CheckpointsOnlyButton accountId={accountId} />
