@@ -43,10 +43,10 @@ export type RepairImpactPeriod = {
   linhas: RepairImpactRow[];
   /** Efeito no saldo final deste período, isoladamente. */
   deltaPeriodo: number;
-  /** Saldo do sistema no fim do período depois do reparo (acumulado). */
-  saldoFinalDocumento: number | null;
-  saldoFinalCorrigido: number | null;
+  /** Efeito acumulado no saldo da conta até o fim deste período. */
+  deltaAcumulado: number;
 };
+
 
 export type RepairImpact = {
   geradoEm: string;
