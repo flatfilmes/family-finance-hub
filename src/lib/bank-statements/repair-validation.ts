@@ -235,10 +235,9 @@ function validarLinha(
     status: "CONFIRMADA",
     source_id: linha.sourceId,
     statement_item_id: linha.itemId,
-    ordem: linha.ordem,
     occurrence_index: linha.ordem,
     efeitoSaldo: linha.deltaSaldo,
-  } as LedgerPreview;
+  };
 
   const irmaos = (grupo?.linhas ?? [])
     .filter((l) => l.presente && l.ledgerTransactionId)
