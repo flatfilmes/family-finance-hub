@@ -181,7 +181,30 @@ export function parseItauSpatial(
 
   const vencimento = acharDataRotulada(textos, ["vencimento", "vence em", "pagar ate"]);
   const emissao = acharDataRotulada(textos, ["emissao", "emitida em", "data de emissao"]);
-  const fechamento = acharDataRotulada(textos, ["proximo fechamento", "fechamento"]) ?? null;
+  // Fechamento DA FATURA ATUAL × previsão do PRÓXIMO fechamento são fatos distintos.
+  // "Previsão prox. Fechamento" alimenta exclusivamente next_closing_date.
+  const ehPrevisaoDeFechamento = (l: string) => {
+    const p = plano(l);
+    return p.includes("prox") || p.includes("previsao");
+  };
+  const linhasFechamento = textos.filter((l) => plano(l).includes("fechamento"));
+  const proximoFechamento =
+    acharDataRotulada(linhasFechamento.filter(ehPrevisaoDeFechamento), ["fechamento"]) ?? null;
+  const fechamentoExplicito =
+    acharDataRotulada(
+      linhasFechamento.filter((l) => !ehPrevisaoDeFechamento(l)),
+      ["fechamento"],
+    ) ?? null;
+  // Sem fechamento explícito, o ciclo atual encerra um mês antes da previsão.
+  const fechamentoDerivado = (() => {
+    if (!proximoFechamento) return null;
+    const [a, m, d] = proximoFechamento.split("-").map(Number);
+    if (!a || !m || !d) return null;
+    const ano = m === 1 ? a - 1 : a;
+    const mes = m === 1 ? 12 : m - 1;
+    return `${ano}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  })();
+  const fechamento = fechamentoExplicito ?? fechamentoDerivado ?? emissao ?? null;
   const totalAnterior = acharValorRotulado(textos, ["total da fatura anterior", "fatura anterior"]);
   const pagamentoAnterior = acharValorRotulado(textos, ["pagamento efetuado", "pagamentos efetuados"]);
   const lancamentosAtuais = acharValorRotulado(textos, ["lancamentos atuais", "lancamentos desta fatura"]);
