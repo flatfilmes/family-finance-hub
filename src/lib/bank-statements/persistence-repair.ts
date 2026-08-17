@@ -229,9 +229,87 @@ export function buildPersistenceRepairPlan(input: {
   );
   const impById = new Map(input.imports.map((i) => [i.id, i]));
 
-  const ordenados = [...input.lineages].sort((a, b) =>
-    String(a.periodStart ?? "").localeCompare(String(b.periodStart ?? "")),
+  // ---------- eleição do extrato canônico ----------
+  // Reimportar o MESMO extrato não cria movimento econômico novo: imports com
+  // período idêntico são agrupados e só o canônico participa da contagem, dos
+  // checkpoints, do saldo e dos candidatos de reparo.
+  const selecao = buildStatementSelection({
+    imports: input.imports.map((i) => ({
+      id: i.id,
+      nome_arquivo: i.nome_arquivo,
+      periodo_inicio: i.periodo_inicio,
+      periodo_fim: i.periodo_fim,
+      saldo_inicial: i.saldo_inicial ?? null,
+      saldo_final: i.saldo_final ?? null,
+      status: i.status ?? null,
+      created_at: i.created_at ?? null,
+      dados_brutos_json: i.dados_brutos_json,
+    })),
+    checkpoints: input.checkpoints.map((c) => ({
+      data: c.data,
+      saldo: c.saldo,
+      tipo: c.tipo ?? null,
+      importId: c.importId ?? null,
+    })),
+    statementItems: input.items.map((i) => ({
+      import_id: i.import_id,
+      incluir: i.incluir ?? null,
+      transaction_id_criada: i.transaction_id_criada ?? null,
+      transaction_id_matched: i.transaction_id_matched ?? null,
+    })),
+  });
+  const canonicalIds = new Set(selecao.canonicalIds);
+
+  const overlaps: OverlapImport[] = selecao.grupos
+    .filter((g) => g.relacao === "SAME_PERIOD_OVERLAP")
+    .flatMap((g) =>
+      g.candidatos
+        .filter((c) => !c.canonical)
+        .map((c) => ({
+          importId: c.importId,
+          nomeArquivo: c.nomeArquivo,
+          periodStart: c.periodStart,
+          periodEnd: c.periodEnd,
+          relacao: "SAME_PERIOD_OVERLAP" as const,
+          papel: "NON_CANONICAL_SOURCE" as const,
+          canonicalId: g.canonicalId,
+          linhas: c.itens,
+          impactoFinanceiro: 0 as const,
+          motivo:
+            "Snapshot do MESMO extrato já representado pelo import canônico. Preservado como documento histórico; não gera restauração nem contagem própria.",
+        })),
+    );
+
+  // Existência econômica atual da conta — base para provar presença real.
+  const presenca = createPresenceLedger(
+    doLedger
+      .filter((t) => t.tipo !== "ABERTURA_SALDO" && t.tipo !== "AJUSTE_SALDO")
+      .map((t) => ({
+        data: t.data_movimento,
+        valor: Math.abs(Number(t.valor) || 0),
+        direcao: movementEffect(t) >= 0 ? ("IN" as const) : ("OUT" as const),
+        descricao: t.descricao ?? null,
+      })),
   );
+  // Linhas já ligadas ao ledger consomem a capacidade antes dos candidatos.
+  for (const lin of input.lineages) {
+    if (!canonicalIds.has(lin.importId)) continue;
+    for (const r of lin.rows) {
+      if (!r.ledgerTransactionId) continue;
+      presenca.consume({
+        data: r.postingDate,
+        valor: Math.abs(r.amount),
+        direcao: r.direction,
+        descricao: r.description,
+      });
+    }
+  }
+
+  const jaPresentes: AlreadyPresentLine[] = [];
+
+  const ordenados = [...input.lineages]
+    .filter((l) => canonicalIds.has(l.importId))
+    .sort((a, b) => String(a.periodStart ?? "").localeCompare(String(b.periodStart ?? "")));
 
   const periodos: RepairPeriod[] = [];
   let acumulado = 0;
@@ -247,10 +325,35 @@ export function buildPersistenceRepairPlan(input: {
     const ausentes = lin.missingFromLedger.filter(
       (r) => r.finalStatus !== "SKIPPED_DUPLICATE" && r.finalStatus !== "REJECTED",
     );
-    const restauradas = [
+    const candidatas = [
       ...perdidos.map((r) => toRestored(r, MOTIVO_DUPLICATA)),
       ...ausentes.map((r) => toRestored(r, MOTIVO_AUSENTE)),
     ].sort((a, b) => String(a.data ?? "").localeCompare(String(b.data ?? "")));
+
+    // Ausência de vínculo NÃO é ausência econômica: se o fato já existe no
+    // ledger, a linha é marcada como presente e nunca vira restauração.
+    const restauradas = candidatas.filter((l) => {
+      const presente = presenca.consume({
+        data: l.data,
+        valor: Math.abs(l.valor),
+        direcao: l.direcao,
+        descricao: l.descricao,
+      });
+      if (presente) {
+        jaPresentes.push({
+          importId: lin.importId,
+          itemId: l.itemId,
+          sourceId: l.sourceId,
+          data: l.data,
+          descricao: l.descricao,
+          valor: l.valor,
+          direcao: l.direcao,
+          veredito: "ALREADY_PRESENT_VIA_OTHER_IMPORT",
+        });
+      }
+      return !presente;
+    });
+
 
     const deltaPeriodo = round(restauradas.reduce((acc, l) => acc + l.deltaSaldo, 0));
     acumulado = round(acumulado + deltaPeriodo);
