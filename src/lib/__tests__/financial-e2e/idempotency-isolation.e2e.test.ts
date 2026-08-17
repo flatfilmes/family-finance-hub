@@ -1,7 +1,7 @@
 /**
  * FASE 3F — IDEMPOTÊNCIA, REIMPORTAÇÃO E ISOLAMENTO ENTRE FAMÍLIAS.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { cardItemsToCandidates } from "@/lib/financial-evidence/candidates";
 import { purchasesToRecords } from "@/lib/financial-evidence/existing";
@@ -85,7 +85,7 @@ describe("E2E_REIMPORT_SAME_DOCUMENT", () => {
       existing: purchasesToRecords(world.state.purchases),
     });
     expect(res.resolutions.every((r) => r.status === "EXACT_MATCH")).toBe(true);
-    expect(res.summary.exact).toBe(2);
+    expect(res.summary.exactMatch).toBe(2);
 
     const ctx2 = reviewContext({
       evidenceImportId: "ev-fatura-reimport",
@@ -112,7 +112,12 @@ describe("E2E_CROSS_FAMILY_ISOLATION", () => {
   });
 
   it("as tabelas econômicas e de evidência têm RLS habilitada com escopo de família", () => {
-    const sql = readFileSync("supabase/migrations/_all.sql", "utf8").toUpperCase();
+    const dir = "supabase/migrations";
+    const sql = readdirSync(dir)
+      .filter((f) => f.endsWith(".sql"))
+      .map((f) => readFileSync(`${dir}/${f}`, "utf8"))
+      .join("\n")
+      .toUpperCase();
     const tabelas = [
       "PURCHASES",
       "TRANSACTIONS",
