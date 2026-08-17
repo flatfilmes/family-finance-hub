@@ -1507,7 +1507,7 @@ export type Database = {
           created_at: string
           credit_card_id: string | null
           data_vencimento: string
-          expense_id: string
+          expense_id: string | null
           family_id: string
           id: string
           member_id: string | null
@@ -1523,7 +1523,7 @@ export type Database = {
           created_at?: string
           credit_card_id?: string | null
           data_vencimento: string
-          expense_id: string
+          expense_id?: string | null
           family_id: string
           id?: string
           member_id?: string | null
@@ -1539,7 +1539,7 @@ export type Database = {
           created_at?: string
           credit_card_id?: string | null
           data_vencimento?: string
-          expense_id?: string
+          expense_id?: string | null
           family_id?: string
           id?: string
           member_id?: string | null
@@ -3039,6 +3039,27 @@ export type Database = {
         Args: { _ativo: boolean; _card_id: string }
         Returns: undefined
       }
+      assert_bank_account_access: {
+        Args: { _account_id: string }
+        Returns: undefined
+      }
+      assert_bank_import_access: {
+        Args: { _import_id: string }
+        Returns: undefined
+      }
+      assert_bank_item_access: {
+        Args: { _item_id: string }
+        Returns: undefined
+      }
+      assert_family_access: { Args: { _family_id: string }; Returns: undefined }
+      assert_purchase_access: {
+        Args: { _purchase_id: string }
+        Returns: undefined
+      }
+      assert_repair_log_access: {
+        Args: { _log_id: string }
+        Returns: undefined
+      }
       bank_import_reset_scope: { Args: { _account_id: string }; Returns: Json }
       can_manage_member_record: {
         Args: { _family_id: string; _member_id: string; _user_id: string }
@@ -3071,7 +3092,7 @@ export type Database = {
       create_purchase_complete: {
         Args: {
           p_client_request_id?: string
-          p_items?: Json
+          p_items: Json
           p_parcela_inicial?: number
           p_parcelas?: number
           p_periodicidade?: string
