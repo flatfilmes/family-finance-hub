@@ -42,6 +42,7 @@ import {
   buildFinancialRepairDryRun,
   toFinancialRepairProof,
 } from "@/lib/bank-statements/financial-repair";
+import { FinancialRepairExecution } from "@/components/bank/financial-repair-execution";
 import { formatCurrency } from "@/lib/finance";
 
 
@@ -347,6 +348,16 @@ function PlanoReparoPage() {
           />
         </div>
       </Card>
+
+      <FinancialRepairExecution
+        proof={provaFinanceira}
+        onApplied={() => {
+          for (const key of ["transactions", "bank-accounts", "bank-statement-items"]) {
+            void queryClient.invalidateQueries({ queryKey: [key] });
+          }
+          void queryClient.invalidateQueries({ queryKey: ["bank-balance-checkpoints", accountId] });
+        }}
+      />
 
       <RepairProofPanel proof={proof} />
 

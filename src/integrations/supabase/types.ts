@@ -148,6 +148,75 @@ export type Database = {
           },
         ]
       }
+      bank_financial_repair_logs: {
+        Row: {
+          account_id: string
+          after_state: Json
+          bb_transaction_preserved: Json | null
+          before_state: Json
+          canonical_import_id: string | null
+          created_at: string
+          executed_at: string
+          executed_by: string | null
+          family_id: string
+          id: string
+          post_validation: Json
+          repair_type: string
+          transaction_removed: Json
+          transactions_direction_corrected: Json
+          transfer_group_id: string | null
+        }
+        Insert: {
+          account_id: string
+          after_state: Json
+          bb_transaction_preserved?: Json | null
+          before_state: Json
+          canonical_import_id?: string | null
+          created_at?: string
+          executed_at?: string
+          executed_by?: string | null
+          family_id: string
+          id?: string
+          post_validation: Json
+          repair_type: string
+          transaction_removed: Json
+          transactions_direction_corrected: Json
+          transfer_group_id?: string | null
+        }
+        Update: {
+          account_id?: string
+          after_state?: Json
+          bb_transaction_preserved?: Json | null
+          before_state?: Json
+          canonical_import_id?: string | null
+          created_at?: string
+          executed_at?: string
+          executed_by?: string | null
+          family_id?: string
+          id?: string
+          post_validation?: Json
+          repair_type?: string
+          transaction_removed?: Json
+          transactions_direction_corrected?: Json
+          transfer_group_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_financial_repair_logs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_financial_repair_logs_family_id_fkey"
+            columns: ["family_id"]
+            isOneToOne: false
+            referencedRelation: "families"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bank_import_reset_logs: {
         Row: {
           bank_account_id: string
@@ -2926,6 +2995,19 @@ export type Database = {
           _occurrence_index: number
           _source_id: string
           _valor: number
+        }
+        Returns: Json
+      }
+      apply_financial_ledger_repair: {
+        Args: {
+          _account_id: string
+          _canonical_import_id: string
+          _expected_after_balance: number
+          _expected_after_count: number
+          _expected_before_balance: number
+          _expected_before_count: number
+          _fix_ids: string[]
+          _remove_id: string
         }
         Returns: Json
       }
