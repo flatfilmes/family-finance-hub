@@ -34,16 +34,16 @@ const purchaseBase = {
 
 const items = [
   {
-    product_id: null,
-    categoria_id: null,
+    product_id: "",
+    categoria_id: "",
     descricao_produto: "Arroz",
     quantidade: 2,
     unidade: "UN",
     valor_unitario: 10,
   },
   {
-    product_id: null,
-    categoria_id: null,
+    product_id: "",
+    categoria_id: "",
     descricao_produto: "Feijão",
     quantidade: 1,
     unidade: "UN",
