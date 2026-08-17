@@ -199,11 +199,14 @@ export async function fetchBankBalanceCheckpoints(accountId: string) {
     .order("data", { ascending: true });
   if (error) throw error;
   return (data ?? []).map((c) => ({
+    id: c.id as string,
     data: c.data as string,
     saldo: Number(c.saldo_informado),
     rotulo: c.rotulo as string | null,
+    tipo: (c.tipo as string | null) ?? null,
     importId: (c.import_id as string | null) ?? null,
   }));
+
 }
 
 
