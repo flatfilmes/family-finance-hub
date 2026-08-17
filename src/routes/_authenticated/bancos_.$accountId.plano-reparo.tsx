@@ -36,6 +36,8 @@ import { buildRepairProof } from "@/lib/bank-statements/repair-proof";
 import { RepairProofPanel } from "@/components/bank/repair-proof-panel";
 import { buildRepairValidation, type RepairValidation } from "@/lib/bank-statements/repair-validation";
 import { RepairValidationPanel } from "@/components/bank/repair-validation-panel";
+import { buildRepairPrecondition } from "@/lib/bank-statements/repair-precondition";
+import { RepairPreconditionPanel } from "@/components/bank/repair-precondition-panel";
 import { formatCurrency } from "@/lib/finance";
 
 
@@ -76,7 +78,7 @@ function PlanoReparoPage() {
   const [aplicando, setAplicando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const gate = evaluateRepairGate(validacao);
+  const gateBase = evaluateRepairGate(validacao);
 
   async function aplicar() {
     if (!gate.habilitado || !gate.candidato || !family) return;
@@ -120,6 +122,30 @@ function PlanoReparoPage() {
     });
     return { plan: p, proof: buildRepairProof({ lineages, plan: p }) };
   }, [accountId, imports, items, transactions, checkpoints]);
+
+  /** Pré-condição por identidade — dry run, roda junto com a validação. */
+  const precondicao = useMemo(() => {
+    const candidato = validacao?.candidatos.find((c) => c.veredito === "SERIA_RESTAURADA");
+    if (!candidato) return null;
+    return buildRepairPrecondition({
+      accountId,
+      candidato,
+      proof,
+      transactions: transactions ?? [],
+    });
+  }, [accountId, validacao, proof, transactions]);
+
+  /** O reparo só libera quando a pré-condição por identidade também passa. */
+  const gate = {
+    ...gateBase,
+    habilitado: gateBase.habilitado && precondicao?.repairPrecondition === "PASS",
+    motivos: [
+      ...gateBase.motivos,
+      ...(gateBase.habilitado && precondicao && precondicao.repairPrecondition !== "PASS"
+        ? precondicao.motivos
+        : []),
+    ],
+  };
 
 
   if (!family) return <NoFamily />;
@@ -251,10 +277,19 @@ function PlanoReparoPage() {
                 {validacao.totais.restoreCount} transação(ões) a criar · efeito{" "}
                 {formatCurrency(validacao.totais.efeitoSaldoFinal)}
               </StatusBadge>
+              {precondicao && (
+                <StatusBadge tone={precondicao.repairPrecondition === "PASS" ? "ok" : "danger"}>
+                  REPAIR_PRECONDITION = {precondicao.repairPrecondition}
+                </StatusBadge>
+              )}
               <button
                 onClick={() =>
                   baixar(
-                    JSON.stringify(validacao, null, 2),
+                    JSON.stringify(
+                      { validacao, precondicao },
+                      null,
+                      2,
+                    ),
                     `${base}-validacao.json`,
                     "application/json",
                   )
@@ -275,6 +310,8 @@ function PlanoReparoPage() {
       </Card>
 
       {resultado && <RepairResultPanel r={resultado} />}
+
+      {precondicao && <RepairPreconditionPanel pc={precondicao} />}
 
       {validacao && <RepairValidationPanel v={validacao} />}
 
