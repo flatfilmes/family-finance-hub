@@ -17,6 +17,7 @@
 import { movementEffect } from "@/lib/bank-ledger";
 import type { Transaction } from "@/lib/transactions";
 import type { LineageImportInput, LineageItemInput, LineageRow, StatementLineage } from "./lineage";
+import { classifyCheckpointDiagnostic } from "./chained-validation";
 
 const CONFERE = 0.01;
 
@@ -47,6 +48,8 @@ export type CheckpointComparison = {
   confereAntes: boolean;
   confereDepois: boolean;
   tipo: string | null;
+  /** Classificação diagnóstica (não altera o tipo gravado nem o saldo). */
+  tipoDiagnostico: "DAILY" | "CLOSING";
 };
 
 export type TransferEvidence = {
@@ -259,7 +262,7 @@ export function buildPersistenceRepairPlan(input: {
       .filter((c) => (!inicio || c.data >= inicio) && (!fim || c.data <= fim))
       .sort((a, b) => a.data.localeCompare(b.data));
 
-    const checkpoints: CheckpointComparison[] = doImport.map((c) => {
+    const checkpoints: CheckpointComparison[] = doImport.map((c, idx) => {
       const atual = saldoAtualPorDia.get(c.data) ?? null;
       const simulado = saldoSimuladoPorDia.get(c.data) ?? null;
       return {
@@ -270,6 +273,14 @@ export function buildPersistenceRepairPlan(input: {
         confereAntes: atual !== null && Math.abs(atual - c.saldo) <= CONFERE,
         confereDepois: simulado !== null && Math.abs(simulado - c.saldo) <= CONFERE,
         tipo: c.tipo ?? null,
+        tipoDiagnostico: classifyCheckpointDiagnostic({
+          data: c.data,
+          saldo: c.saldo,
+          tipoGravado: c.tipo ?? null,
+          periodEnd: fim,
+          saldoDocumento,
+          ehUltimoDoPeriodo: idx === doImport.length - 1,
+        }),
       };
     });
 
