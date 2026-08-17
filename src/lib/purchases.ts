@@ -190,21 +190,14 @@ export async function fetchConsumptionItems(purchaseIds: string[]) {
   return data ?? [];
 }
 
-/** Parcelas geradas para uma compra (via despesa vinculada). */
+/** Parcelas geradas para uma compra (vínculo canônico: purchase_id). */
 export async function fetchPurchaseInstallments(purchaseId: string) {
-  const { data: expenses, error } = await supabase
-    .from("expenses")
-    .select("id, parcelas_total, parcela_atual")
-    .eq("purchase_id", purchaseId);
-  if (error) throw error;
-  const ids = (expenses ?? []).map((e) => e.id);
-  if (ids.length === 0) return [];
-  const { data, error: parcelasError } = await supabase
+  const { data, error } = await supabase
     .from("expense_installments")
     .select("*")
-    .in("expense_id", ids)
+    .eq("purchase_id", purchaseId)
     .order("numero_parcela", { ascending: true });
-  if (parcelasError) throw parcelasError;
+  if (error) throw error;
   return data ?? [];
 }
 
@@ -222,23 +215,14 @@ export async function fetchInstallmentsByPurchases(
   purchaseIds: string[],
 ): Promise<PurchaseInstallment[]> {
   if (purchaseIds.length === 0) return [];
-  const { data: expenses, error } = await supabase
-    .from("expenses")
-    .select("id, purchase_id")
-    .in("purchase_id", purchaseIds);
-  if (error) throw error;
-  const porExpense = new Map<string, string>();
-  for (const e of expenses ?? []) if (e.purchase_id) porExpense.set(e.id, e.purchase_id);
-  const ids = [...porExpense.keys()];
-  if (ids.length === 0) return [];
-  const { data, error: parcelasError } = await supabase
+  const { data, error } = await supabase
     .from("expense_installments")
-    .select("expense_id, numero_parcela, total_parcelas, valor_parcela, data_vencimento, status")
-    .in("expense_id", ids)
+    .select("purchase_id, numero_parcela, total_parcelas, valor_parcela, data_vencimento, status")
+    .in("purchase_id", purchaseIds)
     .order("numero_parcela", { ascending: true });
-  if (parcelasError) throw parcelasError;
+  if (error) throw error;
   return (data ?? []).map((p) => ({
-    purchase_id: porExpense.get(p.expense_id) ?? "",
+    purchase_id: p.purchase_id ?? "",
     numero_parcela: p.numero_parcela,
     total_parcelas: p.total_parcelas,
     valor_parcela: Number(p.valor_parcela) || 0,
@@ -567,37 +551,15 @@ export async function registerPurchasePayment(input: {
     .single();
   if (error) throw error;
 
-  // Crédito: cria a despesa vinculada e a parcela na fatura correta do cartão.
+  // Crédito: a compra é a fonte de verdade — só a parcela na fatura é criada.
   if (credito && atualizada.credit_card_id) {
     const card = (input.cards ?? []).find((c) => c.id === atualizada.credit_card_id);
     if (card) {
-      const valorTotal = Number(atualizada.valor_total) || 0;
-      const { data: expense, error: expenseError } = await supabase
-        .from("expenses")
-        .insert({
-          family_id: atualizada.family_id,
-          member_id: atualizada.member_id,
-          created_by: atualizada.created_by,
-          purchase_id: atualizada.id,
-          descricao: atualizada.estabelecimento,
-          valor: valorTotal,
-          data_compra: atualizada.data_compra,
-          forma_pagamento: "CREDITO",
-          tipo_compra: "CARTAO_CREDITO",
-          cartao_id: card.id,
-          parcelas_total: 1,
-          parcela_atual: 1,
-        })
-        .select()
-        .single();
-      if (expenseError) throw expenseError;
-
       await generateInstallments({
         familyId: atualizada.family_id,
-        expenseId: expense.id,
         card,
         dataCompra: dataPagamento,
-        valorTotal,
+        valorTotal: Number(atualizada.valor_total) || 0,
         parcelas: 1,
         memberId: atualizada.member_id,
         purchaseId: atualizada.id,
