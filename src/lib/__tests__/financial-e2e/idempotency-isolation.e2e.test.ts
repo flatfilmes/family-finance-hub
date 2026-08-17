@@ -133,12 +133,14 @@ describe("E2E_CROSS_FAMILY_ISOLATION", () => {
     }
     // Nenhuma política dessas tabelas pode ser aberta a qualquer autenticado:
     // toda política econômica precisa citar o escopo de família/membro.
-    const politicas = sql.split("CREATE POLICY").slice(1);
+    const politicas = sql
+      .split("CREATE POLICY")
+      .slice(1)
+      .map((p) => p.split(";")[0] ?? "");
     for (const t of tabelas) {
-      const daTabela = politicas.filter((p) => p.includes(`PUBLIC.${t}`));
+      const daTabela = politicas.filter((p) => new RegExp(`PUBLIC\\.${t}\\b`).test(p));
       expect(daTabela.length).toBeGreaterThan(0);
-      for (const politica of daTabela) {
-        const corpo = politica.split(";")[0] ?? "";
+      for (const corpo of daTabela) {
         expect(corpo).not.toContain("USING (TRUE)");
         expect(
           corpo.includes("IS_FAMILY_MEMBER") ||
