@@ -121,11 +121,13 @@ export function detectDocumentType(textos: string[]): DocumentTypeDetection {
     extrato.matched.push("COLUNAS DATA/LANCAMENTOS/VALOR/SALDO (+5)");
   }
 
-  const scores: DocumentTypeScore[] = [
-    { type: "CREDIT_CARD_STATEMENT", score: cartao.score, matchedSignals: cartao.matched },
-    { type: "BANK_STATEMENT", score: extrato.score, matchedSignals: extrato.matched },
-    { type: "RECEIPT", score: nota.score, matchedSignals: nota.matched },
-  ].sort((a, b) => b.score - a.score);
+  const scores: DocumentTypeScore[] = (
+    [
+      { type: "CREDIT_CARD_STATEMENT", score: cartao.score, matchedSignals: cartao.matched },
+      { type: "BANK_STATEMENT", score: extrato.score, matchedSignals: extrato.matched },
+      { type: "RECEIPT", score: nota.score, matchedSignals: nota.matched },
+    ] as DocumentTypeScore[]
+  ).sort((a, b) => b.score - a.score);
 
   const vencedor = scores[0]!;
   const segundo = scores[1]!;
