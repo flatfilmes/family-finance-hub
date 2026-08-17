@@ -453,10 +453,25 @@ function interpretar(
   const referencia = posteriores.length ? posteriores[posteriores.length - 1]! : null;
 
   // Um checkpoint por dia: o último saldo impresso do dia é o que vale.
-  const checkpoints = [...new Map(doPeriodo.map((c) => [c.data, c])).values()].sort((a, b) =>
-    a.data.localeCompare(b.data),
-  );
-  const saldoFinal = checkpoints.length ? checkpoints[checkpoints.length - 1]!.saldo : null;
+  const checkpoints: ParsedBalanceCheckpoint[] = [
+    ...new Map(doPeriodo.map((c) => [c.data, c])).values(),
+  ]
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .map((c) => ({ ...c, tipo: "DAILY" as const }));
+
+  // Último saldo REALMENTE impresso dentro do período (histórico).
+  const ultimoCheckpointHistorico = checkpoints.length
+    ? { data: checkpoints[checkpoints.length - 1]!.data, saldo: checkpoints[checkpoints.length - 1]!.saldo }
+    : null;
+
+  // Fechamento: mesmo valor, mas ancorado no fim do período declarado.
+  // Nenhum checkpoint DAILY é inventado nessa data.
+  const saldoFinal = ultimoCheckpointHistorico?.saldo ?? null;
+  const saldoFinalData = ultimoCheckpointHistorico
+    ? periodoFim ?? ultimoCheckpointHistorico.data
+    : null;
+  const saldoFinalDerivado =
+    !!ultimoCheckpointHistorico && !!periodoFim && periodoFim !== ultimoCheckpointHistorico.data;
 
   const dentroDoPeriodo = (d: string | null) =>
     !!d && (!periodoInicio || d >= periodoInicio) && (!periodoFim || d <= periodoFim);
