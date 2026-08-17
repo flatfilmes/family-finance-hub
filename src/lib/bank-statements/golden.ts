@@ -47,8 +47,8 @@ export type GoldenItauStatement = {
   opening: { date: string; amount: number };
   transactions: number;
   dailyCheckpoints: number;
-  lastHistoricalBalance: { date: string; amount: number };
-  closing: { date: string; amount: number; derived: boolean };
+  lastHistoricalBalance: { date: string; amount: number; source: "SALDO_DO_DIA" };
+  closing: { date: string; amount: number; derived: boolean; derivedFromCheckpointDate: string };
   reference: { date: string; amount: number };
 };
 
@@ -62,7 +62,7 @@ export const ITAU_CONTA_JAN_JUN_2026: GoldenItauStatement = {
   opening: { date: "2025-12-31", amount: 0 },
   transactions: 17,
   dailyCheckpoints: 7,
-  lastHistoricalBalance: { date: "2026-06-17", amount: 120.81 },
-  closing: { date: "2026-06-30", amount: 120.81, derived: true },
+  lastHistoricalBalance: { date: "2026-06-17", amount: 120.81, source: "SALDO_DO_DIA" },
+  closing: { date: "2026-06-30", amount: 120.81, derived: true, derivedFromCheckpointDate: "2026-06-17" },
   reference: { date: "2026-08-13", amount: 4.16 },
 };

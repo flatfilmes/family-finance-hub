@@ -167,6 +167,12 @@ describe("Semântica de abertura e fechamento", () => {
     expect(parsed.ultimoCheckpointHistorico).toEqual({
       data: GOLDEN.lastHistoricalBalance.date,
       saldo: GOLDEN.lastHistoricalBalance.amount,
+      origem: GOLDEN.lastHistoricalBalance.source,
+    });
+    expect(parsed.pipeline.lastHistoricalCheckpoint).toEqual({
+      date: GOLDEN.lastHistoricalBalance.date,
+      amount: GOLDEN.lastHistoricalBalance.amount,
+      source: "SALDO_DO_DIA",
     });
     expect((parsed.checkpoints ?? []).length).toBe(GOLDEN.dailyCheckpoints);
     expect((parsed.checkpoints ?? []).some((c) => c.data === GOLDEN.closing.date)).toBe(false);
@@ -177,10 +183,16 @@ describe("Semântica de abertura e fechamento", () => {
     expect(parsed.saldoFinal).toBe(GOLDEN.closing.amount);
     expect(parsed.saldoFinalData).toBe(GOLDEN.closing.date);
     expect(parsed.saldoFinalDerivado).toBe(GOLDEN.closing.derived);
+    expect(parsed.saldoFinalDerivadoDoCheckpoint).toBe(GOLDEN.closing.derivedFromCheckpointDate);
     expect(parsed.pipeline.closingBalance).toEqual({
       amount: GOLDEN.closing.amount,
       date: GOLDEN.closing.date,
       derived: true,
+      derivedFromCheckpointDate: GOLDEN.closing.derivedFromCheckpointDate,
+    });
+    expect(parsed.pipeline.referenceBalance).toEqual({
+      date: GOLDEN.reference.date,
+      amount: GOLDEN.reference.amount,
     });
     expect(parsed.pipeline.validation.status).toBe("PASS");
   });

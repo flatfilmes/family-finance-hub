@@ -367,9 +367,14 @@ export type ItauPipelineDiagnostics = {
   parsedCheckpoints: number;
   openingBalance: { amount: number | null; date: string | null };
   /** Último saldo impresso DENTRO do período (histórico, nunca derivado). */
-  lastHistoricalCheckpoint: { amount: number | null; date: string | null };
+  lastHistoricalCheckpoint: { amount: number | null; date: string | null; source: "SALDO_DO_DIA" | null };
   /** Fechamento ancorado no fim do período; `derived` quando não impresso. */
-  closingBalance: { amount: number | null; date: string | null; derived: boolean };
+  closingBalance: {
+    amount: number | null;
+    date: string | null;
+    derived: boolean;
+    derivedFromCheckpointDate: string | null;
+  };
   referenceBalance: { amount: number | null; date: string | null };
   validation: { status: "PASS" | "FAIL"; errors: string[] };
   rows: ItauRow[];
@@ -465,7 +470,11 @@ function interpretar(
 
   // Último saldo REALMENTE impresso dentro do período (histórico).
   const ultimoCheckpointHistorico = checkpoints.length
-    ? { data: checkpoints[checkpoints.length - 1]!.data, saldo: checkpoints[checkpoints.length - 1]!.saldo }
+    ? {
+        data: checkpoints[checkpoints.length - 1]!.data,
+        saldo: checkpoints[checkpoints.length - 1]!.saldo,
+        origem: "SALDO_DO_DIA" as const,
+      }
     : null;
 
   // Fechamento: mesmo valor, mas ancorado no fim do período declarado.
@@ -523,9 +532,18 @@ function interpretar(
     parsedCheckpoints: checkpoints.length,
     openingBalance: { amount: abertura?.saldo ?? null, date: abertura?.data ?? null },
     lastHistoricalCheckpoint: ultimoCheckpointHistorico
-      ? { amount: ultimoCheckpointHistorico.saldo, date: ultimoCheckpointHistorico.data }
-      : { amount: null, date: null },
-    closingBalance: { amount: saldoFinal, date: saldoFinalData, derived: saldoFinalDerivado },
+      ? {
+          amount: ultimoCheckpointHistorico.saldo,
+          date: ultimoCheckpointHistorico.data,
+          source: ultimoCheckpointHistorico.origem,
+        }
+      : { amount: null, date: null, source: null },
+    closingBalance: {
+      amount: saldoFinal,
+      date: saldoFinalData,
+      derived: saldoFinalDerivado,
+      derivedFromCheckpointDate: saldoFinalDerivado ? ultimoCheckpointHistorico!.data : null,
+    },
     referenceBalance: { amount: referencia?.saldo ?? null, date: referencia?.data ?? null },
     validation: { status: erros.length ? "FAIL" : "PASS", errors: erros },
     rows,
@@ -541,6 +559,7 @@ function interpretar(
     saldoFinal,
     saldoFinalData,
     saldoFinalDerivado,
+    saldoFinalDerivadoDoCheckpoint: saldoFinalDerivado ? ultimoCheckpointHistorico!.data : null,
     ultimoCheckpointHistorico,
     saldoReferenciaAtual: referencia ? { data: referencia.data, saldo: referencia.saldo } : null,
     movimentos: realizados,

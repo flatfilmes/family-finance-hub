@@ -122,8 +122,10 @@ export type ParsedBankStatement = {
    * período: ele é derivado do último saldo histórico do documento.
    */
   saldoFinalDerivado?: boolean;
+  /** Checkpoint impresso que originou o fechamento derivado. */
+  saldoFinalDerivadoDoCheckpoint?: string | null;
   /** Último saldo REALMENTE impresso dentro do período (nunca derivado). */
-  ultimoCheckpointHistorico?: { data: string; saldo: number } | null;
+  ultimoCheckpointHistorico?: { data: string; saldo: number; origem: "SALDO_DO_DIA" } | null;
   movimentos: ParsedBankMovement[];
   /** Saldos diários impressos no documento ("Saldo do dia", "S A L D O"). */
   checkpoints?: ParsedBalanceCheckpoint[];
