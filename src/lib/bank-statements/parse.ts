@@ -32,6 +32,8 @@ export type DetectedBank = "BANCO_DO_BRASIL" | "ITAU" | "GENERICO";
 export type BankDetectionResult = {
   status: "PASS" | "FAILED";
   bank: DetectedBank | null;
+  /** Pontuação dos sinais específicos do banco vencedor. */
+  score: number;
   matchedSignals: string[];
   missingSignals: string[];
   reason: string;
@@ -370,6 +372,7 @@ export function detectBankStatement(textos: string[]): BankDetectionResult {
     return {
       status: "PASS",
       bank: vencedor.bank,
+      score: vencedor.score,
       matchedSignals: vencedor.matchedSignals,
       missingSignals: perdedor.matchedSignals,
       reason:
@@ -381,6 +384,7 @@ export function detectBankStatement(textos: string[]): BankDetectionResult {
   return {
     status: "FAILED",
     bank: null,
+    score: vencedor.score,
     matchedSignals: vencedor.matchedSignals,
     missingSignals: [],
     reason:

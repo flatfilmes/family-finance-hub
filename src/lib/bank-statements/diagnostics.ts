@@ -400,7 +400,7 @@ export async function buildBankParserDiagnostics(
     result.parser = execution.parser;
     result.detection = {
       detectedBank: execution.detection.bank ?? "UNKNOWN",
-      score: execution.detection.status === "PASS" ? 1 : 0,
+      score: execution.detection.score,
       matchedSignals: execution.detection.matchedSignals,
       parser: execution.parser.name ?? "—",
       parserVersion: "—",
@@ -484,7 +484,7 @@ export async function buildBankParserDiagnostics(
   const detectedBank = pipelineResult.detection.bank ?? "GENERICO";
   const detection: DiagDetection = {
     detectedBank,
-    score: pipelineResult.detection.status === "PASS" ? 1 : 0,
+    score: pipelineResult.detection.score,
     matchedSignals: pipelineResult.detection.matchedSignals,
     parser: statement.parser,
     parserVersion: statement.parserVersion,
