@@ -123,6 +123,18 @@ function PlanoReparoPage() {
     return { plan: p, proof: buildRepairProof({ lineages, plan: p }) };
   }, [accountId, imports, items, transactions, checkpoints]);
 
+  /** Pré-condição por identidade — dry run, roda junto com a validação. */
+  const precondicao = useMemo(() => {
+    const candidato = validacao?.candidatos.find((c) => c.veredito === "SERIA_RESTAURADA");
+    if (!candidato) return null;
+    return buildRepairPrecondition({
+      accountId,
+      candidato,
+      proof,
+      transactions: transactions ?? [],
+    });
+  }, [accountId, validacao, proof, transactions]);
+
 
   if (!family) return <NoFamily />;
   if (!conta) {
