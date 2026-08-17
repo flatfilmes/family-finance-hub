@@ -161,7 +161,9 @@ export const cardStatementDryRun = async (file: Blob): Promise<ParserDryRunResul
       metadata: parsed.metadata ?? {},
       diagnosticStatus,
       parserFamily: "CARD_STATEMENT",
-      extractionStatus: parsed.extraction_status ?? "READY",
+      // Nunca READY com validação falha: extração bloqueada até difference = 0.
+      extractionStatus:
+        valida && parsed.extraction_status !== "REVIEW_REQUIRED" ? "READY" : "BLOCKED",
       persistenceAllowed: false,
       // Semântica de fatura: nenhum saldo/checkpoint bancário existe aqui.
       bankTransactions: 0,
