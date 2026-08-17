@@ -554,28 +554,43 @@ export function BankParserDiagnosticsPage({
                   const interna = (parser?.parserInternalStages ?? []).filter(
                     (i) => i.stage === s.stage,
                   );
+                  const naoAplicavel =
+                    s.status === "NOT_APPLICABLE" || s.status === "SKIPPED";
                   return (
                     <li
                       key={s.stage}
                       className={`rounded-2xl border p-4 ${
                         s.status === "PASS"
                           ? "border-primary/40 bg-accent/30"
-                          : "border-destructive/40 bg-destructive/5"
+                          : naoAplicavel
+                            ? "border-border bg-muted/40"
+                            : "border-destructive/40 bg-destructive/5"
                       }`}
                     >
                       <div className="flex flex-wrap items-center gap-3">
                         <span className="text-[15px] font-extrabold">{s.stage}</span>
                         <span
                           className={`text-[13px] font-bold ${
-                            s.status === "PASS" ? "text-primary" : "text-destructive"
+                            s.status === "PASS"
+                              ? "text-primary"
+                              : naoAplicavel
+                                ? "text-muted-foreground"
+                                : "text-destructive"
                           }`}
                         >
-                          {s.status === "PASS" ? "✓ PASS" : "✕ FAIL"}
+                          {s.status === "PASS"
+                            ? "✓ PASS"
+                            : naoAplicavel
+                              ? "— NOT_APPLICABLE"
+                              : "✕ FAIL"}
                         </span>
                         {s.count !== undefined && (
                           <span className="text-[13px] text-muted-foreground">
                             {s.count} item(ns)
                           </span>
+                        )}
+                        {s.detail && (
+                          <span className="text-[13px] text-muted-foreground">{s.detail}</span>
                         )}
                       </div>
                       {s.status === "FAIL" && (
