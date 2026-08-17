@@ -282,10 +282,19 @@ export function compareParsedStatementToLedger(input: {
         reason =
           "Mesma identidade de linha (sourceId ou chave composta + ordinal) de outra linha já resolvida.";
         rule = "dedupe.classificarDuplicados — só é duplicata com alvo concreto comprovado.";
+      } else if (String(it.match_status ?? "") === "MATCHED") {
+        // A regra antiga marcou como duplicata, mas a identidade recontada
+        // prova que esta linha é uma OCORRÊNCIA PRÓPRIA do documento. Sem alvo
+        // concreto não existe duplicata: é movimento econômico perdido.
+        finalStatus = "SKIPPED_DUPLICATE";
+        reason =
+          "Descartado como duplicata pela chave antiga (data+valor+descrição), mas é ocorrência própria do documento — nenhum alvo concreto comprova a duplicidade.";
+        rule = "dedupe legado sem occurrenceIndex — colisão de repetição legítima.";
       } else {
         finalStatus = "REJECTED";
         reason = "Item marcado como ignorar na revisão, sem alvo de duplicidade registrado.";
         rule = "review_action = IGNORE";
+
       }
     } else if (acao === "ASSOCIATE_EXISTING") {
       stage = "RECONCILIATION";
