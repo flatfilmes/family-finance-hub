@@ -84,20 +84,31 @@ export function buildStandaloneValidation(plan: PersistenceRepairPlan): Standalo
     metodo: "STANDALONE_OPENING_OFICIAL",
     descricao:
       "Cada período é validado isoladamente, começando no saldo inicial oficial do próprio documento. Esta leitura NÃO mostra propagação de erro.",
-    periodos: plan.periodos.map((p: RepairPeriod) => ({
-      importId: p.importId,
-      rotulo: p.rotulo,
-      periodStart: p.periodStart,
-      periodEnd: p.periodEnd,
-      aberturaOficial: p.saldoInicial,
-      saldoDocumento: p.saldoDocumento,
-      saldoAntes: p.saldoAntes,
-      saldoDepois: p.saldoDepois,
-      diferencaAntes: p.diferencaAntes === null ? null : round(-p.diferencaAntes),
-      diferencaDepois: p.diferencaDepois === null ? null : round(-p.diferencaDepois),
-      confereAntes: p.diferencaAntes === null ? null : Math.abs(p.diferencaAntes) <= TOLERANCIA,
-      confereDepois: p.diferencaDepois === null ? null : Math.abs(p.diferencaDepois) <= TOLERANCIA,
-    })),
+    periodos: plan.periodos.map((p: RepairPeriod) => {
+      // Diferença sempre no mesmo sentido do encadeado: sistema - documento.
+      const difAntes =
+        p.saldoDocumento === null || p.saldoAntes === null
+          ? null
+          : round(p.saldoAntes - p.saldoDocumento);
+      const difDepois =
+        p.saldoDocumento === null || p.saldoDepois === null
+          ? null
+          : round(p.saldoDepois - p.saldoDocumento);
+      return {
+        importId: p.importId,
+        rotulo: p.rotulo,
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
+        aberturaOficial: p.saldoInicial,
+        saldoDocumento: p.saldoDocumento,
+        saldoAntes: p.saldoAntes,
+        saldoDepois: p.saldoDepois,
+        diferencaAntes: difAntes,
+        diferencaDepois: difDepois,
+        confereAntes: difAntes === null ? null : Math.abs(difAntes) <= TOLERANCIA,
+        confereDepois: difDepois === null ? null : Math.abs(difDepois) <= TOLERANCIA,
+      };
+    }),
   };
 }
 
