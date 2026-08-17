@@ -162,30 +162,53 @@ export function reconcileMovement(
   }
 
   // 3. Transferência entre contas da própria família.
-  const outraConta = contexto.accounts.find(
-    (a) =>
-      a.id !== contexto.accountId &&
-      (parecido(mov.descricaoOriginal, a.banco) || parecido(mov.descricaoOriginal, a.nome_conta)),
-  );
+  //
+  // EVIDÊNCIA FINANCEIRA, NUNCA SEMELHANÇA DE TEXTO.
+  // "Pagamento de Boleto · ITAU UNIBANCO HOLDING S.A." parece o nome de outra
+  // conta da família, mas isso não é prova nenhuma de transferência interna.
+  // Só há transferência automática quando existe CONTRAPARTIDA REAL:
+  // outra conta da família + movimento oposto + mesmo valor + janela de datas.
   const contraparte = contexto.transactions.find(
     (t) =>
       t.bank_account_id &&
       t.bank_account_id !== contexto.accountId &&
+      t.status !== "CANCELADA" &&
       perto(Number(t.valor), valor) &&
-      dentroDaJanela(data, t.data_movimento),
+      dentroDaJanela(data, t.data_movimento) &&
+      // direção inversa: saída aqui exige entrada lá (e vice-versa).
+      ((mov.valor < 0 && t.tipo === "ENTRADA") ||
+        (mov.valor > 0 && (t.tipo === "SAIDA" || t.tipo === "TRANSFERENCIA"))) &&
+      contexto.accounts.some((a) => a.id === t.bank_account_id),
   );
-  if (outraConta || contraparte || mov.tipo === "TRANSFERENCIA") {
-    const destino = outraConta?.id ?? contraparte?.bank_account_id ?? undefined;
-    const score = destino ? 75 : 50;
+  if (contraparte) {
     return {
       matchStatus: "POSSIBLE_MATCH",
-      reviewAction: destino ? "MATCH_TRANSFER" : "CREATE_TRANSACTION",
-      confidence: score,
-      ...(destino ? { transferAccountId: destino } : {}),
-      motivo: destino
-        ? "Parece transferência entre contas da família — patrimônio, não gasto nem renda"
-        : "Parece transferência: escolha a conta de contrapartida ou registre como movimentação",
-      debug: { score, decision: "TRANSFER_MATCH", candidateTransaction: contraparte?.id },
+      reviewAction: "MATCH_TRANSFER",
+      confidence: 88,
+      transferAccountId: contraparte.bank_account_id!,
+      motivo:
+        "Contrapartida real encontrada em outra conta da família (valor, sentido inverso e data compatíveis) — confirme para registrar a transferência",
+      debug: {
+        score: 88,
+        decision: "TRANSFER_COUNTERPART_FOUND",
+        candidateTransaction: contraparte.id,
+      },
+    };
+  }
+  if (mov.tipo === "TRANSFERENCIA") {
+    // O documento declara transferência, mas não existe contrapartida provada:
+    // permanece movimentação normal da conta — jamais vira par automático.
+    return {
+      matchStatus: "NEW",
+      reviewAction: "CREATE_TRANSACTION",
+      confidence: 40,
+      motivo:
+        "Transferência declarada pelo extrato, sem contrapartida em outra conta da família — registrada como movimentação da conta",
+      debug: {
+        score: 40,
+        decision: "TRANSFER_WITHOUT_COUNTERPART",
+        rejectionReason: "sem movimento oposto correspondente em conta da família",
+      },
     };
   }
 
