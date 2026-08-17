@@ -124,6 +124,7 @@ export function FinancialRepairExecution({
 
       <div className="flex flex-wrap items-center gap-3">
         <button
+          type="button"
           onClick={validar}
           disabled={ocupado}
           className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-4 py-2 text-xs font-semibold transition-colors hover:bg-muted disabled:opacity-50"
@@ -131,11 +132,13 @@ export function FinancialRepairExecution({
           <ShieldCheck className="size-3.5" /> Validar para aplicação
         </button>
         <button
+          type="button"
+          data-testid="aplicar-reparo"
           onClick={() => setConfirmando(true)}
-          disabled={!habilitado || ocupado}
-          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+          disabled={!habilitado}
+          className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Wrench className="size-3.5" /> Aplicar reparo
+          <Wrench className="size-3.5" /> {ocupado && confirmando ? "Aplicando reparo..." : "Aplicar reparo"}
         </button>
         {validacao && (
           <StatusBadge tone={validacao.status === "PASS" ? "ok" : "danger"}>
