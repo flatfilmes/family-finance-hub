@@ -324,7 +324,7 @@ function CartaoDetalhePage() {
         <EvidenceImageDialog
           sourceType="CARD_SCREENSHOT"
           creditCardId={cartao.id}
-          institutionId={cartao.institution_id ?? null}
+          institutionId={cartao.issuer_institution_id ?? null}
           onClose={() => setEvidencia(false)}
         />
       )}
