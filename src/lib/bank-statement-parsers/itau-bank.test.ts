@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { parseItauBankStatementLines, isItauBankStatement } from "./itau";
-import { marcarDuplicados, buildExistingMovementKeys, checkpointsInéditos } from "@/lib/bank-statements/dedupe";
+import { marcarDuplicados, buildExistingMovementIndex, checkpointsInéditos } from "@/lib/bank-statements/dedupe";
 import type { PdfLine } from "@/lib/pdf-extract";
 
 /** Monta uma linha nas colunas reais do extrato Itaú. */
@@ -165,7 +165,7 @@ describe("segundo PDF (período sobreposto)", () => {
   });
 
   it("deduplica movimentos já lidos no primeiro extrato", () => {
-    const jaExistentes = buildExistingMovementKeys(
+    const jaExistentes = buildExistingMovementIndex(
       parseItauBankStatementLines(primeiroPdf).movimentos.map((m) => ({
         data_movimento: m.data,
         valor: m.valor,

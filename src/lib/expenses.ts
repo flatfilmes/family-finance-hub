@@ -109,18 +109,9 @@ export async function fetchExpenses(familyId: string, filters: ExpenseFilters = 
   return data ?? [];
 }
 
-export async function createExpense(input: ExpenseInsert) {
-  const { data, error } = await supabase.from("expenses").insert(input).select().single();
-  if (error) throw error;
-  return data;
-}
-
-export async function updateExpense(id: string, input: ExpenseUpdate) {
-  const { error } = await supabase.from("expenses").update(input).eq("id", id);
-  if (error) throw error;
-}
-
-export async function deleteExpense(id: string) {
-  const { error } = await supabase.from("expenses").delete().eq("id", id);
-  if (error) throw error;
-}
+/**
+ * LEGADO SOMENTE LEITURA.
+ * A tabela `expenses` deixou de ser fonte de verdade: a compra (`purchases`)
+ * é a origem de todo consumo. O banco revoga escrita para o app — por isso
+ * não existem mais funções de criar, atualizar ou apagar despesa aqui.
+ */
