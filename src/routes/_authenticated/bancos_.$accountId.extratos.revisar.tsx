@@ -37,7 +37,8 @@ import {
   createBankStatementImport,
   reconcileMovement,
   buildExistingMovementKeys,
-  marcarDuplicados,
+  buildExistingMovementIndex,
+  classificarDuplicados,
   type ReviewAction,
   type StatementDraftRow,
 } from "@/lib/bank-statements";
@@ -157,8 +158,18 @@ function RevisarExtrato() {
   const rows = useMemo<StatementDraftRow[]>(() => {
     if (linhas) return linhas;
     if (!draft) return [];
-    const jaExistentes = buildExistingMovementKeys(itensExistentes ?? []);
-    const duplicados = marcarDuplicados(draft.resumo.movimentos, jaExistentes);
+    // IDENTIDADE DE LINHA: sourceId do parser primeiro; matching composto com
+    // ordinal de ocorrência depois. Repetição legítima nunca é descartada.
+    const canonicalRows = toCanonicalStatement(draft.resumo, {
+      statementId: draft.fingerprint ?? draft.nomeArquivo,
+      accountId,
+    }).transactions;
+    const jaExistentes = buildExistingMovementIndex(itensExistentes ?? []);
+    const duplicados = classificarDuplicados(
+      draft.resumo.movimentos,
+      jaExistentes,
+      canonicalRows.map((t) => t.sourceId),
+    );
     return draft.resumo.movimentos.map((m, idx) => {
       const sugestao = reconcileMovement(m, {
         accountId,
@@ -168,13 +179,15 @@ function RevisarExtrato() {
         transactions: transactions ?? [],
         incomes: incomes ?? [],
       });
-      if (duplicados[idx]) {
+      const dedupe = duplicados[idx];
+      // Sem ALVO CONCRETO não existe duplicata: o movimento segue para o ledger.
+      if (dedupe?.duplicado && dedupe.matchedTargetId) {
         return {
           ...m,
           sugestao: {
             ...sugestao,
             matchStatus: "MATCHED" as const,
-            motivo: "Já lido em outro extrato desta conta (período sobreposto).",
+            motivo: `${dedupe.reason} (alvo ${dedupe.matchedTargetId.slice(0, 8)})`,
           },
           acao: "IGNORE" as ReviewAction,
           incluir: false,
