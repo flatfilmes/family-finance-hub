@@ -2,7 +2,12 @@ import { supabase } from "@/integrations/supabase/client";
 import type { ParsedBankMovement, ParsedBankStatement, ReviewAction } from "./types";
 import { ACOES_SEM_EFEITO } from "./types";
 import type { ReconcileSuggestion } from "./reconcile";
-import { checkpointsInéditos } from "./dedupe";
+import { checkpointsInéditos, movementKey } from "./dedupe";
+import {
+  buildStatementSnapshot,
+  toCanonicalStatement,
+  type CanonicalCheckpoint,
+} from "./canonical";
 
 export type StatementDraftRow = ParsedBankMovement & {
   incluir: boolean;
