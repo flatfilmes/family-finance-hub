@@ -7,7 +7,15 @@
  */
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileJson, ShieldCheck } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Download, FileJson, ShieldCheck, Wrench } from "lucide-react";
+import {
+  applyPersistenceRepair,
+  evaluateRepairGate,
+  type RepairOutcome,
+} from "@/lib/bank-statements/repair-apply";
+import { RepairResultPanel } from "@/components/bank/repair-result-panel";
+
 
 import { Card } from "@/components/page-header";
 import { DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
@@ -64,6 +72,35 @@ function PlanoReparoPage() {
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
 
   const [validacao, setValidacao] = useState<RepairValidation | null>(null);
+  const [resultado, setResultado] = useState<RepairOutcome | null>(null);
+  const [aplicando, setAplicando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const gate = evaluateRepairGate(validacao);
+
+  async function aplicar() {
+    if (!gate.habilitado || !gate.candidato || !family) return;
+    setErro(null);
+    setAplicando(true);
+    try {
+      const r = await applyPersistenceRepair({
+        accountId,
+        familyId: family.id,
+        candidato: gate.candidato,
+      });
+      setResultado(r);
+      setValidacao(null);
+      for (const key of ["transactions", "bank-accounts", "bank-statement-items"]) {
+        void queryClient.invalidateQueries({ queryKey: [key] });
+      }
+      void queryClient.invalidateQueries({ queryKey: ["bank-balance-checkpoints", accountId] });
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Não foi possível aplicar o reparo.");
+    } finally {
+      setAplicando(false);
+    }
+  }
+
 
   const { plan, proof } = useMemo(() => {
     const lineages = buildAccountLineage({
@@ -174,12 +211,13 @@ function PlanoReparoPage() {
 
       <Card className="mb-5 border-primary/30 bg-primary/5">
         <SectionTitle
-          title="Validação do reparo"
-          hint="Validar apenas confere a prova acima: cada linha ausente tem documento identificado e efeito de saldo conhecido. Nenhum dado financeiro é alterado nesta etapa."
+          title="Validação e execução do reparo"
+          hint="Validar apenas confere a prova acima. Aplicar só fica disponível quando o dry run passa e cria exatamente uma movimentação, reconferindo a pré-condição no instante do clique."
         />
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() =>
+            onClick={() => {
+              setResultado(null);
               setValidacao(
                 buildRepairValidation({
                   accountId,
@@ -188,18 +226,23 @@ function PlanoReparoPage() {
                   transactions: transactions ?? [],
                   checkpoints: checkpoints ?? [],
                 }),
-              )
-            }
+              );
+            }}
             className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
             <ShieldCheck className="size-3.5" /> Validar reparo
           </button>
           <button
-            disabled
-            title="Bloqueado nesta etapa — o reparo só será executado quando a restauração for liberada explicitamente."
-            className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground opacity-60"
+            disabled={!gate.habilitado || aplicando}
+            title={gate.habilitado ? "Cria exatamente uma movimentação" : gate.motivos.join(" ")}
+            onClick={aplicar}
+            className={
+              gate.habilitado && !aplicando
+                ? "inline-flex items-center gap-1.5 rounded-full bg-destructive px-5 py-2 text-xs font-semibold text-destructive-foreground transition-opacity hover:opacity-90"
+                : "inline-flex cursor-not-allowed items-center gap-1.5 rounded-full border border-border px-5 py-2 text-xs font-semibold text-muted-foreground opacity-60"
+            }
           >
-            Aplicar reparo
+            <Wrench className="size-3.5" /> {aplicando ? "Aplicando…" : "Aplicar reparo"}
           </button>
           {validacao && (
             <>
@@ -224,12 +267,17 @@ function PlanoReparoPage() {
           )}
         </div>
         <p className="mt-3 text-xs text-muted-foreground">
-          Nada foi executado. "Aplicar reparo" permanece desligado até que a restauração seja
-          liberada explicitamente.
+          {gate.habilitado
+            ? "Liberado: um clique cria uma única movimentação e reconfere todos os meses logo depois."
+            : gate.motivos.join(" ")}
         </p>
+        {erro && <p className="mt-2 text-xs font-semibold text-destructive">{erro}</p>}
       </Card>
 
+      {resultado && <RepairResultPanel r={resultado} />}
+
       {validacao && <RepairValidationPanel v={validacao} />}
+
 
 
 
