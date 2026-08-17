@@ -60,6 +60,7 @@ type SaidaFatura = {
     holder?: string | null;
     cardLast4?: string | null;
     closingDate?: string | null;
+    nextClosingDate?: string | null;
     dueDate?: string | null;
     issueDate?: string | null;
     invoiceTotal?: number | null;
@@ -74,6 +75,7 @@ type SaidaFatura = {
     difference?: number | null;
     problems?: string[];
   };
+  diagnosticStatus?: string;
   itemCounts?: Record<string, number>;
   items?: Array<{
     category: string;
@@ -341,6 +343,35 @@ export function BankParserDiagnosticsPage({
               extrato de conta. O parser de extrato foi ignorado e o diagnóstico rodou com o
               parser real de fatura. Nenhuma transação bancária foi produzida.
             </p>
+          )}
+
+          {ehFatura && (
+            <section className="mt-6 rounded-2xl border border-primary/40 bg-accent/30 p-5">
+              <h2 className="text-[15px] font-extrabold">
+                DIAGNÓSTICO: {fatura?.diagnosticStatus ?? "—"}
+              </h2>
+              <dl className="mt-3 grid grid-cols-1 gap-x-8 gap-y-1 text-[13px] sm:grid-cols-2 lg:grid-cols-3">
+                {[
+                  ["DOCUMENT TYPE", resultado.documentType.type],
+                  ["ISSUER", fatura?.invoice?.issuer ?? "—"],
+                  ["PARSER", parser?.parser ?? "—"],
+                  ["ITEMS", String(itensFatura.length)],
+                  ["INVOICE TOTAL", moeda(fatura?.validation?.declaredInvoiceTotal ?? null)],
+                  ["ITEMS TOTAL", moeda(fatura?.validation?.chargedItemsTotal ?? null)],
+                  ["DIFFERENCE", moeda(fatura?.validation?.difference ?? 0)],
+                  ["VALIDATION", fatura?.validation?.status ?? "—"],
+                  ["BANK TRANSACTIONS", "0"],
+                  ["BANK CHECKPOINTS", "0"],
+                  ["CLOSING DATE", dataBr(fatura?.invoice?.closingDate ?? null)],
+                  ["NEXT CLOSING DATE", dataBr(fatura?.invoice?.nextClosingDate ?? null)],
+                ].map(([k, v]) => (
+                  <div key={k} className="flex gap-2">
+                    <dt className="font-semibold text-muted-foreground">{k}:</dt>
+                    <dd className="font-bold">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
           )}
 
           {/* RESUMO DO PIPELINE — 3 colunas no desktop */}
