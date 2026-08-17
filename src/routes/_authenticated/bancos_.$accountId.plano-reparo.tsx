@@ -58,14 +58,16 @@ function PlanoReparoPage() {
 
   const conta = (accounts ?? []).find((a) => a.id === accountId) ?? null;
 
-  const plan = useMemo(() => {
+  const [validado, setValidado] = useState(false);
+
+  const { plan, proof } = useMemo(() => {
     const lineages = buildAccountLineage({
       imports: imports ?? [],
       items: items ?? [],
       transactions: (transactions ?? []).filter((t) => t.bank_account_id === accountId),
       checkpoints: checkpoints ?? [],
     });
-    return buildPersistenceRepairPlan({
+    const p = buildPersistenceRepairPlan({
       accountId,
       lineages,
       imports: imports ?? [],
@@ -74,7 +76,9 @@ function PlanoReparoPage() {
       allTransactions: transactions ?? [],
       checkpoints: checkpoints ?? [],
     });
+    return { plan: p, proof: buildRepairProof({ lineages, plan: p }) };
   }, [accountId, imports, items, transactions, checkpoints]);
+
 
   if (!family) return <NoFamily />;
   if (!conta) {
