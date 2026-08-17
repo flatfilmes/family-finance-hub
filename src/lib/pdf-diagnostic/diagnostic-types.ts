@@ -107,10 +107,19 @@ export type ParserDryRunResult = {
     status: "FOUND" | "NOT_FOUND";
     requestedBank: string | null;
     name: string | null;
+    /** Família do parser selecionado. */
+    family?: ParserFamily;
+    /** Emissor solicitado quando a família é CARD_STATEMENT. */
+    requestedIssuer?: string | null;
   };
   counts?: { rawItems: number; rows: number; transactions: number; checkpoints: number };
   checkpointTrace?: ParserCheckpointTrace[];
-  pipelineStages?: Array<{ stage: string; status: "PASS" | "FAIL"; count?: number }>;
+  pipelineStages?: Array<{
+    stage: string;
+    status: ParserStageStatus;
+    count?: number;
+    detail?: string;
+  }>;
   /** Etapas internas do parser (HEADER_PERIOD, TRANSACTION_ROWS, ...). */
   parserInternalStages?: Array<{ stage: string; status: "PASS" | "FAIL"; reason: string }>;
   /** Entrada exata que o parser recebeu — prova de execução. */
