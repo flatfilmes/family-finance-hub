@@ -372,10 +372,12 @@ export type Database = {
       bank_statement_imports: {
         Row: {
           bank_account_id: string
+          canonical_import_id: string | null
           confirmado_em: string | null
           created_at: string
           created_by: string | null
           dados_brutos_json: Json | null
+          duplicate_of_import_id: string | null
           erro_mensagem: string | null
           family_id: string
           fingerprint: string | null
@@ -396,10 +398,12 @@ export type Database = {
         }
         Insert: {
           bank_account_id: string
+          canonical_import_id?: string | null
           confirmado_em?: string | null
           created_at?: string
           created_by?: string | null
           dados_brutos_json?: Json | null
+          duplicate_of_import_id?: string | null
           erro_mensagem?: string | null
           family_id: string
           fingerprint?: string | null
@@ -420,10 +424,12 @@ export type Database = {
         }
         Update: {
           bank_account_id?: string
+          canonical_import_id?: string | null
           confirmado_em?: string | null
           created_at?: string
           created_by?: string | null
           dados_brutos_json?: Json | null
+          duplicate_of_import_id?: string | null
           erro_mensagem?: string | null
           family_id?: string
           fingerprint?: string | null
@@ -448,6 +454,13 @@ export type Database = {
             columns: ["bank_account_id"]
             isOneToOne: false
             referencedRelation: "bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_statement_imports_duplicate_of_import_id_fkey"
+            columns: ["duplicate_of_import_id"]
+            isOneToOne: false
+            referencedRelation: "bank_statement_imports"
             referencedColumns: ["id"]
           },
           {
@@ -2465,6 +2478,7 @@ export type Database = {
         Row: {
           bank_account_id: string | null
           categoria_id: string | null
+          client_request_id: string | null
           created_at: string
           created_by: string | null
           credit_card_id: string | null
@@ -2491,6 +2505,7 @@ export type Database = {
         Insert: {
           bank_account_id?: string | null
           categoria_id?: string | null
+          client_request_id?: string | null
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
@@ -2517,6 +2532,7 @@ export type Database = {
         Update: {
           bank_account_id?: string | null
           categoria_id?: string | null
+          client_request_id?: string | null
           created_at?: string
           created_by?: string | null
           credit_card_id?: string | null
@@ -3032,12 +3048,36 @@ export type Database = {
         Args: { _family_id: string; _member_id: string; _user_id: string }
         Returns: boolean
       }
+      card_cycle: {
+        Args: { _data: string; _fech_dia: number; _venc_dia: number }
+        Returns: {
+          fechamento: string
+          inicio: string
+          vencimento: string
+        }[]
+      }
       confirm_bank_statement_import: {
+        Args: { _import_id: string }
+        Returns: Json
+      }
+      confirm_bank_statement_import_exec: {
         Args: { _import_id: string }
         Returns: Json
       }
       create_family_with_owner: {
         Args: { p_family_name: string; p_first_member_name?: string }
+        Returns: Json
+      }
+      create_purchase_complete: {
+        Args: {
+          p_client_request_id?: string
+          p_items?: Json
+          p_parcela_inicial?: number
+          p_parcelas?: number
+          p_periodicidade?: string
+          p_purchase: Json
+          p_valor_parcela?: number
+        }
         Returns: Json
       }
       delete_bank_account_if_unused: {
