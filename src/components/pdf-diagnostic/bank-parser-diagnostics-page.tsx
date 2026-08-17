@@ -15,7 +15,7 @@ import {
   type DiagnosticSource,
   type ParserDryRunResult,
 } from "@/lib/pdf-diagnostic";
-import { useActiveFamilyId } from "@/hooks/useFamilyData";
+import { useFamily } from "@/hooks/useFamilyData";
 import { CardPersistenceDryRunPanel } from "@/components/pdf-diagnostic/card-persistence-dry-run-panel";
 import { peekDiagnosticFile } from "@/lib/pdf-diagnostic/file-handoff";
 import {
@@ -183,7 +183,7 @@ export function BankParserDiagnosticsPage({
   const [aba, setAba] = useState<Aba>("RESUMO");
   const [copiado, setCopiado] = useState(false);
   const auto = useRef(false);
-  const familyId = useActiveFamilyId();
+  const familyId = useFamily().data?.id ?? undefined;
 
   async function rodar(arquivo: File | null) {
     if (!arquivo) return;
