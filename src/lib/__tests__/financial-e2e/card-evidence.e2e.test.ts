@@ -154,7 +154,7 @@ describe("E2E_LEGIT_DUPLICATE_PURCHASES", () => {
       existing: purchasesToRecords(world.state.purchases),
     });
     expect(res2.resolutions.every((r) => r.status === "CONFLICT")).toBe(true);
-    expect(res2.status).toBe("REVIEW_REQUIRED");
+    expect(res2.summary.conflict).toBe(2);
 
     const ctx2 = ctxCartao("ev-fatura-2", "CREDIT_CARD_STATEMENT_PDF");
     const planos2 = res2.resolutions.map((r) => buildConfirmationPlan({ resolution: r, context: ctx2 }));
