@@ -503,6 +503,7 @@ export function parseItau(pdfLinhas: PdfLine[]): ParsedStatement {
     limite_credito: acharValorRotulado(textos, ["limite total de credito", "limite de credito"]),
     limite_disponivel: acharValorRotulado(textos, ["limite disponivel"]),
     limite_utilizado: acharValorRotulado(textos, ["limite utilizado"]),
+    next_closing_date: proximoFechamento,
     next_invoice_amount: acharValorRotulado(textos, ["proxima fatura"]),
     future_invoices_amount: acharValorRotulado(textos, ["demais faturas"]),
     future_commitments_total: acharValorRotulado(textos, ["total para proximas faturas"]),

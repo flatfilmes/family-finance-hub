@@ -50,6 +50,8 @@ export type StatementHeader = {
 /** Informações da fatura que NUNCA viram lançamento (limites, projeções, totais). */
 export type StatementMetadata = {
   data_emissao?: string | null;
+  /** Previsão do PRÓXIMO fechamento — nunca é o fechamento da fatura atual. */
+  next_closing_date?: string | null;
   total_fatura_anterior?: number | null;
   pagamento_anterior?: number | null;
   /** Pagamento da fatura anterior — histórico, nunca lançamento. */
