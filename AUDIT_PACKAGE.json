@@ -1,0 +1,151 @@
+{
+  "meta": {
+    "project": "Familia Finance AI",
+    "generated_at": "2026-08-17T05:29:00Z",
+    "mode": "READ_ONLY",
+    "mutations_executed": 0,
+    "note": "Nenhuma alteracao de codigo, schema ou dado financeiro foi executada."
+  },
+  "stack": {
+    "framework": "TanStack Start v1",
+    "react": "19",
+    "bundler": "Vite 7",
+    "router": "@tanstack/react-router (file-based)",
+    "server_state": "@tanstack/react-query",
+    "styling": "Tailwind CSS v4",
+    "ui": "shadcn/ui + Radix + lucide-react",
+    "backend": "Supabase (Postgres, Auth, RLS, RPC)",
+    "pdf": "pdfjs-dist + extracao posicional propria",
+    "tests": "Vitest"
+  },
+  "verification": {
+    "tests": { "passed": 187, "skipped": 33, "failed": 0, "exit_code": 0 },
+    "typecheck": { "errors": 0, "exit_code": 0 },
+    "migrations_count": 74,
+    "public_tables": 44
+  },
+  "authorization": {
+    "route_guard": "src/routes/_authenticated/route.tsx:6 beforeLoad supabase.auth.getUser -> redirect /auth",
+    "scope": "family-scoped",
+    "role_storage": "family_members.permissao (ADMIN|MEMBER|VIEWER)",
+    "security_definer_helpers": [
+      "is_family_member",
+      "is_family_admin",
+      "can_view_member_record",
+      "can_manage_member_record",
+      "is_own_family_member"
+    ],
+    "admin_gated_routes": [
+      "/dev/bank-parser-diagnostics",
+      "/bancos/$accountId/diagnostico-parser"
+    ]
+  },
+  "purchase_flow": {
+    "source_of_truth": "public.purchases",
+    "trigger": "purchase_transaction_sync (SECURITY DEFINER, migration 20260816030017)",
+    "rules": {
+      "recursion_guard": "pg_trigger_depth() > 1 -> no-op",
+      "strategy": "delete+reinsert transactions where purchase_id = NEW.id and tipo <> PAGAMENTO_CARTAO",
+      "pendente_pagamento": "nenhuma transaction, purchases.transaction_id = NULL",
+      "status_map": { "PAGO": "CONFIRMADA", "CANCELADO": "CANCELADA", "default": "PENDENTE" },
+      "bank_account_id_set_only_for": ["PIX", "DEBITO", "TRANSFERENCIA"],
+      "date": "COALESCE(data_pagamento_real, data_compra)"
+    },
+    "atomicity": "createPurchase (src/lib/purchases.ts:335-440) faz inserts sequenciais no cliente, sem transacao de banco"
+  },
+  "bank_pipeline": [
+    "pdf-extract",
+    "detectDocumentType (pdf-diagnostic/document-type.ts:107)",
+    "detectBankStatement (bank-statements/parse.ts:366)",
+    "selectBankStatementParser (parse.ts:56)",
+    "parser BB/Itau/generic",
+    "toCanonicalStatement + buildSourceId (canonical.ts:191,113)",
+    "validateStatement (validate.ts:40)",
+    "reconcileMovement (reconcile.ts:77, tolerancia 2 dias)",
+    "revisao humana",
+    "createBankStatementImport (data.ts:41)",
+    "RPC confirm_bank_statement_import",
+    "auditoria / reparo"
+  ],
+  "identity": {
+    "file_level": ["statementFingerprint (bank data.ts:19, SHA-256 dos bytes)"],
+    "line_level": ["buildSourceId (canonical.ts:113, duplo FNV1a)"],
+    "event_level": [
+      "movementKey (dedupe.ts:40) + occurrenceKey (dedupe.ts:62)",
+      "economicKey (economic-identity.ts:28) + economicFingerprint (:36)"
+    ],
+    "card_level": [
+      "invoiceFingerprint (card-statement-persistence.ts:205)",
+      "statementFingerprint (card-statements.ts:118)"
+    ],
+    "canonical_import_election": "buildStatementSelection (statement-selection.ts:100); SAME_PERIOD_OVERLAP; ALREADY_PRESENT_VIA_OTHER_IMPORT",
+    "deprecated": "buildExistingMovementKeys (dedupe.ts:105) - chave sem ordinal"
+  },
+  "repair_subsystems": [
+    {
+      "id": "persistence_repair",
+      "dry_run": ["persistence-repair.ts:212", "repair-plan.ts:62", "repair-precondition.ts:74", "repair-proof.ts:154", "repair-impact.ts:86", "repair-validation.ts:87"],
+      "apply": "repair-apply.ts:74 -> rpc apply_bank_persistence_repair",
+      "rollback": "rpc revert_bank_persistence_repair (repair-apply.ts:132)",
+      "gate": "validationRepair=PASS, restoreCount=1, naoSeriamRestauradas=0, mesesAindaDivergentes=0",
+      "outcomes": ["REPAIR_APPLIED", "ALREADY_REPAIRED", "REPAIR_PRECONDITION_FAILED", "REPAIR_POST_VALIDATION_FAILED"]
+    },
+    {
+      "id": "financial_repair_itau",
+      "dry_run": ["financial-repair.ts:118", "financial-repair.ts:448"],
+      "apply": "financial-repair-apply.ts:302 -> rpc apply_financial_ledger_repair",
+      "hardcoded": { "REPAIR_TYPE": "ITAU_LEDGER_REPAIR_2026_01_06", "AUTHORIZED_REPAIR": "IDs reais fixos no codigo" }
+    },
+    {
+      "id": "false_transfer",
+      "dry_run": ["false-transfer-repair.ts:177"],
+      "apply": null
+    },
+    {
+      "id": "operational_reprocess",
+      "rpcs": ["reprocess_bank_statement_import", "normalize_bank_opening_balances", "reprocess_bank_statement_checkpoints_only", "reprocess_account_checkpoints_only", "apply_statement_posting_dates"]
+    }
+  ],
+  "card_reconciliation": {
+    "engine": "card-statement-persistence.ts:402",
+    "statuses": ["EXACT_MATCH", "STRONG_MATCH", "POSSIBLE_MATCH", "NEW_ITEM", "CONFLICT"],
+    "amount_tolerance": 0.01,
+    "date_window_days": 5,
+    "similarity_tiers": [0.8, 0.5],
+    "blocking_rule": "qualquer POSSIBLE_MATCH exige revisao manual",
+    "idempotency": "invoiceFingerprint -> SAME_STATEMENT_ALREADY_IMPORTED",
+    "undo": ["inspect_card_statement_import_undo", "undo_card_statement_import"]
+  },
+  "goldens": {
+    "itau_bank": { "transactions": 17, "daily_checkpoints": 7, "closing": { "value": 120.81, "from": "2026-06-17", "derived": true }, "reference": { "value": 4.16, "date": "2026-08-13" } },
+    "nubank_card": { "items": 11, "total": 155.99, "issue_date": "2026-08-10", "due_date": "2026-08-17", "cards": ["9982", "7274"] },
+    "itau_card": { "total_reconhecido": 6577.67 },
+    "bb": { "assertion": "opening/closing por mes com validation.math.difference === 0" }
+  },
+  "code_hygiene": {
+    "todo_fixme_hack_legacy": 0,
+    "deprecated_markers": ["src/lib/bank-statements/dedupe.ts:104"],
+    "dead_code": ["useExpenseSummary", "CRUD antigo de expenses"]
+  },
+  "findings": [
+    { "id": 1, "severity": "HIGH", "title": "createPurchase sem atomicidade", "evidence": "src/lib/purchases.ts:335-440" },
+    { "id": 2, "severity": "HIGH", "title": "Modelo duplo purchases + expenses (espelho legado)", "evidence": "purchases.ts, card-details.ts" },
+    { "id": 3, "severity": "HIGH", "title": "IDs reais hard-coded em reparo one-off no bundle do cliente", "evidence": "financial-repair-apply.ts:21-24" },
+    { "id": 4, "severity": "MEDIUM", "title": "Classificacao economica por regex de descricao dentro da RPC de escrita", "evidence": "confirm_bank_statement_import" },
+    { "id": 5, "severity": "MEDIUM", "title": "Imports duplicados no banco", "evidence": "3 fingerprints iguais na conta def1d8cc-1b37-4346-bb3f-ad3b0cc3f7fc; 17 source_id repetidos em bank_statement_items" },
+    { "id": 6, "severity": "MEDIUM", "title": "107 transactions sem bank_account_id", "evidence": "consulta read-only" },
+    { "id": 7, "severity": "MEDIUM", "title": "Tres subsistemas de reparo paralelos com gates proprios", "evidence": "AUDIT_PACKAGE.md secao 7" },
+    { "id": 8, "severity": "MEDIUM", "title": "transactions com uma unica politica de RLS", "evidence": "catalogo de politicas" },
+    { "id": 9, "severity": "LOW", "title": "Papeis em family_members.permissao e nao em user_roles dedicada", "evidence": "schema" },
+    { "id": 10, "severity": "LOW", "title": "Dois simbolos distintos chamados selectBankStatementParser", "evidence": "parse.ts:56, bank-statement-parsers/index.ts:51" },
+    { "id": 11, "severity": "LOW", "title": "false-transfer-repair somente dry run", "evidence": "false-transfer-repair.ts" },
+    { "id": 12, "severity": "LOW", "title": "Rascunho de revisao em localStorage", "evidence": "bank-statements/draft.ts" },
+    { "id": 13, "severity": "INFO", "title": "santanderParser e stub", "evidence": "card-statement-parsers/santander.ts" }
+  ],
+  "not_proven": [
+    "Cobertura por operacao das politicas RLS de transactions",
+    "Reexecucao do bloqueio POSSIBLE_MATCH apos edicao manual",
+    "Correlacao dos 107 transactions sem bank_account_id com cartoes",
+    "Cobertura de testes (vitest rodado sem --coverage)"
+  ]
+}
