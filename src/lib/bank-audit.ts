@@ -424,6 +424,19 @@ export function buildBankAudit(input: {
   const checkpointsPorImport = groupCheckpointsByImport(input.checkpoints);
   const periodoPorImport = new Map<string, ResolvedStatementPeriod>();
 
+  // SELEÇÃO CANÔNICA: dois imports do MESMO período são sobreposição, nunca
+  // extratos sequenciais. Só o canônico conta checkpoints e continuidade.
+  const selecao = buildStatementSelection({
+    imports: input.imports,
+    checkpoints: input.checkpoints,
+    statementItems: input.statementItems,
+  });
+  const relacaoPorImport = new Map<string, "SAME_PERIOD_OVERLAP" | "UNIQUE_PERIOD">();
+  for (const g of selecao.grupos)
+    for (const c of g.candidatos) relacaoPorImport.set(c.importId, g.relacao);
+  const canonicalIds = new Set(selecao.canonicalIds);
+
+
   const extratos: StatementPeriod[] = input.imports
     .filter((i) => i.status !== "CANCELLED" && i.status !== "ERROR")
     .map((i) => {
