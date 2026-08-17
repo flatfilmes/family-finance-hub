@@ -256,17 +256,41 @@ function PlanoReparoPage() {
             value={`${plan.totais.statementsCanonicos} · ${plan.totais.overlapsPreservados}`}
           />
           <Metric label="Movimentos oficiais (canonical)" value={String(t.movimentosDocumento)} />
-          <Metric label="Movimentos no ledger" value={String(financeiro.ledger.antes)} />
+          <Metric
+            label="Movimentos no ledger"
+            value={String(provaFinanceira.ledgerBefore.transactionCount)}
+          />
           <Metric label="Missing transactions" value={String(t.linhasRestauradas)} />
-          <Metric label="Extra ledger transactions" value={String(financeiro.remocoes.length)} />
-          <Metric label="Wrong direction transactions" value={String(financeiro.inversoes.length)} />
-          <Metric label="Ledger simulado" value={String(financeiro.ledger.depois)} />
-          <Metric label="Saldo atual" value={formatCurrency(financeiro.saldo.antes)} />
-          <Metric label="Saldo simulado" value={formatCurrency(financeiro.saldo.depois)} />
-          <Metric label="Diferença residual" value={formatCurrency(financeiro.saldo.residual)} />
+          <Metric
+            label="Extra ledger transactions"
+            value={String(
+              provaFinanceira.corrections.filter(
+                (c) => c.type === "REMOVE_EXTRA_LEDGER_TRANSACTION",
+              ).length,
+            )}
+          />
+          <Metric
+            label="Wrong direction transactions"
+            value={String(
+              provaFinanceira.corrections.filter((c) => c.type === "CORRECT_DIRECTION").length,
+            )}
+          />
+          <Metric
+            label="Ledger simulado"
+            value={String(provaFinanceira.ledgerAfter.transactionCount)}
+          />
+          <Metric label="Saldo atual" value={formatCurrency(provaFinanceira.ledgerBefore.balance)} />
+          <Metric
+            label="Saldo simulado"
+            value={formatCurrency(provaFinanceira.ledgerAfter.balance)}
+          />
+          <Metric
+            label="Diferença residual"
+            value={formatCurrency(provaFinanceira.residualDifference)}
+          />
           <Metric
             label="Checkpoints"
-            value={`${financeiro.checkpointsResumo.conferem}/${financeiro.checkpointsResumo.total} ${financeiro.checkpointsResumo.ok ? "PASS" : "FAIL"}`}
+            value={`${provaFinanceira.checkpointsPass}/${provaFinanceira.checkpointsTotal} ${provaFinanceira.status === "PASS" && provaFinanceira.checkpointsPass === provaFinanceira.checkpointsTotal ? "PASS" : "FAIL"}`}
           />
         </div>
         {plan.statements.overlaps.length > 0 && (
