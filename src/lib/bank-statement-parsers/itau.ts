@@ -366,6 +366,10 @@ export type ItauPipelineDiagnostics = {
   parsedTransactions: number;
   parsedCheckpoints: number;
   openingBalance: { amount: number | null; date: string | null };
+  /** Último saldo impresso DENTRO do período (histórico, nunca derivado). */
+  lastHistoricalCheckpoint: { amount: number | null; date: string | null };
+  /** Fechamento ancorado no fim do período; `derived` quando não impresso. */
+  closingBalance: { amount: number | null; date: string | null; derived: boolean };
   referenceBalance: { amount: number | null; date: string | null };
   validation: { status: "PASS" | "FAIL"; errors: string[] };
   rows: ItauRow[];
