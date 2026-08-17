@@ -430,7 +430,7 @@ export function buildBankAudit(input: {
   const selecao = buildStatementSelection({
     imports: input.imports,
     checkpoints: input.checkpoints,
-    statementItems: input.statementItems,
+    statementItems: input.statementItems ?? [],
   });
   const relacaoPorImport = new Map<string, "SAME_PERIOD_OVERLAP" | "UNIQUE_PERIOD">();
   for (const g of selecao.grupos)
