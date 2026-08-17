@@ -7,7 +7,7 @@
  */
 import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Download, FileJson } from "lucide-react";
+import { Download, FileJson, ShieldCheck } from "lucide-react";
 
 import { Card } from "@/components/page-header";
 import { DetailHeader, Metric, SectionTitle } from "@/components/detail-page";
