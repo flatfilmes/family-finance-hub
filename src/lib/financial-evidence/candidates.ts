@@ -8,6 +8,7 @@
 import type { ParsedBankMovement } from "@/lib/bank-statements/types";
 import type { ScreenshotMovement } from "@/lib/bank-screenshot.functions";
 import { normalizarDescricao } from "./reconcile";
+import { defaultEconomicKind, normalizeAmount } from "./sign-contract";
 import {
   SOURCE_CONFIDENCE,
   type EconomicKind,
@@ -72,7 +73,8 @@ export function bankMovementsToCandidates(
   ctx: CandidateContext,
 ): FinancialCandidateEvent[] {
   return movimentos.map((m, i) => {
-    const direction = m.valor < 0 ? "OUT" : "IN";
+    // Fronteira adapter → domínio: o sinal da fonte vira amount + direction.
+    const { amount, direction, rawAmount } = normalizeAmount(m.valor, "BANK_STATEMENT_PDF");
     const kind = kindDoExtrato(String(m.tipo));
     return {
       ...base(
@@ -84,9 +86,10 @@ export function bankMovementsToCandidates(
       eventDate: m.eventDate ?? m.data ?? null,
       postingDate: m.data ?? null,
       description: m.descricaoOriginal,
-      amount: Math.abs(m.valor),
+      amount,
+      rawAmount,
       direction,
-      economicKind: kind === "UNKNOWN" ? (direction === "IN" ? "INCOME" : "PURCHASE") : kind,
+      economicKind: kind === "UNKNOWN" ? defaultEconomicKind(direction, "BANK_STATEMENT_PDF") : kind,
       cardLast4: null,
       installmentCurrent: null,
       installmentTotal: null,
@@ -113,7 +116,12 @@ export function cardItemsToCandidates(
 ): FinancialCandidateEvent[] {
   return itens
     .filter((i) => i.category !== "METADATA_SUMMARY" && i.category !== "PAYMENT")
-    .map((i, index) => ({
+    .map((i, index) => {
+      const { amount, direction, rawAmount } = normalizeAmount(
+        i.amount,
+        "CREDIT_CARD_STATEMENT_PDF",
+      );
+      return {
       ...base(
         ctx,
         "CREDIT_CARD_STATEMENT_PDF",
@@ -123,15 +131,17 @@ export function cardItemsToCandidates(
       eventDate: i.date ?? null,
       postingDate: null,
       description: i.description,
-      amount: Math.abs(i.amount),
-      direction: i.amount < 0 ? "IN" : "OUT",
-      economicKind: (i.amount < 0 ? "REFUND" : "PURCHASE") as EconomicKind,
+      amount,
+      rawAmount,
+      direction,
+      economicKind: defaultEconomicKind(direction, "CREDIT_CARD_STATEMENT_PDF"),
       cardLast4: i.cardLast4 ?? null,
       installmentCurrent: i.installmentCurrent ?? null,
       installmentTotal: i.installmentTotal ?? null,
       extractionConfidence: 100,
       rawText: i.description,
-    }));
+      } satisfies FinancialCandidateEvent;
+    });
 }
 
 /** Print/foto lido por IA → candidatos de confiança média/baixa. */
@@ -141,7 +151,7 @@ export function imageReadingToCandidates(
   sourceType: EvidenceSourceType = "BANK_SCREENSHOT",
 ): FinancialCandidateEvent[] {
   return movimentos.map((m, i) => {
-    const direction = m.valor < 0 ? "OUT" : "IN";
+    const { amount, direction, rawAmount } = normalizeAmount(m.valor, sourceType);
     return {
       ...base(
         ctx,
@@ -152,9 +162,10 @@ export function imageReadingToCandidates(
       eventDate: m.data ?? null,
       postingDate: m.data ?? null,
       description: m.descricao,
-      amount: Math.abs(m.valor),
+      amount,
+      rawAmount,
       direction,
-      economicKind: (direction === "IN" ? "INCOME" : "PURCHASE") as EconomicKind,
+      economicKind: defaultEconomicKind(direction, sourceType),
       cardLast4: m.cardLast4 ?? null,
       installmentCurrent: null,
       installmentTotal: null,
