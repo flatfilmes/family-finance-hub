@@ -114,52 +114,107 @@ export function RepairValidationPanel({ v }: { v: RepairValidation }) {
         </div>
       )}
 
-      <p className="mb-2 text-xs font-semibold text-muted-foreground">
-        Diff de saldos mês a mês — hoje vs. depois do reparo
+      <p className="mb-1 text-xs font-semibold text-muted-foreground">
+        Ledger encadeado — fechamento de um mês abre o mês seguinte
       </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[820px] text-left text-xs">
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        Esta é a leitura oficial do impacto do reparo: uma linha perdida em um mês contamina todos
+        os meses seguintes.
+      </p>
+      <div className="mb-6 overflow-x-auto">
+        <table className="w-full min-w-[880px] text-left text-xs">
           <thead className="border-b border-border text-muted-foreground">
             <tr>
-              <th className="px-2 py-2 font-semibold">Mês</th>
-              <th className="px-2 py-2 font-semibold">Movimentos</th>
-              <th className="px-2 py-2 font-semibold">Saldo hoje</th>
-              <th className="px-2 py-2 font-semibold">Saldo simulado</th>
-              <th className="px-2 py-2 font-semibold">Saldo do banco</th>
+              <th className="px-2 py-2 font-semibold">Período</th>
+              <th className="px-2 py-2 font-semibold">Abertura encadeada</th>
+              <th className="px-2 py-2 font-semibold">Saldo antes do reparo</th>
+              <th className="px-2 py-2 font-semibold">Saldo depois do reparo</th>
+              <th className="px-2 py-2 font-semibold">Saldo do documento</th>
               <th className="px-2 py-2 font-semibold">Diferença antes → depois</th>
               <th className="px-2 py-2 font-semibold">Confere</th>
             </tr>
           </thead>
           <tbody>
-            {v.meses.map((m) => (
-              <tr key={m.mes} className="border-b border-border last:border-0">
-                <td className="px-2 py-2 font-semibold">{m.rotulo}</td>
-                <td className="px-2 py-2">
-                  {m.movimentosAntes} → {m.movimentosDepois}
+            {v.chainedValidation.periodos.map((m) => (
+              <tr key={m.importId} className="border-b border-border last:border-0">
+                <td className="px-2 py-2 font-semibold">
+                  {m.rotulo}
+                  {m.origemDaDiferenca && (
+                    <span className="ml-2 text-[10px] font-semibold text-destructive">origem</span>
+                  )}
                 </td>
-                <td className="px-2 py-2">{formatCurrency(m.saldoAntes)}</td>
-                <td className="px-2 py-2 font-semibold">{formatCurrency(m.saldoDepois)}</td>
                 <td className="px-2 py-2">
-                  {m.saldoBanco === null ? "—" : formatCurrency(m.saldoBanco)}
+                  {m.aberturaEncadeadaAntes === null
+                    ? "—"
+                    : formatCurrency(m.aberturaEncadeadaAntes)}
+                </td>
+                <td className="px-2 py-2">
+                  {m.saldoAntesRepair === null ? "—" : formatCurrency(m.saldoAntesRepair)}
+                </td>
+                <td className="px-2 py-2 font-semibold">
+                  {m.saldoDepoisRepair === null ? "—" : formatCurrency(m.saldoDepoisRepair)}
+                </td>
+                <td className="px-2 py-2">
+                  {m.saldoDocumento === null ? "—" : formatCurrency(m.saldoDocumento)}
                 </td>
                 <td className="px-2 py-2">
                   <span className={m.confereAntes === false ? "font-semibold text-destructive" : ""}>
-                    {m.diferencaAntes === null ? "—" : formatCurrency(m.diferencaAntes)}
+                    {m.differenceBefore === null ? "—" : formatCurrency(m.differenceBefore)}
                   </span>{" "}
                   →{" "}
                   <span className={m.confereDepois === false ? "font-semibold text-destructive" : ""}>
-                    {m.diferencaDepois === null ? "—" : formatCurrency(m.diferencaDepois)}
+                    {m.differenceAfter === null ? "—" : formatCurrency(m.differenceAfter)}
                   </span>
                 </td>
                 <td className="px-2 py-2">
                   {m.confereDepois === null ? (
-                    <span className="text-muted-foreground">sem saldo do banco</span>
+                    <span className="text-muted-foreground">sem saldo do documento</span>
                   ) : (
                     <StatusBadge tone={m.confereDepois ? "ok" : "warn"}>
                       {m.confereAntes ? "conferia" : "não conferia"} →{" "}
                       {m.confereDepois ? "confere" : "ainda diverge"}
                     </StatusBadge>
                   )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="mb-1 text-xs font-semibold text-muted-foreground">
+        Validação isolada por documento — leitura auxiliar
+      </p>
+      <p className="mb-2 text-[11px] text-muted-foreground">
+        Cada mês começa no saldo inicial oficial do próprio PDF. Serve só para dizer se o documento
+        fecha sozinho — não mede propagação e não é usada para liberar o reparo.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[720px] text-left text-xs">
+          <thead className="border-b border-border text-muted-foreground">
+            <tr>
+              <th className="px-2 py-2 font-semibold">Período</th>
+              <th className="px-2 py-2 font-semibold">Abertura oficial</th>
+              <th className="px-2 py-2 font-semibold">Fechamento calculado</th>
+              <th className="px-2 py-2 font-semibold">Saldo do documento</th>
+              <th className="px-2 py-2 font-semibold">Diferença isolada</th>
+            </tr>
+          </thead>
+          <tbody>
+            {v.standaloneValidation.periodos.map((m) => (
+              <tr key={m.importId} className="border-b border-border last:border-0">
+                <td className="px-2 py-2 font-semibold">{m.rotulo}</td>
+                <td className="px-2 py-2">
+                  {m.aberturaOficial === null ? "—" : formatCurrency(m.aberturaOficial)}
+                </td>
+                <td className="px-2 py-2">
+                  {m.saldoAntes === null ? "—" : formatCurrency(m.saldoAntes)}
+                </td>
+                <td className="px-2 py-2">
+                  {m.saldoDocumento === null ? "—" : formatCurrency(m.saldoDocumento)}
+                </td>
+                <td className="px-2 py-2">
+                  {m.diferencaAntes === null ? "—" : formatCurrency(m.diferencaAntes)}
                 </td>
               </tr>
             ))}
