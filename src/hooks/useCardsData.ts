@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useCreditCards } from "@/hooks/useFinanceData";
 import { useCardInvoices, useCardOverview, useInstallments } from "@/hooks/useCardInvoices";
 import { usePurchases } from "@/hooks/usePurchases";
-import { useExpenses } from "@/hooks/useExpenses";
 import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { useConfirmedInstallmentItems, useStatementImports } from "@/hooks/useCardStatements";
 import {
@@ -23,7 +22,6 @@ import {
   utilizadoDoCartao,
 } from "@/lib/card-details";
 import type { CardInvoice } from "@/lib/card-invoices";
-import type { Expense } from "@/lib/expenses";
 import type { Purchase } from "@/lib/purchases";
 
 
@@ -35,7 +33,6 @@ export function useCardsData(familyId?: string) {
   const cards = useCreditCards(familyId);
   const overview = useCardOverview(familyId, cards.data ?? []);
   const purchases = usePurchases(familyId);
-  const despesas = useExpenses(familyId);
   const faturas = useCardInvoices(familyId);
   const parcelas = useInstallments(familyId);
   const recorrentes = useRecurringExpenses(familyId);
@@ -43,12 +40,6 @@ export function useCardsData(familyId?: string) {
   const itensParcelados = useConfirmedInstallmentItems(familyId);
 
 
-
-  const despesaPorId = useMemo(() => {
-    const m = new Map<string, Expense>();
-    for (const e of despesas.data ?? []) m.set(e.id, e);
-    return m;
-  }, [despesas.data]);
 
   const compraPorId = useMemo(() => {
     const m = new Map<string, Purchase>();
@@ -58,14 +49,13 @@ export function useCardsData(familyId?: string) {
 
   /**
    * Compras que já viraram parcelas na fatura — não podem ser somadas de novo.
-   * A ligação oficial é expense_installments.purchase_id; a despesa legada é fallback.
+   * A ligação oficial é expense_installments.purchase_id.
    */
   const comprasComParcelas = useMemo(() => {
     const ids = new Set<string>();
     for (const p of parcelas.data ?? []) if (p.purchase_id) ids.add(p.purchase_id);
-    for (const e of despesas.data ?? []) if (e.purchase_id) ids.add(e.purchase_id);
     return ids;
-  }, [parcelas.data, despesas.data]);
+  }, [parcelas.data]);
 
   const info = (cardId: string) => overview.porCartao.find((o) => o.card.id === cardId);
   const comprasDoCartao = (cardId: string) =>
@@ -158,7 +148,6 @@ export function useCardsData(familyId?: string) {
                   parcelas: parcelas.data ?? [],
                   comprasDoCartao: comprasDoCartao(cardId),
                   comprasComParcelas,
-                  despesaPorId,
                   compraPorId,
                   card: (cards.data ?? []).find((x) => x.id === cardId) ?? null,
                 }).map((l) => ({ ...l, itemId: l.id })),
@@ -190,7 +179,6 @@ export function useCardsData(familyId?: string) {
             parcelas: parcelas.data ?? [],
             comprasDoCartao: comprasDoCartao(cardId),
             comprasComParcelas,
-            despesaPorId,
             compraPorId,
             card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
           }).map((l) => ({ ...l, itemId: l.id })),
@@ -239,7 +227,6 @@ export function useCardsData(familyId?: string) {
         parcelas: parcelas.data ?? [],
         comprasDoCartao: comprasDoCartao(cardId),
         comprasComParcelas,
-        despesaPorId,
         compraPorId,
         card: (cards.data ?? []).find((c) => c.id === cardId) ?? null,
       }),
@@ -257,7 +244,6 @@ export function useCardsData(familyId?: string) {
       parcelamentosAtivos({
         parcelas: parcelas.data ?? [],
         faturas: faturasDoCartao(cardId),
-        despesaPorId,
         compraPorId,
       }),
   };
