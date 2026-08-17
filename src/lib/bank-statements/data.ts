@@ -165,7 +165,7 @@ export async function fetchBankStatementItemsByAccount(accountId: string) {
   const { data, error } = await supabase
     .from("bank_statement_items")
     .select(
-      "id, import_id, data_movimento, descricao_original, valor, tipo_sugerido, incluir, review_action, match_status, transaction_id_criada, transaction_id_matched, purchase_id_criada, purchase_id_matched, ordem",
+      "id, import_id, data_movimento, descricao_original, valor, tipo_sugerido, incluir, processado, review_action, match_status, confidence_score, transfer_group_id, transaction_id_criada, transaction_id_matched, purchase_id_criada, purchase_id_matched, ordem",
     )
     .eq("bank_account_id", accountId)
     .order("data_movimento", { ascending: true })
