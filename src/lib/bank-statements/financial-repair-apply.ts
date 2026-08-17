@@ -234,17 +234,46 @@ export async function validateRepairExecution(
     }
   }
 
+  // Checkpoints: MESMA camada usada pela auditoria (bank_balance_checkpoints →
+  // saldo_informado). Nenhuma segunda query SQL com nomes próprios de coluna.
+  try {
+    const cps = (await fetchBankBalanceCheckpoints(a.accountId)).filter(
+      (c) => (c.tipo ?? "DAILY") === "DAILY",
+    );
+    const esperados = proof?.checkpoints ?? [];
+    const conferem = esperados.every((e) =>
+      cps.some((c) => c.data === e.date && eq(c.saldo, e.expected)),
+    );
+    checks.push({
+      id: "CHECKPOINTS_BANCO",
+      label: "Checkpoints diários lidos do banco conferem com o dry run",
+      status: esperados.length === a.expected.checkpointsTotal && conferem ? "PASS" : "FAIL",
+      detail: `${cps.length} checkpoints DAILY na conta · ${esperados.length} no dry run`,
+    });
+  } catch (e) {
+    sqlErrors.push(e instanceof Error ? e.message : String(e));
+    checks.push({
+      id: "CHECKPOINTS_BANCO",
+      label: "Checkpoints diários lidos do banco conferem com o dry run",
+      status: "FAIL",
+      detail: e instanceof Error ? e.message : String(e),
+    });
+  }
+
   const motivos = checks.filter((c) => c.status === "FAIL").map((c) => `${c.label} — ${c.detail}`);
   return {
-    status: motivos.length ? "FAIL" : "PASS",
+    // Qualquer erro SQL invalida a validação: nunca PASS.
+    status: sqlErrors.length ? "ERROR" : motivos.length ? "FAIL" : "PASS",
     executadoEm: new Date().toISOString(),
     checks,
     motivos,
+    sqlErrors,
     itauTransactionToRemove: a.remove.transactionId,
     bbTransactionToPreserve: bb,
     transferGroupId: grupo,
   };
 }
+
 
 export type FinancialRepairOutcome = {
   status: "SUCCESS" | "ALREADY_REPAIRED";
