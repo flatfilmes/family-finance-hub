@@ -37,17 +37,17 @@ const items = [
     product_id: "",
     categoria_id: "",
     descricao_produto: "Arroz",
-    quantidade: 2,
+    quantidade: "2",
     unidade: "UN",
-    valor_unitario: 10,
+    valor_unitario: "10",
   },
   {
     product_id: "",
     categoria_id: "",
     descricao_produto: "Feijão",
-    quantidade: 1,
+    quantidade: "1",
     unidade: "UN",
-    valor_unitario: 8.5,
+    valor_unitario: "8.5",
   },
 ];
 
