@@ -243,14 +243,31 @@ export async function fetchBankBalanceCheckpoints(accountId: string) {
 }
 
 
-/** Executa as ações revisadas. Idempotente: confirmar de novo não duplica nada. */
+export type ConfirmImportResult = {
+  status: "CONFIRMED" | "ALREADY_CONFIRMED";
+  criadas: number;
+  associadas: number;
+  ignoradas: number;
+};
+
+/**
+ * Executa as ações revisadas. Idempotente em dois níveis: o import já confirmado
+ * devolve ALREADY_CONFIRMED sem reprocessar, e cada item tem seu próprio guard.
+ */
 export async function confirmBankStatementImport(importId: string) {
   const { data, error } = await supabase.rpc("confirm_bank_statement_import", {
     _import_id: importId,
   });
   if (error) throw error;
-  return data as unknown as { criadas: number; associadas: number; ignoradas: number };
+  const bruto = (data ?? {}) as Record<string, unknown>;
+  return {
+    status: bruto["status"] === "ALREADY_CONFIRMED" ? "ALREADY_CONFIRMED" : "CONFIRMED",
+    criadas: Number(bruto["criadas"] ?? 0),
+    associadas: Number(bruto["associadas"] ?? 0),
+    ignoradas: Number(bruto["ignoradas"] ?? 0),
+  } satisfies ConfirmImportResult;
 }
+
 
 export async function fetchBankStatementImports(accountId: string) {
   const { data, error } = await supabase
