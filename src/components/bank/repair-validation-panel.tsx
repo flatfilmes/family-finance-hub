@@ -31,7 +31,7 @@ export function RepairValidationPanel({ v }: { v: RepairValidation }) {
       </div>
 
       <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Transações que nasceriam" value={String(v.totais.seriamRestauradas)} />
+        <Metric label="restoreCount" value={String(v.totais.restoreCount)} />
         <Metric label="Descartadas na validação" value={String(v.totais.naoSeriamRestauradas)} />
         <Metric label="Efeito no saldo" value={formatCurrency(v.totais.efeitoSaldoFinal)} />
         <Metric
