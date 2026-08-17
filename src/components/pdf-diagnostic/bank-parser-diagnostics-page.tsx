@@ -211,11 +211,10 @@ export function BankParserDiagnosticsPage({
               source === "CARD_STATEMENT" ? "CREDIT_CARD_STATEMENT" : "BANK_STATEMENT",
             input: entrada,
             detectedDocumentType:
-              r.documentType.type === "CARD_STATEMENT"
-                ? "CREDIT_CARD_STATEMENT"
-                : r.documentType.type === "BANK_STATEMENT"
-                  ? "BANK_STATEMENT"
-                  : null,
+              r.documentType.type === "CREDIT_CARD_STATEMENT" ||
+              r.documentType.type === "BANK_STATEMENT"
+                ? r.documentType.type
+                : null,
           }),
         );
       }
