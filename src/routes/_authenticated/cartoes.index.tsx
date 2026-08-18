@@ -8,8 +8,9 @@ import { Card, PageHeader } from "@/components/page-header";
 import { Badge, Metric } from "@/components/detail-page";
 import { useFamily } from "@/hooks/useFamilyData";
 import { useCardsData } from "@/hooks/useCardsData";
-import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useCardCommitments } from "@/hooks/useFinancialReadModel";
 import { filterByMember } from "@/components/member-filter";
+import { COVERAGE_MESSAGES } from "@/lib/read-models";
 import { useViewMode } from "@/components/view-mode";
 import { formatDate } from "@/lib/expenses";
 import { cardSubtitle } from "@/lib/institutions";
@@ -40,7 +41,6 @@ export const Route = createFileRoute("/_authenticated/cartoes/")({
 function CartoesPage() {
   const { data: family } = useFamily();
   const dados = useCardsData(family?.id);
-  const { data: accounts } = useBankAccounts(family?.id);
   const view = useViewMode();
   const importacoes = useStatementImports(family?.id);
 
@@ -56,30 +56,18 @@ function CartoesPage() {
     ? dados.cards.find((c) => c.id === pendentePrimeiro.credit_card_id)
     : undefined;
 
-  const contasAtivas = filterByMember(accounts ?? [], view.scoped("")).filter((a) => a.ativo);
-
-  const totalLimite = visiveis
-    .filter((c) => c.ativo)
-    .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
-  const composicaoFaturas = visiveis
-    .filter((c) => c.ativo)
-    .map((c) => ({ cartao: c, obrigacao: dados.obrigacaoAbertaDe(c.id) }));
-  const totalFaturasAbertas = composicaoFaturas.reduce(
-    (acc, item) => acc + item.obrigacao.valor,
-    0,
-  );
-  const saldoContas = contasAtivas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-  const capacidade = saldoContas - totalFaturasAbertas;
-  const statusPagamento =
-    capacidade < 0 ? "vermelho" : capacidade < totalFaturasAbertas * 0.2 ? "amarelo" : "verde";
-  const statusTexto = {
-    verde: "Saldo em contas cobre as faturas abertas com folga.",
-    amarelo: "Saldo cobre as faturas, mas com margem pequena.",
-    vermelho: "Saldo disponível não cobre todas as faturas abertas.",
-  }[statusPagamento];
-  const statusTone = ({ verde: "ok", amarelo: "warn", vermelho: "danger" } as const)[
-    statusPagamento
-  ];
+  // Faturas, limites e capacidade de pagamento vêm do read model canônico.
+  const { commitments } = useCardCommitments(family?.id, view.scoped(""));
+  const {
+    obrigacoes,
+    totalFaturasAbertas,
+    totalLimite,
+    saldoContas,
+    capacidade,
+    status,
+  } = commitments;
+  const statusTexto = COVERAGE_MESSAGES[status];
+  const statusTone = ({ VERDE: "ok", AMARELO: "warn", VERMELHO: "danger" } as const)[status];
 
   return (
     <div>
@@ -121,23 +109,23 @@ function CartoesPage() {
       </div>
 
       <Card className="mt-4">
-        <Badge tone={statusTone}>{statusPagamento.toUpperCase()}</Badge>
+        <Badge tone={statusTone}>{status}</Badge>
         <p className="mt-2 text-sm text-muted-foreground">{statusTexto}</p>
       </Card>
 
-      {composicaoFaturas.length > 0 && (
+      {obrigacoes.length > 0 && (
         <Card className="mt-4">
           <p className="text-sm font-bold">Composição das faturas abertas</p>
           <ul className="mt-2 divide-y divide-border">
-            {composicaoFaturas.map(({ cartao, obrigacao }) => (
-              <li key={cartao.id} className="flex items-center justify-between gap-3 py-2 text-xs">
+            {obrigacoes.map((o) => (
+              <li key={o.cardId} className="flex items-center justify-between gap-3 py-2 text-xs">
                 <span className="min-w-0 truncate">
-                  {cartao.nome_cartao}
+                  {o.nome}
                   <span className="ml-2 text-muted-foreground">
-                    {obrigacao.aberta ? (obrigacao.oficial ? "OFICIAL" : "ESTIMADA") : "PAGA"}
+                    {o.aberta ? (o.oficial ? "OFICIAL" : "ESTIMADA") : "PAGA"}
                   </span>
                 </span>
-                <strong>{formatCurrency(obrigacao.valor)}</strong>
+                <strong>{formatCurrency(o.valor)}</strong>
               </li>
             ))}
             <li className="flex items-center justify-between gap-3 py-2 text-sm">
