@@ -56,33 +56,25 @@ function RelatoriosPage() {
   const { data: family } = useFamily();
   const { data: members } = useMembers(family?.id);
   const { data: incomes } = useIncomes(family?.id);
-  const { data: fixed } = useFixedExpenses(family?.id);
   const { data: cards } = useCreditCards(family?.id);
-  const { data: accounts } = useBankAccounts(family?.id);
   const month = currentMonth();
-  const gastoFamilia = useMonthlySpending(family?.id, "", month);
+
+  // Fonte única: o MESMO read model consumido pelo Dashboard.
+  // Relatórios não tem contabilidade própria.
+  const modelo = useFinancialReadModel(family?.id, "", month);
+  const relatorio = buildReportsReadModel(modelo);
 
   if (!family) return <NoFamily />;
 
-  const receitas = (incomes ?? [])
-    .filter((i) => i.ativo)
-    .reduce((acc, i) => acc + monthlyIncomeValue(i), 0);
-  const contas = (fixed ?? [])
-    .filter((f) => f.ativo)
-    .reduce((acc, f) => acc + monthlyExpenseValue(f), 0);
-  const saldos = (accounts ?? [])
-    .filter((a) => a.ativo)
-    .reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-  const gastos = gastoFamilia.total;
-
   const stats = [
-    { label: "Receita mensal da família", value: formatCurrency(receitas) },
-    { label: "Contas fixas do mês", value: formatCurrency(contas) },
-    { label: `Gastos · ${monthLabel(month)}`, value: formatCurrency(gastos) },
-    { label: "Saldo em contas bancárias", value: formatCurrency(saldos) },
+    { label: "Receita mensal da família", value: formatCurrency(relatorio.receitaMensal) },
+    { label: "Contas fixas do mês", value: formatCurrency(relatorio.contasFixas) },
+    { label: `Gastos · ${monthLabel(month)}`, value: formatCurrency(relatorio.gastosDoMes) },
+    { label: "Saldo em contas bancárias", value: formatCurrency(relatorio.saldoBancario) },
     { label: "Pessoas na família", value: String((members ?? []).length) },
     { label: "Cartões ativos", value: String((cards ?? []).filter((c) => c.ativo).length) },
   ];
+
 
   return (
     <div>
