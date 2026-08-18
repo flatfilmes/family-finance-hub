@@ -122,9 +122,7 @@ function RelatoriosPage() {
               memberId={m.id}
               nome={m.nome}
               month={month}
-              receitas={(incomes ?? [])
-                .filter((i) => i.member_id === m.id && i.ativo)
-                .reduce((acc, i) => acc + monthlyIncomeValue(i), 0)}
+              receitas={sumMonthlyIncome((incomes ?? []).filter((i) => i.member_id === m.id))}
             />
           ))}
           {(members ?? []).length === 0 && (
