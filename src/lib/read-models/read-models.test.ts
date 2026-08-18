@@ -59,7 +59,7 @@ function model() {
   const bank = buildBankOverview({
     accounts: [{ id: "b-1", ativo: true, saldo_atual: 3000 } as never],
     transactions: [],
-    month: "2026-08",
+    period: "2026-08",
   });
 
   const cards = buildCardCommitments({
