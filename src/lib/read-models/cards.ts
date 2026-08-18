@@ -35,7 +35,9 @@ export type CardCommitments = {
  * abaixo de 120% cobre sem folga.
  */
 export function cardCoverageStatus(saldo: number, faturas: number): CoverageStatus {
-  const cobertura = faturas > 0 ? (saldo / faturas) * 100 : 100;
+  // Sem fatura aberta não existe risco de cobertura.
+  if (faturas <= 0) return "VERDE";
+  const cobertura = (saldo / faturas) * 100;
   if (cobertura < 100) return "VERMELHO";
   if (cobertura < 120) return "AMARELO";
   return "VERDE";
@@ -46,6 +48,11 @@ export const COVERAGE_MESSAGES: Record<CoverageStatus, string> = {
   AMARELO: "Saldo cobre as faturas, mas com margem pequena.",
   VERMELHO: "Saldo disponível não cobre todas as faturas abertas.",
 };
+
+/** Limite total dos cartões ATIVOS — fonte única de "limite disponível". */
+export function sumCardLimits(cards: CreditCard[]) {
+  return cards.filter((c) => c.ativo).reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
+}
 
 export function buildCardCommitments(input: {
   cards: CreditCard[];

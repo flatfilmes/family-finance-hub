@@ -6,13 +6,11 @@ import { Card, PageHeader, inputClass } from "@/components/page-header";
 import { Metric } from "@/components/detail-page";
 import { useFamily, useMembers } from "@/hooks/useFamilyData";
 import { useBankAccounts } from "@/hooks/useBankAccounts";
-import { useTransactions } from "@/hooks/useTransactions";
-import { filterByMember } from "@/components/member-filter";
+import { useBankOverview } from "@/hooks/useFinancialReadModel";
 import { useViewMode } from "@/components/view-mode";
 import { useStickyState } from "@/hooks/useStickyState";
 import { formatCurrency } from "@/lib/finance";
 import { currentMonth, monthLabel } from "@/lib/expenses";
-import type { Transaction } from "@/lib/transactions";
 import { NoFamily } from "@/components/no-family";
 import { TransferDialog } from "@/components/transfer-dialog";
 
@@ -41,39 +39,19 @@ function BancosPage() {
   const { data: family } = useFamily();
   const { data: members } = useMembers(family?.id);
   const { data: accounts, isLoading } = useBankAccounts(family?.id);
-  const { data: movimentos } = useTransactions(family?.id);
   const view = useViewMode();
 
   const [periodo, setPeriodo] = useStickyState("bancos:periodo", currentMonth());
   const [transferOpen, setTransferOpen] = useState(false);
+  const banco = useBankOverview(family?.id, view.scoped(""), periodo);
 
   if (!family) return <NoFamily />;
 
   // Visão geral simples: sem busca nem filtros de pessoa/banco.
   // O escopo do perfil (membro/visualizador) continua sendo respeitado.
-  const lista = filterByMember(accounts ?? [], view.scoped(""));
-
-  const idsVisiveis = new Set(lista.map((a) => a.id));
-  const movimentosVisiveis = (movimentos ?? []).filter(
-    (t) =>
-      t.bank_account_id &&
-      idsVisiveis.has(t.bank_account_id) &&
-      t.status !== "CANCELADA" &&
-      (!periodo || t.data_movimento.startsWith(periodo)),
-  );
-
-  const soma = (tipo: Transaction["tipo"]) =>
-    movimentosVisiveis
-      .filter((t) => t.tipo === tipo)
-      .reduce((acc, t) => acc + (Number(t.valor) || 0), 0);
-
-  const saldoTotal = lista
-    .filter((a) => a.ativo)
-    .reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-  const entradas = soma("ENTRADA");
-  const saidas = soma("SAIDA");
-  const pagamentos = soma("PAGAMENTO_CARTAO");
-  const liquido = entradas - saidas - pagamentos;
+  // Saldo e fluxo vêm do ledger canônico — nunca de compras.
+  const lista = banco.contas;
+  const { saldoTotal, entradas, saidas, pagamentosCartao, liquido } = banco.overview;
 
   const grupos = (members ?? [])
     .map((m) => ({ membro: m, contas: lista.filter((a) => a.member_id === m.id) }))
@@ -129,7 +107,7 @@ function BancosPage() {
         <Metric label="Saldo total em contas" value={formatCurrency(saldoTotal)} big />
         <Metric label="Entradas do período" value={formatCurrency(entradas)} />
         <Metric label="Saídas do período" value={formatCurrency(saidas)} />
-        <Metric label="Pagamentos de cartão" value={formatCurrency(pagamentos)} />
+        <Metric label="Pagamentos de cartão" value={formatCurrency(pagamentosCartao)} />
         <Metric
           label="Saldo líquido do período"
           value={formatCurrency(liquido)}

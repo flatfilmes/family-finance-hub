@@ -31,7 +31,6 @@ const registro = (over: Partial<ExistingEconomicRecord> = {}): ExistingEconomicR
   id: "p-1",
   date: "2026-08-09",
   amount: 9.04,
-  rawAmount: 9.04,
   direction: "OUT",
   description: "Padaria Dama Doce",
   creditCardId: "card-1",

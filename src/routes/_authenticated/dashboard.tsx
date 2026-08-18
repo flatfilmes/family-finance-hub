@@ -21,8 +21,8 @@ import { useCreditCards } from "@/hooks/useFinanceData";
 import { useSpendingSummary } from "@/hooks/useSpendingSummary";
 import { useBudgetProgress } from "@/hooks/useBudgets";
 import { useFinancialEngine } from "@/hooks/useFinancialEngine";
-import { useBankAccounts } from "@/hooks/useBankAccounts";
-import { useCardsData } from "@/hooks/useCardsData";
+import { useCardCommitments } from "@/hooks/useFinancialReadModel";
+import { COVERAGE_MESSAGES, type CoverageStatus } from "@/lib/read-models";
 import { useViewMode, ViewModeSwitch } from "@/components/view-mode";
 import { filterByMember } from "@/components/member-filter";
 import { MEMBER_PROFILE_LABELS } from "@/lib/member-profiles";
@@ -560,43 +560,30 @@ function CapacidadeCartoes({
   familyId?: string | undefined;
   memberId: string;
 }) {
-  const { data: cards } = useCreditCards(familyId);
-  const { data: accounts } = useBankAccounts(familyId);
-  const cartoes = filterByMember(cards ?? [], memberId);
-  const dados = useCardsData(familyId);
+  // Compromissos de cartão e liquidez vêm do read model canônico:
+  // a tela não soma faturas nem saldos por conta própria.
+  const { commitments } = useCardCommitments(familyId, memberId);
+  const { obrigacoes, totalFaturasAbertas: faturas, saldoContas: saldo, cobertura, capacidade, status } =
+    commitments;
 
-  const obrigacoes = cartoes.map((cartao) => ({
-    cartao,
-    obrigacao: dados.obrigacaoAbertaDe(cartao.id),
-  }));
-  const faturas = obrigacoes.reduce((acc, item) => acc + item.obrigacao.valor, 0);
-  const contas = filterByMember(accounts ?? [], memberId).filter((a) => a.ativo);
-  const saldo = contas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
-
-  const cobertura = faturas > 0 ? (saldo / faturas) * 100 : 100;
-  const status: "verde" | "amarelo" | "vermelho" =
-    cobertura >= 120 ? "verde" : cobertura >= 100 ? "amarelo" : "vermelho";
-
-  const tone = {
-    verde: {
+  const tone: Record<CoverageStatus, { badge: string; dot: string; bar: string }> = {
+    VERDE: {
       badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
       dot: "bg-emerald-500",
       bar: "bg-emerald-500",
-      label: "Saldo cobre os cartões",
     },
-    amarelo: {
+    AMARELO: {
       badge: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
       dot: "bg-amber-500",
       bar: "bg-amber-500",
-      label: "Saldo próximo do limite",
     },
-    vermelho: {
+    VERMELHO: {
       badge: "bg-red-500/15 text-red-700 dark:text-red-400",
       dot: "bg-red-500",
       bar: "bg-red-500",
-      label: "Saldo insuficiente",
     },
-  }[status];
+  };
+  const cls = tone[status];
 
   return (
     <>
@@ -605,7 +592,7 @@ function CapacidadeCartoes({
           icon={<Wallet className="size-5" />}
           label="Minha liquidez"
           value={formatCurrency(saldo)}
-          hint={`${contas.length} conta(s) bancária(s) ativa(s)`}
+          hint={`${commitments.obrigacoes.length ? "" : ""}Saldo das contas bancárias ativas`}
           to="/bancos"
         />
         <StatCard
@@ -631,10 +618,10 @@ function CapacidadeCartoes({
             </div>
           </div>
           <span
-            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${tone.badge}`}
+            className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${cls.badge}`}
           >
-            <span className={`size-2 rounded-full ${tone.dot}`} />
-            {tone.label}
+            <span className={`size-2 rounded-full ${cls.dot}`} />
+            {COVERAGE_MESSAGES[status]}
           </span>
         </div>
 
@@ -649,26 +636,24 @@ function CapacidadeCartoes({
           </div>
           <div>
             <p className="text-xs font-semibold text-muted-foreground">Diferença</p>
-            <p className="mt-1 text-xl font-extrabold">{formatCurrency(saldo - faturas)}</p>
+            <p className="mt-1 text-xl font-extrabold">{formatCurrency(capacidade)}</p>
           </div>
         </div>
 
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className={`h-full rounded-full ${tone.bar}`}
+            className={`h-full rounded-full ${cls.bar}`}
             style={{ width: `${Math.max(0, Math.min(100, cobertura))}%` }}
           />
         </div>
 
         {obrigacoes.length > 0 && (
           <ul className="mt-4 grid gap-1 text-xs text-muted-foreground sm:grid-cols-2">
-            {obrigacoes.map(({ cartao, obrigacao }) => (
-              <li key={cartao.id}>
-                {cartao.banco} · {cartao.nome_cartao}:{" "}
-                <span className="font-semibold text-foreground">
-                  {formatCurrency(obrigacao.valor)}
-                </span>
-                {obrigacao.aberta ? (obrigacao.oficial ? " · oficial" : " · estimada") : " · paga"}
+            {obrigacoes.map((o) => (
+              <li key={o.cardId}>
+                {o.banco} · {o.nome}:{" "}
+                <span className="font-semibold text-foreground">{formatCurrency(o.valor)}</span>
+                {o.aberta ? (o.oficial ? " · oficial" : " · estimada") : " · paga"}
               </li>
             ))}
           </ul>

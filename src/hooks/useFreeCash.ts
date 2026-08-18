@@ -5,6 +5,7 @@ import { useRecurringExpenses } from "@/hooks/useRecurringExpenses";
 import { usePurchases } from "@/hooks/usePurchases";
 import { useFinancialSettings } from "@/hooks/useFinancialEngine";
 import { filterByMember } from "@/components/member-filter";
+import { sumBankBalances } from "@/lib/read-models";
 import { DEFAULT_SETTINGS } from "@/lib/financial-engine";
 import { averageVariableIncome } from "@/lib/financial-engine";
 import { currentMonth } from "@/lib/expenses";
@@ -39,7 +40,7 @@ export function useFreeCash(familyId?: string, memberId = "") {
   const settings = useFinancialSettings(familyId);
 
   const contas = filterByMember(accounts.data ?? [], memberId).filter((a) => a.ativo);
-  const saldoBancario = contas.reduce((acc, a) => acc + (Number(a.saldo_atual) || 0), 0);
+  const saldoBancario = sumBankBalances(contas);
 
   const receitas = filterByMember(incomes.data ?? [], memberId);
   const cartoes = filterByMember(cards.data ?? [], memberId);
