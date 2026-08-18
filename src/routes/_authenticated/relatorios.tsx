@@ -2,12 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight } from "lucide-react";
 import { Card, PageHeader } from "@/components/page-header";
 import { useFamily, useMembers } from "@/hooks/useFamilyData";
-import { useIncomes, useFixedExpenses, useCreditCards } from "@/hooks/useFinanceData";
-import { useBankAccounts } from "@/hooks/useBankAccounts";
+import { useIncomes, useCreditCards } from "@/hooks/useFinanceData";
 import { useMonthlySpending } from "@/hooks/useMonthlySpending";
+import { useFinancialReadModel } from "@/hooks/useFinancialReadModel";
+import { buildReportsReadModel, sumMonthlyIncome } from "@/lib/read-models";
 import { currentMonth, monthLabel } from "@/lib/expenses";
-import { formatCurrency, monthlyIncomeValue, monthlyExpenseValue } from "@/lib/finance";
+import { formatCurrency } from "@/lib/finance";
 import { NoFamily } from "@/components/no-family";
+
 
 export const Route = createFileRoute("/_authenticated/relatorios")({
   head: () => ({
