@@ -29,7 +29,9 @@ describe("UI_NAO_E_MOTOR_FINANCEIRO", () => {
         código.includes("useFinancialReadModel") ||
         código.includes("useBankOverview") ||
         código.includes("useCardCommitments") ||
-        código.includes("read-models");
+        código.includes("read-models") ||
+        // Planejamento lê o motor canônico de orçamento (useBudgetProgress).
+        código.includes("useBudgetProgress");
       expect(usaReadModel, `${arquivo} deveria consumir um read model canônico`).toBe(true);
     }
   });
