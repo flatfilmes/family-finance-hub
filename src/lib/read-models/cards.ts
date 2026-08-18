@@ -49,6 +49,11 @@ export const COVERAGE_MESSAGES: Record<CoverageStatus, string> = {
   VERMELHO: "Saldo disponível não cobre todas as faturas abertas.",
 };
 
+/** Limite total dos cartões ATIVOS — fonte única de "limite disponível". */
+export function sumCardLimits(cards: CreditCard[]) {
+  return cards.filter((c) => c.ativo).reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
+}
+
 export function buildCardCommitments(input: {
   cards: CreditCard[];
   /** Obrigação aberta canônica por cartão (engine de ciclo/fatura). */

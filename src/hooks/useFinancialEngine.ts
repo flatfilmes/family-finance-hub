@@ -4,6 +4,7 @@ import { useMonthlySpending } from "@/hooks/useMonthlySpending";
 import { useCreditCards, useFixedExpenses, useIncomes } from "@/hooks/useFinanceData";
 import { useCardInvoices, useInstallments } from "@/hooks/useCardInvoices";
 import { filterByMember } from "@/components/member-filter";
+import { sumCardLimits } from "@/lib/read-models";
 import {
   addMonthsToKey,
   currentMonthKey,
@@ -87,9 +88,7 @@ export function useFinancialEngine(familyId?: string, memberId = "") {
 
   const comprometimento = receitaTotal > 0 ? (compromissos / receitaTotal) * 100 : null;
 
-  const limiteTotalCartoes = cartoesLista
-    .filter((c) => c.ativo)
-    .reduce((acc, c) => acc + (Number(c.limite) || 0), 0);
+  const limiteTotalCartoes = sumCardLimits(cartoesLista);
   const usoCartoes =
     limiteTotalCartoes > 0
       ? ((faturaCartoes + parcelasFuturasTotal) / limiteTotalCartoes) * 100
